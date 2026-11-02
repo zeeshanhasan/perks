@@ -25,9 +25,11 @@ Verified employees can find and buy employee-only products at the agreed discoun
 ## 4. v1 scope
 
 - One employer per shop, with one or more approved email domains (exact match)
-- Work-email verification, bound to the logged-in Shopify customer
+- **Automatic perks for customers logged in with a work email** at an approved domain (decision 005)
+- Work-email verification by link for employees shopping with a personal email, bound to the logged-in customer
 - Eligibility with an expiry, manual revocation, and re-verification after expiry
-- Merchant picks the **employee-only products** and the **discount exclusions**
+- Merchant picks three lists: **employee-only** (only employees can buy), **discounted for employees** (anyone can buy, employees get the %), **never discounted**
+- Employee mode theme embed: hides employee-only products from non-employees (cosmetic, decision 006)
 - One percentage discount, set by the merchant (1–90%, default 10%). It applies to employee-only products, or optionally to all products; exclusions always win.
 - Eligibility duration set by the merchant (1–24 months or "no expiry", default 12 months)
 - Discount combination policy set explicitly by the merchant

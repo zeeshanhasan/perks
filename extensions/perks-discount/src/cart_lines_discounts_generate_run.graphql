@@ -1,7 +1,9 @@
 query CartInput {
   cart {
     buyerIdentity {
+      isAuthenticated
       customer {
+        email
         eligibility: metafield(namespace: "$app", key: "perks_eligibility") {
           value
         }
@@ -14,6 +16,9 @@ query CartInput {
         ... on ProductVariant {
           product {
             employeeOnly: metafield(namespace: "$app", key: "perks_employee_only") {
+              value
+            }
+            discounted: metafield(namespace: "$app", key: "perks_discounted") {
               value
             }
             excluded: metafield(namespace: "$app", key: "perks_discount_excluded") {

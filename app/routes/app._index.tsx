@@ -1,105 +1,117 @@
-import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { useFetcher, useLoaderData } from "react-router";
+import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
+import { useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import db from "../db.server";
-import { sweepExpired } from "../lib/membership.server";
-import { parseJsonList } from "../lib/policy";
+import { KeyValue, Stat } from "../components/ui";
+import { getSetup } from "../lib/setup.server";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const shop = session.shop;
-  const [employer, policy, active, total] = await Promise.all([
-    db.employer.findUnique({ where: { shop } }),
-    db.benefitPolicy.findUnique({ where: { shop } }),
-    db.employeeMembership.count({ where: { shop, status: "active" } }),
-    db.employeeMembership.count({ where: { shop } }),
-  ]);
-  const domains = parseJsonList(employer?.domains);
-  const employeeOnly = parseJsonList(policy?.employeeOnlyProducts).length;
-  return {
-    shop,
-    stats: { active, total },
-    checklist: {
-      settings: Boolean(employer?.name && domains.length),
-      products: employeeOnly > 0,
-      discount: Boolean(policy?.discountId),
-      validation: Boolean(policy?.validationId),
-      enabled: Boolean(policy?.enabled),
-    },
-  };
+  const setup = await getSetup(session.shop, process.env.SHOPIFY_API_KEY || "");
+  return { shop: session.shop, ...setup };
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
-  const result = await sweepExpired(admin, session.shop);
-  return { swept: result };
-};
-
-function Check({ done, children }: { done: boolean; children: React.ReactNode }) {
-  return (
-    <s-list-item>
-      {done ? "✅ " : "⬜️ "}
-      {children}
-    </s-list-item>
-  );
-}
-
-export default function Index() {
-  const { shop, stats, checklist } = useLoaderData<typeof loader>();
-  const sweep = useFetcher<typeof action>();
-  const storeHandle = shop.replace(".myshopify.com", "");
+export default function Home() {
+  const { steps, required, program, stats } = useLoaderData<typeof loader>();
+  const doneCount = required.filter((s) => s.done).length;
+  const allDone = doneCount === required.length;
+  const next = steps.find((s) => !s.done && !s.manual);
 
   return (
-    <s-page heading="Tofo Perks">
-      <s-section heading="Setup">
-        <s-unordered-list>
-          <Check done={checklist.settings}>
-            <s-link href="/app/settings">Set the employer and approved email domains</s-link>
-          </Check>
-          <Check done={checklist.products}>
-            <s-link href="/app/products">Pick employee-only products</s-link>
-          </Check>
-          <Check done={checklist.discount}>Employee discount created (saved from Settings)</Check>
-          <Check done={checklist.validation}>Checkout protection active (needs employee-only products)</Check>
-          <Check done={checklist.enabled}>Program switched on</Check>
-          <s-list-item>
-            Add the <strong>Perks</strong> blocks to your theme:{" "}
-            <s-link href={`https://admin.shopify.com/store/${storeHandle}/themes/current/editor`} target="_blank">
-              open theme editor
-            </s-link>
-          </s-list-item>
-          <s-list-item>
-            Link customers to <code>/apps/perks/verify</code> on your storefront
-          </s-list-item>
-        </s-unordered-list>
-      </s-section>
+    <s-page heading="Employee perks">
+      {next ? (
+        <s-button slot="primary-action" variant="primary" href={next.action.href}>
+          {next.action.label}
+        </s-button>
+      ) : null}
+
+      {!allDone ? (
+        <s-section heading="Set up employee perks">
+          <s-stack gap="base">
+            <s-paragraph>
+              Give employees of a partner company a discount and access to products only they can buy. Takes about 3
+              minutes.
+            </s-paragraph>
+            <s-stack gap="small-200">
+              <s-text color="subdued">
+                {doneCount} of {required.length} steps done
+              </s-text>
+              <s-progress value={doneCount} max={required.length} accessibilityLabel="Setup progress" />
+            </s-stack>
+            <s-divider />
+            {steps.map((step, i) => {
+              const isNext = next?.id === step.id;
+              return (
+                <s-stack key={step.id} direction="inline" gap="base" alignItems="start">
+                  <s-icon
+                    type={step.done ? "check-circle-filled" : step.manual ? "circle-dashed" : "circle"}
+                    tone={step.done ? "success" : "neutral"}
+                  />
+                  <s-stack gap="small-200" inlineSize="100%">
+                    <s-text type="strong">
+                      {i + 1}. {step.title}
+                      {step.manual ? " (recommended)" : ""}
+                    </s-text>
+                    {!step.done ? <s-text color="subdued">{step.description}</s-text> : null}
+                    {!step.done && (isNext || step.manual) ? (
+                      <s-box>
+                        <s-button
+                          variant={isNext ? "primary" : "secondary"}
+                          href={step.action.href}
+                          {...(step.action.external ? { target: "_blank" } : {})}
+                        >
+                          {step.action.label}
+                        </s-button>
+                      </s-box>
+                    ) : null}
+                  </s-stack>
+                </s-stack>
+              );
+            })}
+          </s-stack>
+        </s-section>
+      ) : (
+        <s-banner tone="success" heading="Employee perks are live">
+          Employees who log in with an approved work email get {program.percent}% off automatically.
+        </s-banner>
+      )}
 
       <s-section heading="Employees">
-        <s-paragraph>
-          {stats.active} active of {stats.total} total.{" "}
-          <s-link href="/app/employees">Manage employees</s-link>
-        </s-paragraph>
+        <s-grid gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))" gap="base">
+          <Stat label="Active employees" value={stats.active} />
+          <Stat label="Joined by work-email login" value={stats.viaDomain} />
+          <Stat label="Verified by email link" value={stats.viaLink} />
+          <Stat label="Removed" value={stats.revoked} />
+        </s-grid>
+        <s-box paddingBlockStart="base">
+          <s-link href="/app/employees">View all employees</s-link>
+        </s-box>
       </s-section>
 
-      <s-section slot="aside" heading="Maintenance">
-        <s-paragraph>Expired memberships are cleared automatically. You can also run it now.</s-paragraph>
-        <s-button
-          onClick={() => sweep.submit({}, { method: "post" })}
-          {...(sweep.state !== "idle" ? { loading: true } : {})}
-        >
-          Run expiry check now
-        </s-button>
-        {sweep.data?.swept ? (
-          <s-paragraph>
-            Checked {sweep.data.swept.checked}, expired {sweep.data.swept.expired}.
-          </s-paragraph>
-        ) : null}
+      <s-section slot="aside" heading="Program">
+        <s-stack gap="small">
+          <KeyValue label="Status">
+            <s-badge tone={program.enabled ? "success" : "neutral"}>{program.enabled ? "On" : "Off"}</s-badge>
+          </KeyValue>
+          <KeyValue label="Company">{program.employerName || "Not set"}</KeyValue>
+          <KeyValue label="Email domains">{program.domains.length ? program.domains.join(", ") : "Not set"}</KeyValue>
+          <KeyValue label="Discount">{program.percent}%</KeyValue>
+          <KeyValue label="Applies to">
+            {program.allProducts ? "All products" : `${program.employeeOnly + program.discounted} products`}
+          </KeyValue>
+          <KeyValue label="Employee-only products">{program.employeeOnly}</KeyValue>
+          <s-link href="/app/settings">Edit settings</s-link>
+        </s-stack>
+      </s-section>
+
+      <s-section slot="aside" heading="Need help?">
+        <s-stack gap="small">
+          <s-paragraph>Learn how employees get perks, and what to do when something doesn&apos;t work.</s-paragraph>
+          <s-link href="/app/help">Read the guide</s-link>
+        </s-stack>
       </s-section>
     </s-page>
   );
 }
 
-export const headers: HeadersFunction = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};
+export const headers: HeadersFunction = (headersArgs) => boundary.headers(headersArgs);

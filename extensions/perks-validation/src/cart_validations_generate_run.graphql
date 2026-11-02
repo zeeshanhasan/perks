@@ -4,7 +4,9 @@ query CartValidationsGenerateRunInput {
   }
   cart {
     buyerIdentity {
+      isAuthenticated
       customer {
+        email
         eligibility: metafield(namespace: "$app", key: "perks_eligibility") {
           value
         }
@@ -26,6 +28,11 @@ query CartValidationsGenerateRunInput {
   shop {
     localTime {
       date
+    }
+  }
+  validation {
+    config: metafield(namespace: "$app", key: "perks_config") {
+      value
     }
   }
 }

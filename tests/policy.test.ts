@@ -6,11 +6,16 @@ function form(o: Record<string, string>) {
   for (const [k, v] of Object.entries(o)) f.set(k, v);
   return f;
 }
-const valid = { employerName: "Tofo", domains: "tofoapp.com", discountPercent: "15", eligibilityMonths: "12", discountScope: "employee_only" };
+const valid = { employerName: "Tofo", domains: "tofoapp.com", discountPercent: "15", eligibilityMonths: "12", discountScope: "selected" };
 
 test("valid settings parse", () => {
   const r = parseSettingsForm(form({ ...valid, enabled: "on", combinesWithOrder: "on" }));
   expect(r.ok && r.value).toMatchObject({ discountPercent: 15, eligibilityMonths: 12, enabled: true, combinesWithOrder: true, combinesWithProduct: false });
+});
+
+test("legacy employee_only scope maps to selected; autoDomain parsed", () => {
+  const r = parseSettingsForm(form({ ...valid, discountScope: "employee_only", autoDomain: "on" }));
+  expect(r.ok && r.value).toMatchObject({ discountScope: "selected", autoDomain: true });
 });
 
 test("no expiry", () => {

@@ -1,8 +1,9 @@
 import db from "../db.server";
 import type { AdminClient } from "./admin-graphql.server";
+import { gql } from "./admin-graphql.server";
 import { audit } from "./audit.server";
 import { isApprovedEmail, maskEmail, normalizeEmail } from "./domain";
-import { buildEligibilityValue, computeExpiry, isExpired } from "./eligibility";
+import { REVOKED_VALUE, buildEligibilityValue, computeExpiry, isExpired } from "./eligibility";
 import { sendVerificationEmail } from "./email.server";
 import { clearEligibility, publishEligibility } from "./metafields.server";
 import { parseJsonList } from "./policy";
@@ -21,7 +22,27 @@ export async function getProgram(shop: string) {
     employerName: employer?.name ?? "",
     domains: parseJsonList(employer?.domains),
     eligibilityMonths: policy?.eligibilityMonths ?? null,
+    autoDomain: policy?.autoDomain ?? true,
   };
+}
+
+/** Account email of a customer (needs protected customer data: email). null if unavailable. */
+export async function getCustomerEmail(admin: AdminClient, customerId: string): Promise<string | null> {
+  try {
+    const data = await gql(admin, `#graphql
+      query PerksCustomerEmail($id: ID!) { customer(id: $id) { defaultEmailAddress { emailAddress } } }`, {
+      id: `gid://shopify/Customer/${customerId}`,
+    });
+    return data.customer?.defaultEmailAddress?.emailAddress ?? null;
+  } catch (err) {
+    console.warn("[perks] could not read customer email", err);
+    return null;
+  }
+}
+
+/** True when the customer is eligible automatically via their account email domain. */
+export function isDomainEligible(program: { autoDomain: boolean; domains: string[] }, accountEmail: string | null) {
+  return Boolean(program.autoDomain && accountEmail && isApprovedEmail(accountEmail, program.domains));
 }
 
 export async function getMembership(shop: string, customerId: string) {
@@ -38,7 +59,7 @@ async function emailInUseByOther(shop: string, workEmail: string, customerId: st
 
 export type RequestResult =
   | { ok: true }
-  | { ok: false; reason: "disabled" | "invalid_email" | "domain_not_allowed" | "rate_limited" | "email_in_use" | "send_failed" };
+  | { ok: false; reason: "disabled" | "revoked" | "invalid_email" | "domain_not_allowed" | "rate_limited" | "email_in_use" | "send_failed" };
 
 export async function requestVerification(args: {
   shop: string;
@@ -51,6 +72,8 @@ export async function requestVerification(args: {
   const actor = customerActor(customerId);
   const program = await getProgram(shop);
   if (!program.enabled) return { ok: false, reason: "disabled" };
+  // A merchant revocation sticks: the customer can't verify their way back in.
+  if ((await getMembership(shop, customerId))?.status === "revoked") return { ok: false, reason: "revoked" };
 
   const email = normalizeEmail(args.rawEmail);
   const emailKey = hashToken(email ?? args.rawEmail.trim().toLowerCase());
@@ -97,7 +120,7 @@ export async function requestVerification(args: {
 
 export type ConfirmResult =
   | { ok: true; expiresAt: Date | null }
-  | { ok: false; reason: "invalid" | "not_found" | "used" | "expired" | "wrong_customer" | "disabled" | "domain_not_allowed" | "email_in_use" | "publish_failed" };
+  | { ok: false; reason: "invalid" | "not_found" | "used" | "expired" | "wrong_customer" | "disabled" | "revoked" | "domain_not_allowed" | "email_in_use" | "publish_failed" };
 
 export async function confirmVerification(args: {
   admin: AdminClient;
@@ -129,6 +152,7 @@ export async function confirmVerification(args: {
 
   const program = await getProgram(shop);
   if (!program.enabled) return { ok: false, reason: "disabled" };
+  if ((await getMembership(shop, customerId))?.status === "revoked") return { ok: false, reason: "revoked" };
   const email = challenge!.workEmail;
   if (!isApprovedEmail(email, program.domains)) {
     await audit({ shop, actor, action: "verify.confirm", result: "rejected", detail: "domain_not_allowed" });
@@ -142,8 +166,8 @@ export async function confirmVerification(args: {
   const expiresAt = computeExpiry(now, program.eligibilityMonths);
   await db.employeeMembership.upsert({
     where: { shop_customerId: { shop, customerId } },
-    create: { shop, customerId, workEmail: email, status: "active", verifiedAt: now, expiresAt },
-    update: { workEmail: email, status: "active", verifiedAt: now, expiresAt, revokedAt: null },
+    create: { shop, customerId, workEmail: email, source: "link", status: "active", verifiedAt: now, expiresAt },
+    update: { workEmail: email, source: "link", status: "active", verifiedAt: now, expiresAt, revokedAt: null },
   });
   try {
     await publishEligibility(admin, customerId, buildEligibilityValue(expiresAt));
@@ -163,7 +187,8 @@ export async function revokeMembership(admin: AdminClient, shop: string, custome
     where: { id: m.id },
     data: { status: "revoked", revokedAt: new Date() },
   });
-  await clearEligibility(admin, customerId);
+  // Explicit "revoked" value (not a delete) so it also overrides domain auto-eligibility.
+  await publishEligibility(admin, customerId, REVOKED_VALUE);
   await audit({ shop, actor, action: "membership.revoke", subject: customerId, result: "ok" });
   return true;
 }
@@ -173,20 +198,97 @@ export async function reactivateMembership(admin: AdminClient, shop: string, cus
   if (!m) return false;
   const program = await getProgram(shop);
   const now = new Date();
-  const expiresAt = computeExpiry(now, program.eligibilityMonths);
-  await db.employeeMembership.update({
-    where: { id: m.id },
-    data: { status: "active", revokedAt: null, verifiedAt: now, expiresAt },
-  });
-  await publishEligibility(admin, customerId, buildEligibilityValue(expiresAt));
+  if (m.source === "domain") {
+    // Domain members need no metafield: removing the revocation restores auto-eligibility.
+    await db.employeeMembership.update({
+      where: { id: m.id },
+      data: { status: "active", revokedAt: null, verifiedAt: now, expiresAt: null },
+    });
+    await clearEligibility(admin, customerId);
+  } else {
+    const expiresAt = computeExpiry(now, program.eligibilityMonths);
+    await db.employeeMembership.update({
+      where: { id: m.id },
+      data: { status: "active", revokedAt: null, verifiedAt: now, expiresAt },
+    });
+    await publishEligibility(admin, customerId, buildEligibilityValue(expiresAt));
+  }
   await audit({ shop, actor, action: "membership.reactivate", subject: customerId, result: "ok" });
   return true;
+}
+
+// --- Domain members (account email at an approved domain) ---------------------------
+
+/**
+ * Records/updates a domain member for the Employees list. Eligibility itself is decided live by the
+ * Functions from the account email, so no metafield is written here.
+ * Never overrides a revocation or an active link-verified membership.
+ */
+export async function recordDomainCustomer(shop: string, customerId: string, accountEmail: string | null) {
+  const program = await getProgram(shop);
+  const existing = await getMembership(shop, customerId);
+  const eligible = isDomainEligible(program, accountEmail);
+  const email = accountEmail ? normalizeEmail(accountEmail) : null;
+
+  if (!existing) {
+    if (!eligible || !email) return "skipped" as const;
+    await db.employeeMembership.create({
+      data: { shop, customerId, workEmail: email, source: "domain", status: "active", verifiedAt: new Date(), expiresAt: null },
+    });
+    await audit({ shop, actor: "system", action: "membership.domain_join", subject: customerId, result: "ok", detail: maskEmail(email) });
+    return "added" as const;
+  }
+  if (existing.source !== "domain" || existing.status === "revoked") return "unchanged" as const;
+  const next = eligible ? "active" : "inactive";
+  if (existing.status !== next || (email && existing.workEmail !== email)) {
+    await db.employeeMembership.update({
+      where: { id: existing.id },
+      data: { status: next, ...(email ? { workEmail: email } : {}) },
+    });
+    await audit({ shop, actor: "system", action: `membership.domain_${next}`, subject: customerId, result: "ok" });
+    return "updated" as const;
+  }
+  return "unchanged" as const;
+}
+
+/** Scans existing customers (up to `maxPages` x 250) and records domain members. */
+export async function syncDomainCustomers(admin: AdminClient, shop: string, maxPages = 20) {
+  const program = await getProgram(shop);
+  if (!program.autoDomain || !program.domains.length) return { scanned: 0, added: 0, truncated: false };
+  let after: string | null = null;
+  let scanned = 0;
+  let added = 0;
+  for (let page = 0; page < maxPages; page++) {
+    type Page = {
+      customers: {
+        nodes: { id: string; defaultEmailAddress?: { emailAddress?: string } | null }[];
+        pageInfo: { hasNextPage: boolean; endCursor: string | null };
+      };
+    };
+    const data: Page = await gql<Page>(admin, `#graphql
+      query PerksCustomers($after: String) {
+        customers(first: 250, after: $after) {
+          nodes { id defaultEmailAddress { emailAddress } }
+          pageInfo { hasNextPage endCursor }
+        }
+      }`, { after });
+    for (const c of data.customers.nodes) {
+      scanned++;
+      const email = c.defaultEmailAddress?.emailAddress ?? null;
+      if (!isDomainEligible(program, email)) continue;
+      const id = c.id.split("/").pop()!;
+      if ((await recordDomainCustomer(shop, id, email)) === "added") added++;
+    }
+    if (!data.customers.pageInfo.hasNextPage) return { scanned, added, truncated: false };
+    after = data.customers.pageInfo.endCursor;
+  }
+  return { scanned, added, truncated: true };
 }
 
 /** Clears eligibility for active memberships past their expiry. Idempotent. */
 export async function sweepExpired(admin: AdminClient, shop: string, now = new Date()) {
   const due = await db.employeeMembership.findMany({
-    where: { shop, status: "active", expiresAt: { lte: now } },
+    where: { shop, source: "link", status: "active", expiresAt: { lte: now } },
     take: 200,
   });
   let expired = 0;

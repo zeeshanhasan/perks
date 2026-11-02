@@ -5,7 +5,7 @@ export const DISCOUNT_MAX = 90;
 export const MONTHS_MIN = 1;
 export const MONTHS_MAX = 24;
 
-export type DiscountScope = "employee_only" | "all_products";
+export type DiscountScope = "selected" | "all_products";
 
 export type SettingsInput = {
   employerName: string;
@@ -13,6 +13,7 @@ export type SettingsInput = {
   discountPercent: number;
   eligibilityMonths: number | null;
   discountScope: DiscountScope;
+  autoDomain: boolean;
   combinesWithProduct: boolean;
   combinesWithOrder: boolean;
   combinesWithShipping: boolean;
@@ -46,8 +47,9 @@ export function parseSettingsForm(form: FormData): SettingsResult {
     else eligibilityMonths = m;
   }
 
-  const scope = String(form.get("discountScope") ?? "employee_only");
-  if (scope !== "employee_only" && scope !== "all_products") errors.discountScope = "Invalid scope";
+  const scopeRaw = String(form.get("discountScope") ?? "selected");
+  const scope = scopeRaw === "employee_only" ? "selected" : scopeRaw;
+  if (scope !== "selected" && scope !== "all_products") errors.discountScope = "Invalid scope";
 
   if (Object.keys(errors).length) return { ok: false, errors };
   // Checked checkboxes submit a value; unchecked ones submit nothing.
@@ -63,12 +65,17 @@ export function parseSettingsForm(form: FormData): SettingsResult {
       discountPercent: pct,
       eligibilityMonths,
       discountScope: scope as DiscountScope,
+      autoDomain: bool("autoDomain"),
       combinesWithProduct: bool("combinesWithProduct"),
       combinesWithOrder: bool("combinesWithOrder"),
       combinesWithShipping: bool("combinesWithShipping"),
       enabled: bool("enabled"),
     },
   };
+}
+
+export function normalizeScope(scope: string | null | undefined): DiscountScope {
+  return scope === "all_products" ? "all_products" : "selected";
 }
 
 export function parseJsonList(raw: string | null | undefined): string[] {

@@ -30,69 +30,81 @@ Run every test on the dev store `perks-frtekwck.myshopify.com` before submission
 
 - `Hydrogen`: the employee collection (Liquid, Oxygen, Hydrogen)
 
+### Customers (add one)
+
+| Customer | Login email | Role |
+|---|---|---|
+| Work Test | `zeeshan@tofoapp.com` | Eligible automatically by domain |
+
 ### Settings
 
-- Discount: 15% for the test run
-- Eligibility: 12 months
+- Discount: 15%, applies to "Products I choose"
+- Auto-eligibility by work email: on
+- Link verifications last: 12 months
+- Add Green Snowboard or Multi-managed to "Discounted for employees" for B2
 
-## A. Verification
-
-| # | Test | Expected |
-|---|---|---|
-| A1 | Logged-out visitor opens `/apps/perks/verify` | Asked to log in. No form. |
-| A2 | Employee submits `zeeshan@tofoapp.com` | "Check your email." Link sent (console in dev). |
-| A3 | Submits `zeeshan@tofoapp.co`, `zeeshan@tofoapp.com.evil.io`, `zeeshan@sub.tofoapp.com` or `zeeshan@TOFOAPP.COM ` | Look-alike domains rejected. Case and whitespace are normalised, so the uppercase one is accepted. |
-| A4 | Clicks the link | Verified. Eligibility metafield set. Audit event written. |
-| A5 | Clicks the same link again | "Link already used." No change. |
-| A6 | Clicks a link older than 30 minutes | "Link expired." |
-| A7 | Normal customer opens the employee's link | Rejected: wrong customer. Normal stays ineligible. |
-| A8 | Submits 6 requests in an hour | 6th is rate-limited. |
-| A9 | Verifies | The account email stays `zeeshanhasan+emp@gmail.com`. The work email is not stored in Shopify. |
-
-## B. Discount
+## A. Eligibility
 
 | # | Test | Expected |
 |---|---|---|
-| B1 | Eligible employee: Liquid in cart | 15% off |
-| B2 | Eligible employee: Hydrogen in cart | No discount (excluded) |
-| B3 | Eligible employee: Green Snowboard | No discount (not employee-only) |
-| B4 | Normal customer: any product | No employee discount |
-| B5 | Eligible employee + another discount code | Follows the combination policy |
-| B6 | Merchant changes discount to 20% | Next cart shows 20% |
+| A1 | Log in as a customer whose **account email** is `@tofoapp.com` | Eligible immediately: discount at checkout, can buy employee-only items. Employees list shows "Work-email login". |
+| A2 | Guest checkout typing `zeeshan@tofoapp.com` as contact email | No discount, employee-only items blocked |
+| A3 | Account email `x@tofoapp.co`, `x@tofoapp.com.evil.io` or `x@sub.tofoapp.com` | Not eligible |
+| A4 | Personal-email customer (`zeeshanhasan+emp@gmail.com`) verifies `zeeshan@tofoapp.com` at `/apps/perks/verify` | Link in terminal, Confirm, then "You're verified" and eligible |
+| A5 | Same link used twice / after 30 minutes / by another account | "Already used" / "Expired" / "Different account" |
+| A6 | 6 verification requests in an hour | 6th is rate-limited |
+| A7 | Visit `/apps/perks/verify` logged in with a `@tofoapp.com` account | "You're all set" (no form) |
+| A8 | Settings: turn off "Automatically give perks…" | A1 customer loses perks; link-verified customers keep them |
 
-## C. Checkout enforcement
+## B. Discount (15%)
 
 | # | Test | Expected |
 |---|---|---|
-| C1 | Normal customer adds Liquid via the product page | Checkout blocked with a clear message |
-| C2 | Normal customer uses a direct cart link `/cart/<variant>:1` | Checkout blocked |
-| C3 | Logged-out guest with Oxygen in cart | Checkout blocked: must log in and verify |
-| C4 | Eligible employee | Checkout succeeds |
-| C5 | Employee logs out mid-checkout | Blocked |
+| B1 | Eligible: employee-only product (Liquid) | 15% off, "Employee price (15% off)" |
+| B2 | Eligible: a "Discounted for employees" product | 15% off |
+| B3 | Eligible: a "Never discounted" product (Hydrogen) | Full price |
+| B4 | Eligible: a product in no list (Green Snowboard) | Full price (unless scope = All products) |
+| B5 | Not eligible (Normal Test, guest) | No employee discount anywhere |
+| B6 | Change discount to 20% and save | Next cart shows 20% |
+| B7 | Eligible + another discount code | Follows the "Combining" settings |
+
+## C. Checkout protection
+
+| # | Test | Expected |
+|---|---|---|
+| C1 | Normal Test adds Liquid | Blocked with the employee-only message |
+| C2 | Normal Test uses a direct cart link `/cart/<variantId>:1` | Blocked |
+| C3 | Guest with Oxygen | Blocked |
+| C4 | Eligible employee | Checkout works |
+| C5 | Anyone buying a "Discounted for employees" product | Allowed (full price if not eligible) |
 
 ## D. Lifecycle
 
 | # | Test | Expected |
 |---|---|---|
-| D1 | Merchant revokes the employee | Metafield cleared. Discount and access gone on the next cart. Audit event written. |
-| D2 | Eligibility expires (test with a 1-minute override) | Same as D1, via the scheduled job |
-| D3 | Revoked employee re-verifies | Eligible again |
-| D4 | Merchant removes `tofoapp.com` from the domains | New verifications blocked. Existing members follow the policy (proposed: stay until expiry). |
+| D1 | Employees → Remove perks (on a work-email-login employee) | Immediately no discount and blocked, even though the email still matches |
+| D2 | Removed customer opens `/apps/perks/verify` | "Perks removed" (can't re-verify) |
+| D3 | Employees → Restore perks | Eligible again |
+| D4 | Link-verified expiry: set `expiresAt` in the past (Prisma Studio), then Home → maintenance or `POST /api/cron/expire` | Status Expired, perks gone |
+| D5 | Change a domain employee's email to Gmail in Shopify admin | Employees list shows "Not eligible" (webhook); no perks |
+| D6 | Employees → "Find existing employees" | Existing `@tofoapp.com` customers appear |
 
 ## E. Install, privacy, isolation
 
 | # | Test | Expected |
 |---|---|---|
 | E1 | Fresh install on a second dev store | Works. No manual DB edits. |
-| E2 | Uninstall | Sessions removed. Data purged on `shop/redact`. |
-| E3 | `customers/data_request` webhook | Returns the stored data for that customer |
-| E4 | `customers/redact` webhook | Deletes that customer's membership, challenges and work email |
-| E5 | Two shops installed | Neither can see the other's employees, settings or audit log |
+| E2 | Uninstall | Discount and rule stop. Data purged on `shop/redact`. |
+| E3 | `customers/data_request` | Logged in Activity |
+| E4 | `customers/redact` | That customer's membership/challenges deleted |
+| E5 | Two shops | No data shared |
 
-## F. Storefront paths (cosmetic + enforcement)
+## F. Employee mode (theme embed on)
 
 | # | Test | Expected |
 |---|---|---|
-| F1 | Theme search for "Liquid" as Normal | May appear (known limitation). Checkout still blocked. |
-| F2 | Direct product URL as Normal | "Employee exclusive" message. Checkout blocked. |
-| F3 | Employee collection link as the employee | Shows the 3 products with the badge |
+| F1 | Non-employee browses the collection / search | Employee-only products not shown |
+| F2 | Non-employee opens an employee-only product URL | Buy buttons replaced by "Employee exclusive" notice |
+| F3 | Employee opens a discounted product | Green "Employee price: 15% off at checkout" badge |
+| F4 | Employee collection set in the embed | Its menu links hidden for non-employees |
+| F5 | Embed off | Everything visible again; checkout still protected |

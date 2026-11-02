@@ -2,6 +2,7 @@ import type { AdminClient } from "./admin-graphql.server";
 import { assertNoUserErrors, gql } from "./admin-graphql.server";
 import type { EligibilityValue } from "./eligibility";
 import {
+  DISCOUNTED_KEY,
   DISCOUNT_EXCLUDED_KEY,
   ELIGIBILITY_KEY,
   ELIGIBILITY_NAMESPACE,
@@ -85,5 +86,7 @@ export async function syncProductFlag(admin: AdminClient, key: string, previous:
 
 export const syncEmployeeOnly = (admin: AdminClient, prev: string[], next: string[]) =>
   syncProductFlag(admin, EMPLOYEE_ONLY_KEY, prev, next);
+export const syncDiscounted = (admin: AdminClient, prev: string[], next: string[]) =>
+  syncProductFlag(admin, DISCOUNTED_KEY, prev, next);
 export const syncDiscountExcluded = (admin: AdminClient, prev: string[], next: string[]) =>
   syncProductFlag(admin, DISCOUNT_EXCLUDED_KEY, prev, next);

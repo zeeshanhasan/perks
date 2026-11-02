@@ -1,0 +1,122 @@
+import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
+import { useLoaderData } from "react-router";
+import { boundary } from "@shopify/shopify-app-react-router/server";
+import { themeEditorEmbedUrl } from "../lib/setup.server";
+import { authenticate } from "../shopify.server";
+
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const { session } = await authenticate.admin(request);
+  return {
+    shop: session.shop,
+    themeUrl: themeEditorEmbedUrl(session.shop, process.env.SHOPIFY_API_KEY || ""),
+  };
+};
+
+function Faq({ q, children }: { q: string; children: React.ReactNode }) {
+  return (
+    <s-stack gap="small-200">
+      <s-text type="strong">{q}</s-text>
+      <s-paragraph>{children}</s-paragraph>
+    </s-stack>
+  );
+}
+
+export default function Help() {
+  const { shop, themeUrl } = useLoaderData<typeof loader>();
+  return (
+    <s-page heading="Help">
+      <s-section heading="How it works">
+        <s-ordered-list>
+          <s-list-item>
+            You add a partner company and its work email domain (for example <code>company.com</code>).
+          </s-list-item>
+          <s-list-item>
+            An employee logs in to your store with their work email. Shopify sends them a login code, which proves the
+            email is theirs.
+          </s-list-item>
+          <s-list-item>
+            They automatically get the employee discount, and can buy employee-only products. No extra steps.
+          </s-list-item>
+          <s-list-item>
+            Employees who shop with a personal email can verify their work email at{" "}
+            <s-link href={`https://${shop}/apps/perks/verify`} target="_blank">
+              /apps/perks/verify
+            </s-link>
+            . Add that link to your menu or use the &ldquo;Employee perks link&rdquo; theme block.
+          </s-list-item>
+        </s-ordered-list>
+      </s-section>
+
+      <s-section heading="Your three product lists">
+        <s-unordered-list>
+          <s-list-item>
+            <strong>Employee-only:</strong> only employees can buy them. Everyone else is stopped at checkout.
+          </s-list-item>
+          <s-list-item>
+            <strong>Discounted for employees:</strong> anyone can buy them, but only employees get the discount.
+          </s-list-item>
+          <s-list-item>
+            <strong>Never discounted:</strong> no employee discount, ever.
+          </s-list-item>
+        </s-unordered-list>
+      </s-section>
+
+      <s-section heading="Turn on Employee mode in your theme">
+        <s-stack gap="base">
+          <s-paragraph>
+            Employee mode hides employee-only products from other shoppers in collections and search results, and
+            replaces the buy button with a message on their product pages. Employees see a badge with their discount.
+          </s-paragraph>
+          <s-ordered-list>
+            <s-list-item>Open the theme editor with the button below.</s-list-item>
+            <s-list-item>Make sure &ldquo;Employee mode&rdquo; is switched on under App embeds.</s-list-item>
+            <s-list-item>Click Save.</s-list-item>
+          </s-ordered-list>
+          <s-box>
+            <s-button href={themeUrl} target="_blank" icon="theme-edit">
+              Open theme editor
+            </s-button>
+          </s-box>
+        </s-stack>
+      </s-section>
+
+      <s-section heading="Questions">
+        <s-stack gap="base">
+          <Faq q="Can someone get the discount by typing a work email at checkout?">
+            No. Perks only apply to customers who are logged in. Guest checkout never gets perks, whatever email is
+            typed.
+          </Faq>
+          <Faq q="Can non-employees see employee-only products?">
+            With Employee mode on, they&apos;re hidden from collections and search, and their product pages show a
+            message instead of a buy button. Someone with a direct link can still view the page, but checkout always
+            blocks them. Shopify only offers true per-customer catalogs on Shopify Plus.
+          </Faq>
+          <Faq q="Someone left the company. How do I remove their perks?">
+            Go to Employees and click &ldquo;Remove perks&rdquo;. It works immediately, even if their email still
+            matches your domain.
+          </Faq>
+          <Faq q="An employee says they don't get the discount.">
+            Check that they&apos;re logged in with their work email (not a guest), that the product is in one of your
+            lists, and that the program is on in Settings. Their Activity entries show what happened.
+          </Faq>
+          <Faq q="Does the discount stack with other discounts?">
+            Only if you allow it under Settings, &ldquo;Combining with other discounts&rdquo;. Otherwise Shopify applies
+            the better discount.
+          </Faq>
+          <Faq q="What happens if I uninstall?">
+            The discount and checkout rule stop working straight away. Your app data is deleted 48 hours later, as
+            Shopify requires.
+          </Faq>
+        </s-stack>
+      </s-section>
+
+      <s-section slot="aside" heading="Contact">
+        <s-paragraph>
+          Stuck? Email <s-link href="mailto:support@tofoapp.com">support@tofoapp.com</s-link> and we&apos;ll help.
+        </s-paragraph>
+      </s-section>
+    </s-page>
+  );
+}
+
+export const headers: HeadersFunction = (headersArgs) => boundary.headers(headersArgs);

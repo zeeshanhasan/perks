@@ -19,6 +19,8 @@ description = "Employee perks eligibility, managed by the Tofo Perks app"
 
   [customer.metafields.app.perks_eligibility.access]
   admin = "merchant_read"
+  # Liquid can only read the logged-in customer's own record. Used by the Employee mode embed.
+  storefront = "public_read"
 
 [product.metafields.app.perks_employee_only]
 type = "boolean"
@@ -26,6 +28,15 @@ name = "Perks: employee only"
 description = "Only verified employees can buy this product"
 
   [product.metafields.app.perks_employee_only.access]
+  admin = "merchant_read"
+  storefront = "public_read"
+
+[product.metafields.app.perks_discounted]
+type = "boolean"
+name = "Perks: employee discount"
+description = "Anyone can buy; verified employees get the employee discount"
+
+  [product.metafields.app.perks_discounted.access]
   admin = "merchant_read"
   storefront = "public_read"
 
@@ -55,6 +66,10 @@ api_version = "2026-07"
   [[webhooks.subscriptions]]
   uri = "/webhooks/app/scopes_update"
   topics = [ "app/scopes_update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers"
+  topics = [ "customers/create", "customers/update" ]
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/compliance"

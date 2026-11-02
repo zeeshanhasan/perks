@@ -1,7 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import db from "../app/db.server";
-import { confirmVerification, requestVerification, revokeMembership, sweepExpired, redactCustomer } from "../app/lib/membership.server";
+import {
+  confirmVerification,
+  reactivateMembership,
+  recordDomainCustomer,
+  redactCustomer,
+  requestVerification,
+  revokeMembership,
+  sweepExpired,
+} from "../app/lib/membership.server";
 
 const SHOP = "perks-test.myshopify.com";
 const EMP = "1001";
@@ -51,8 +59,8 @@ beforeEach(async () => {
   });
   await db.benefitPolicy.upsert({
     where: { shop: SHOP },
-    create: { shop: SHOP, enabled: true, eligibilityMonths: 12 },
-    update: { enabled: true, eligibilityMonths: 12 },
+    create: { shop: SHOP, enabled: true, eligibilityMonths: 12, autoDomain: true },
+    update: { enabled: true, eligibilityMonths: 12, autoDomain: true },
   });
 });
 
@@ -150,10 +158,10 @@ describe("lifecycle", () => {
     return fake;
   }
 
-  test("D1: revoke clears the metafield", async () => {
+  test("D1: revoke writes an explicit revoked value (overrides domain eligibility)", async () => {
     const { admin, metafields } = await verified();
     await revokeMembership(admin, SHOP, EMP, "merchant:test");
-    expect(metafields.size).toBe(0);
+    expect(JSON.parse(metafields.get(`gid://shopify/Customer/${EMP}`)!)).toEqual({ v: 1, status: "revoked" });
     expect((await db.employeeMembership.findFirstOrThrow({ where: { customerId: EMP } })).status).toBe("revoked");
   });
 
@@ -165,12 +173,12 @@ describe("lifecycle", () => {
     expect(await sweepExpired(admin, SHOP)).toEqual({ checked: 0, expired: 0 });
   });
 
-  test("D3: revoked employee can re-verify", async () => {
+  test("D3: revoked employee cannot verify their way back; merchant can restore", async () => {
     const { admin, metafields } = await verified();
     await revokeMembership(admin, SHOP, EMP, "merchant:test");
-    await request(EMP);
-    expect((await confirmVerification({ admin, shop: SHOP, customerId: EMP, token: tokenFromLastLink() })).ok).toBe(true);
-    expect(metafields.size).toBe(1);
+    expect(await request(EMP)).toEqual({ ok: false, reason: "revoked" });
+    await reactivateMembership(admin, SHOP, EMP, "merchant:test");
+    expect(JSON.parse(metafields.get(`gid://shopify/Customer/${EMP}`)!)).toMatchObject({ v: 1, status: "active" });
   });
 
   test("E4: customers/redact deletes the customer's data", async () => {
@@ -179,5 +187,45 @@ describe("lifecycle", () => {
     expect(await db.employeeMembership.count({ where: { customerId: EMP } })).toBe(0);
     expect(await db.verificationChallenge.count({ where: { customerId: EMP } })).toBe(0);
     expect(metafields.size).toBe(0);
+  });
+});
+
+describe("domain members", () => {
+  test("customer with approved account email is recorded; others skipped", async () => {
+    expect(await recordDomainCustomer(SHOP, "2001", "Zeeshan@tofoapp.com")).toBe("added");
+    expect(await recordDomainCustomer(SHOP, "2002", "someone@gmail.com")).toBe("skipped");
+    const m = await db.employeeMembership.findFirstOrThrow({ where: { customerId: "2001" } });
+    expect(m).toMatchObject({ source: "domain", status: "active", workEmail: "zeeshan@tofoapp.com", expiresAt: null });
+  });
+
+  test("changing email away from the domain marks inactive, and back again active", async () => {
+    await recordDomainCustomer(SHOP, "2001", "zeeshan@tofoapp.com");
+    expect(await recordDomainCustomer(SHOP, "2001", "zeeshan@gmail.com")).toBe("updated");
+    expect((await db.employeeMembership.findFirstOrThrow({ where: { customerId: "2001" } })).status).toBe("inactive");
+    await recordDomainCustomer(SHOP, "2001", "zeeshan@tofoapp.com");
+    expect((await db.employeeMembership.findFirstOrThrow({ where: { customerId: "2001" } })).status).toBe("active");
+  });
+
+  test("webhooks never undo a revocation", async () => {
+    const { admin, metafields } = fakeAdmin();
+    await recordDomainCustomer(SHOP, "2001", "zeeshan@tofoapp.com");
+    await revokeMembership(admin, SHOP, "2001", "merchant:test");
+    expect(await recordDomainCustomer(SHOP, "2001", "zeeshan@tofoapp.com")).toBe("unchanged");
+    expect((await db.employeeMembership.findFirstOrThrow({ where: { customerId: "2001" } })).status).toBe("revoked");
+    // Restoring a domain member clears the revoked flag so domain eligibility applies again.
+    await reactivateMembership(admin, SHOP, "2001", "merchant:test");
+    expect(metafields.has("gid://shopify/Customer/2001")).toBe(false);
+  });
+
+  test("auto-domain off: nobody is added", async () => {
+    await db.benefitPolicy.update({ where: { shop: SHOP }, data: { autoDomain: false } });
+    expect(await recordDomainCustomer(SHOP, "2001", "zeeshan@tofoapp.com")).toBe("skipped");
+  });
+
+  test("expiry sweep ignores domain members", async () => {
+    const { admin } = fakeAdmin();
+    await recordDomainCustomer(SHOP, "2001", "zeeshan@tofoapp.com");
+    await db.employeeMembership.updateMany({ where: { customerId: "2001" }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    expect(await sweepExpired(admin, SHOP)).toEqual({ checked: 0, expired: 0 });
   });
 });

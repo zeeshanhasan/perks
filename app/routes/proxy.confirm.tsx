@@ -16,7 +16,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (!isWellFormedToken(token)) return liquid(pages.failed(CONFIRM_MESSAGES.invalid));
   if (!customerId)
     return liquid(
-      pages.loggedOut(`/apps/perks/confirm?token=${token}`, {
+      pages.loggedOut(program.employerName, `/apps/perks/confirm?token=${token}`, {
         kind: "info",
         text: "Log in with the account that requested this link, then open the link again.",
       }),
@@ -28,7 +28,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { liquid, shop, customerId, admin } = await proxyContext(request);
   const program = await getProgram(shop);
   if (!program.enabled) return liquid(pages.disabled());
-  if (!customerId) return liquid(pages.loggedOut("/apps/perks/verify"));
+  if (!customerId) return liquid(pages.loggedOut(program.employerName, "/apps/perks/verify"));
   if (!admin) return liquid(pages.failed(CONFIRM_MESSAGES.publish_failed, false));
 
   const form = await request.formData();
@@ -37,5 +37,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return liquid(
       pages.verified(program.employerName, result.expiresAt, { kind: "ok", text: "Verified. Welcome aboard!" }),
     );
+  if (result.reason === "revoked") return liquid(pages.revoked());
   return liquid(pages.failed(CONFIRM_MESSAGES[result.reason]));
 };
