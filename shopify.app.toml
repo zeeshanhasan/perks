@@ -7,34 +7,46 @@ name = "perks"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products,write_metaobjects,write_metaobject_definitions"
+scopes = "read_customers,write_customers,read_products,write_products,read_discounts,write_discounts,read_validations,write_validations"
 
-[product.metafields.app.demo_info]
-type = "single_line_text_field"
-name = "Demo Source Info"
-description = "Tracks products created by the Shopify app template for development"
+# --- App-owned metafields (decision 003) -------------------------------------
+# The DB is the source of truth; these are the published copy the Functions read.
 
-  [product.metafields.app.demo_info.access]
-  admin = "merchant_read_write"
+[customer.metafields.app.perks_eligibility]
+type = "json"
+name = "Perks eligibility"
+description = "Employee perks eligibility, managed by the Tofo Perks app"
 
-[metaobjects.app.example]
-name = "Example"
-description = "An example metaobject definition created by this template"
+  [customer.metafields.app.perks_eligibility.access]
+  admin = "merchant_read"
 
-  [metaobjects.app.example.access]
-  admin = "merchant_read_write"
+[product.metafields.app.perks_employee_only]
+type = "boolean"
+name = "Perks: employee only"
+description = "Only verified employees can buy this product"
 
-[metaobjects.app.example.fields.title]
-name = "Title"
-type = "single_line_text_field"
-required = true
+  [product.metafields.app.perks_employee_only.access]
+  admin = "merchant_read"
+  storefront = "public_read"
 
-[metaobjects.app.example.fields.description]
-name = "Description"
-type = "multi_line_text_field"
+[product.metafields.app.perks_discount_excluded]
+type = "boolean"
+name = "Perks: excluded from employee discount"
+description = "The employee discount never applies to this product"
+
+  [product.metafields.app.perks_discount_excluded.access]
+  admin = "merchant_read"
+
+# --- Storefront: app proxy (decision 002) -----------------------------------
+# Storefront URL: https://{shop}/apps/perks/*  ->  {application_url}/proxy/*
+
+[app_proxy]
+url = "https://example.com/proxy"
+subpath = "perks"
+prefix = "apps"
 
 [webhooks]
-api_version = "2027-01"
+api_version = "2026-07"
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/app/uninstalled"
@@ -44,6 +56,9 @@ api_version = "2027-01"
   uri = "/webhooks/app/scopes_update"
   topics = [ "app/scopes_update" ]
 
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/compliance"
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
 [auth]
 redirect_urls = [ "https://example.com/api/auth" ]

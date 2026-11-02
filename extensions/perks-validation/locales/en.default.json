@@ -1,0 +1,1 @@
+{ "name": "Perks employee-only check", "description": "Blocks checkout of employee-only products for non-verified buyers" }

@@ -1,0 +1,38 @@
+query CartInput {
+  cart {
+    buyerIdentity {
+      customer {
+        eligibility: metafield(namespace: "$app", key: "perks_eligibility") {
+          value
+        }
+      }
+    }
+    lines {
+      id
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          product {
+            employeeOnly: metafield(namespace: "$app", key: "perks_employee_only") {
+              value
+            }
+            excluded: metafield(namespace: "$app", key: "perks_discount_excluded") {
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+  shop {
+    localTime {
+      date
+    }
+  }
+  discount {
+    discountClasses
+    config: metafield(namespace: "$app", key: "perks_config") {
+      value
+    }
+  }
+}

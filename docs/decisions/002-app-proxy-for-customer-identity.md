@@ -1,6 +1,6 @@
 # 002: App proxy for storefront customer identity
 
-**Status:** Proposed (confirm in the spike) · **Date:** 2026-11-02
+**Status:** Implemented, pending dev-store check · **Date:** 2026-11-02
 
 ## Context
 
@@ -12,7 +12,8 @@ The storefront verification page and its form posts go through the **Shopify app
 - Shopify signs every proxied request and includes `logged_in_customer_id`.
 - The backend verifies the HMAC signature and takes the customer ID only from it.
 - The page can return Liquid, so it renders inside the merchant's theme.
-- Clicking the verification link also goes through the proxy. The token must match the **current** signed `logged_in_customer_id`.
+- The emailed link opens `/apps/perks/confirm?token=…`. A GET only shows a Confirm button, so email link scanners can't burn the token. The POST consumes it, and the token must match the **current** signed `logged_in_customer_id`.
+- HMAC verification is done by `authenticate.public.appProxy` (`app/lib/proxy-auth.server.ts`).
 
 ## Alternatives
 

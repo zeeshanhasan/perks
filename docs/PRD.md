@@ -28,7 +28,7 @@ Verified employees can find and buy employee-only products at the agreed discoun
 - Work-email verification, bound to the logged-in Shopify customer
 - Eligibility with an expiry, manual revocation, and re-verification after expiry
 - Merchant picks the **employee-only products** and the **discount exclusions**
-- One percentage discount, set by the merchant (1–90%, default 10%)
+- One percentage discount, set by the merchant (1–90%, default 10%). It applies to employee-only products, or optionally to all products; exclusions always win.
 - Eligibility duration set by the merchant (1–24 months or "no expiry", default 12 months)
 - Discount combination policy set explicitly by the merchant
 - Discount Function, plus a cart/checkout validation Function

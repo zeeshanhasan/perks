@@ -1,6 +1,6 @@
 # 003: App-owned metafields feed the Shopify Functions
 
-**Status:** Proposed (confirm in the spike) · **Date:** 2026-11-02
+**Status:** Implemented, pending dev-store check · **Date:** 2026-11-02
 
 ## Context
 
@@ -10,16 +10,16 @@ Functions can't call our backend. Everything they need has to be in their input 
 
 | Data | Where |
 |---|---|
-| Customer eligibility | Customer metafield `$app:perks.eligibility` (JSON: `{ "status": "active", "expiresAt": "YYYY-MM-DD", "v": 1 }`) |
-| Employee-only flag | Product metafield `$app:perks.employee_only` (boolean) |
-| Discount excluded | Product metafield `$app:perks.discount_excluded` (boolean) |
-| Discount % | Discount config metafield on the automatic app discount |
+| Customer eligibility | Customer metafield `$app.perks_eligibility` (JSON: `{ "v": 1, "status": "active", "expiresAt": "YYYY-MM-DD" or null }`) |
+| Employee-only flag | Product metafield `$app.perks_employee_only` (boolean, storefront read for the theme badge) |
+| Discount excluded | Product metafield `$app.perks_discount_excluded` (boolean) |
+| Discount % + scope | Metafield `$app.perks_config` on the automatic app discount (`{ "v": 1, "percent": 15, "scope": "employee_only" }`) |
 
 - The DB is the source of truth. Metafields are a published copy.
-- The app namespace (`$app:`) is used with no storefront access. Customers can't read or write it.
+- Definitions are declared in `shopify.app.toml` under the reserved `$app` namespace. Customer eligibility has no storefront access.
 - Functions **fail closed**: a missing or invalid metafield means not eligible.
 - Expiry has two layers:
-  - The Function compares `expiresAt` against the shop's local date, if the input exposes it. Verify in the spike.
+  - The Function compares `expiresAt` against `shop.localTime.date` (eligible while the date is strictly before `expiresAt`).
   - A cron sweep clears expired metafields.
 
 ## Consequences

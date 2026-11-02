@@ -1,0 +1,31 @@
+query CartValidationsGenerateRunInput {
+  buyerJourney {
+    step
+  }
+  cart {
+    buyerIdentity {
+      customer {
+        eligibility: metafield(namespace: "$app", key: "perks_eligibility") {
+          value
+        }
+      }
+    }
+    lines {
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          product {
+            employeeOnly: metafield(namespace: "$app", key: "perks_employee_only") {
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+  shop {
+    localTime {
+      date
+    }
+  }
+}
