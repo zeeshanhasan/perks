@@ -1,8 +1,9 @@
 import db from "../db.server";
 import type { AdminClient } from "./admin-graphql.server";
 import { gql } from "./admin-graphql.server";
+import { migrateLegacy } from "./business.server";
 import { audit } from "./audit.server";
-import { isApprovedEmail, maskEmail, normalizeEmail } from "./domain";
+import { emailDomain, isApprovedEmail, maskEmail, normalizeEmail } from "./domain";
 import { REVOKED_VALUE, buildEligibilityValue, computeExpiry, isExpired } from "./eligibility";
 import { sendVerificationEmail } from "./email.server";
 import { clearEligibility, publishEligibility } from "./metafields.server";
@@ -13,14 +14,17 @@ import { TOKEN_TTL_MS, checkChallenge, generateToken, hashToken, isWellFormedTok
 const customerActor = (id: string) => `customer:${id}`;
 
 export async function getProgram(shop: string) {
-  const [employer, policy] = await Promise.all([
-    db.employer.findUnique({ where: { shop } }),
+  await migrateLegacy(shop);
+  const [businesses, policy] = await Promise.all([
+    db.business.findMany({ where: { shop, active: true }, orderBy: { createdAt: "asc" } }),
     db.benefitPolicy.findUnique({ where: { shop } }),
   ]);
   return {
-    enabled: Boolean(policy?.enabled && employer),
-    employerName: employer?.name ?? "",
-    domains: parseJsonList(employer?.domains),
+    enabled: Boolean(policy?.enabled && businesses.length),
+    /** Display name: the business when there's only one, otherwise generic. */
+    employerName: businesses.length === 1 ? businesses[0].name : "your company",
+    businesses: businesses.map((b) => ({ id: b.id, name: b.name, domains: parseJsonList(b.domains) })),
+    domains: businesses.flatMap((b) => parseJsonList(b.domains)),
     eligibilityMonths: policy?.eligibilityMonths ?? null,
     autoDomain: policy?.autoDomain ?? true,
   };
@@ -38,6 +42,16 @@ export async function getCustomerEmail(admin: AdminClient, customerId: string): 
     console.warn("[perks] could not read customer email", err);
     return null;
   }
+}
+
+type Program = Awaited<ReturnType<typeof getProgram>>;
+
+/** The business whose domains include this email, if any. */
+export function businessOf(program: Pick<Program, "businesses">, email: string | null | undefined) {
+  const e = email ? normalizeEmail(email) : null;
+  if (!e) return null;
+  const d = emailDomain(e);
+  return program.businesses.find((b) => b.domains.includes(d)) ?? null;
 }
 
 /** True when the customer is eligible automatically via their account email domain. */
@@ -108,7 +122,7 @@ export async function requestVerification(args: {
   });
   const link = `${args.storefrontOrigin}/apps/perks/confirm?token=${encodeURIComponent(token)}`;
   try {
-    await sendVerificationEmail({ to: email, employerName: program.employerName, shopName: args.shopName, link });
+    await sendVerificationEmail({ to: email, employerName: businessOf(program, email)?.name ?? program.employerName, shopName: args.shopName, link });
   } catch (err) {
     console.error("[perks] email send failed", err);
     await audit({ shop, actor, action: "verify.request", result: "error", detail: `send_failed ${maskEmail(email)}` });
@@ -119,7 +133,7 @@ export async function requestVerification(args: {
 }
 
 export type ConfirmResult =
-  | { ok: true; expiresAt: Date | null }
+  | { ok: true; expiresAt: Date | null; businessName: string }
   | { ok: false; reason: "invalid" | "not_found" | "used" | "expired" | "wrong_customer" | "disabled" | "revoked" | "domain_not_allowed" | "email_in_use" | "publish_failed" };
 
 export async function confirmVerification(args: {
@@ -163,21 +177,22 @@ export async function confirmVerification(args: {
     return { ok: false, reason: "email_in_use" };
   }
 
+  const business = businessOf(program, email)!;
   const expiresAt = computeExpiry(now, program.eligibilityMonths);
   await db.employeeMembership.upsert({
     where: { shop_customerId: { shop, customerId } },
-    create: { shop, customerId, workEmail: email, source: "link", status: "active", verifiedAt: now, expiresAt },
-    update: { workEmail: email, source: "link", status: "active", verifiedAt: now, expiresAt, revokedAt: null },
+    create: { shop, customerId, workEmail: email, businessId: business.id, source: "link", status: "active", verifiedAt: now, expiresAt },
+    update: { workEmail: email, businessId: business.id, source: "link", status: "active", verifiedAt: now, expiresAt, revokedAt: null },
   });
   try {
-    await publishEligibility(admin, customerId, buildEligibilityValue(expiresAt));
+    await publishEligibility(admin, customerId, buildEligibilityValue(expiresAt, business.id));
   } catch (err) {
     console.error("[perks] publish eligibility failed", err);
     await audit({ shop, actor, action: "verify.confirm", subject: customerId, result: "error", detail: "publish_failed" });
     return { ok: false, reason: "publish_failed" };
   }
   await audit({ shop, actor, action: "verify.confirm", subject: customerId, result: "ok", detail: maskEmail(email) });
-  return { ok: true, expiresAt };
+  return { ok: true, expiresAt, businessName: business.name };
 }
 
 export async function revokeMembership(admin: AdminClient, shop: string, customerId: string, actor: string) {
@@ -211,7 +226,7 @@ export async function reactivateMembership(admin: AdminClient, shop: string, cus
       where: { id: m.id },
       data: { status: "active", revokedAt: null, verifiedAt: now, expiresAt },
     });
-    await publishEligibility(admin, customerId, buildEligibilityValue(expiresAt));
+    await publishEligibility(admin, customerId, buildEligibilityValue(expiresAt, m.businessId));
   }
   await audit({ shop, actor, action: "membership.reactivate", subject: customerId, result: "ok" });
   return true;
@@ -229,21 +244,22 @@ export async function recordDomainCustomer(shop: string, customerId: string, acc
   const existing = await getMembership(shop, customerId);
   const eligible = isDomainEligible(program, accountEmail);
   const email = accountEmail ? normalizeEmail(accountEmail) : null;
+  const business = eligible ? businessOf(program, accountEmail) : null;
 
   if (!existing) {
-    if (!eligible || !email) return "skipped" as const;
+    if (!eligible || !email || !business) return "skipped" as const;
     await db.employeeMembership.create({
-      data: { shop, customerId, workEmail: email, source: "domain", status: "active", verifiedAt: new Date(), expiresAt: null },
+      data: { shop, customerId, workEmail: email, businessId: business.id, source: "domain", status: "active", verifiedAt: new Date(), expiresAt: null },
     });
     await audit({ shop, actor: "system", action: "membership.domain_join", subject: customerId, result: "ok", detail: maskEmail(email) });
     return "added" as const;
   }
   if (existing.source !== "domain" || existing.status === "revoked") return "unchanged" as const;
   const next = eligible ? "active" : "inactive";
-  if (existing.status !== next || (email && existing.workEmail !== email)) {
+  if (existing.status !== next || (email && existing.workEmail !== email) || (business && existing.businessId !== business.id)) {
     await db.employeeMembership.update({
       where: { id: existing.id },
-      data: { status: next, ...(email ? { workEmail: email } : {}) },
+      data: { status: next, ...(email ? { workEmail: email } : {}), ...(business ? { businessId: business.id } : {}) },
     });
     await audit({ shop, actor: "system", action: `membership.domain_${next}`, subject: customerId, result: "ok" });
     return "updated" as const;
@@ -335,6 +351,8 @@ export async function redactCustomer(shop: string, customerId: string, admin?: A
     db.employeeMembership.deleteMany({ where: { shop, customerId } }),
     db.verificationChallenge.deleteMany({ where: { shop, customerId } }),
     db.rateLimitHit.deleteMany({ where: { shop, key: { contains: `customer:${customerId}` } } }),
+    // Keep billing totals, drop the link to the person.
+    db.orderUsage.updateMany({ where: { shop, customerId }, data: { customerId: "redacted" } }),
   ]);
   await audit({ shop, actor: "system", action: "privacy.customer_redact", subject: customerId, result: "ok" });
 }
@@ -347,6 +365,9 @@ export async function redactShop(shop: string) {
     db.auditEvent.deleteMany({ where: { shop } }),
     db.benefitPolicy.deleteMany({ where: { shop } }),
     db.employer.deleteMany({ where: { shop } }),
+    db.business.deleteMany({ where: { shop } }),
+    db.orderUsage.deleteMany({ where: { shop } }),
+    db.invoice.deleteMany({ where: { shop } }),
     db.session.deleteMany({ where: { shop } }),
   ]);
 }

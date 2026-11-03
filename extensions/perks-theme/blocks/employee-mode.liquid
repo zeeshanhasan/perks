@@ -3,13 +3,15 @@
   - Non-employees: employee-only products are hidden from product grids/search and their
     product pages show a notice instead of buy buttons. Optional employee collection links hidden.
   - Employees: a badge with their discount on eligible product pages.
-  Eligibility mirrors the Functions: logged in AND not revoked AND (verified metafield OR work-email domain).
-  Product handles are sent as SHA-256 hashes so the page source doesn't list employee-only products.
+  Eligibility mirrors the Functions: logged in AND not revoked AND (verified metafield OR work-email domain),
+  resolved to one business. Product handles are sent as SHA-256 hashes so the page source doesn't list
+  employee-only products.
 {%- endcomment -%}
 {%- assign cfg = app.metafields.perks.storefront.value -%}
 {%- if cfg -%}
-  {%- assign eligible = false -%}
-  {%- if customer -%}
+  {%- comment -%} Which business does this visitor belong to? Mirrors the Functions. {%- endcomment -%}
+  {%- assign my_biz = nil -%}
+  {%- if customer and cfg.businesses.size > 0 -%}
     {%- assign elig = customer.metafields.app.perks_eligibility.value -%}
     {%- assign revoked = false -%}
     {%- if elig.status == 'revoked' -%}
@@ -17,27 +19,56 @@
     {%- elsif elig.status == 'active' -%}
       {%- assign today = 'now' | date: '%Y-%m-%d' -%}
       {%- if elig.expiresAt == nil or today < elig.expiresAt -%}
-        {%- assign eligible = true -%}
+        {%- for b in cfg.businesses -%}
+          {%- if elig.businessId == b.id or elig.businessId == nil and forloop.first -%}{%- assign my_biz = b -%}{%- break -%}{%- endif -%}
+        {%- endfor -%}
       {%- endif -%}
     {%- endif -%}
-    {%- if eligible == false and revoked == false and cfg.autoDomain -%}
+    {%- if my_biz == nil and revoked == false and cfg.autoDomain -%}
       {%- assign email_domain = customer.email | downcase | split: '@' | last -%}
-      {%- if cfg.domains contains email_domain -%}
-        {%- assign eligible = true -%}
-      {%- endif -%}
+      {%- for b in cfg.businesses -%}
+        {%- if b.domains contains email_domain -%}{%- assign my_biz = b -%}{%- break -%}{%- endif -%}
+      {%- endfor -%}
     {%- endif -%}
   {%- endif -%}
+  {%- if my_biz -%}{%- assign eligible = true -%}{%- else -%}{%- assign eligible = false -%}{%- endif -%}
 
+  {%- comment -%} Employee-only products of OTHER businesses are hidden (as SHA-256 of the handle). {%- endcomment -%}
+  {%- assign mine = '|' -%}
+  {%- if my_biz -%}{%- for h in my_biz.employeeOnlyHandles -%}{%- assign mine = mine | append: h | append: '|' -%}{%- endfor -%}{%- endif -%}
+  {%- capture hidden -%}
+    {%- for b in cfg.businesses -%}
+      {%- for h in b.employeeOnlyHandles -%}
+        {%- assign key = '|' | append: h | append: '|' -%}
+        {%- unless mine contains key -%}{{ h | sha256 | json }},{%- endunless -%}
+      {%- endfor -%}
+    {%- endfor -%}
+  {%- endcapture -%}
+
+  {%- comment -%} Is the current product discounted for my business? {%- endcomment -%}
   {%- assign on_product = false -%}
-  {%- assign p_only = false -%}
   {%- assign p_disc = false -%}
   {%- if product -%}
     {%- assign on_product = true -%}
-    {%- if product.metafields.app.perks_employee_only.value == true -%}{%- assign p_only = true -%}{%- endif -%}
-    {%- if cfg.allProducts or product.metafields.app.perks_discounted.value == true or p_only -%}
-      {%- unless product.metafields.app.perks_discount_excluded.value == true -%}{%- assign p_disc = true -%}{%- endunless -%}
-    {%- endif -%}
+    {%- assign pid = product.id | append: '' -%}
+    {%- if my_biz and cfg.excluded contains pid -%}{%- else -%}{%- if my_biz -%}
+      {%- assign t = my_biz.target -%}
+      {%- assign pv = product.vendor | downcase -%}
+      {%- assign pt = product.type | downcase -%}
+      {%- assign key = '|' | append: product.handle | append: '|' -%}
+      {%- if t.all or t.productIds contains pid or t.vendors contains pv or t.types contains pt or mine contains key -%}
+        {%- assign p_disc = true -%}
+      {%- else -%}
+        {%- for c in product.collections -%}
+          {%- assign cid = c.id | append: '' -%}
+          {%- if t.collectionIds contains cid -%}{%- assign p_disc = true -%}{%- break -%}{%- endif -%}
+        {%- endfor -%}
+      {%- endif -%}
+    {%- endif -%}{%- endif -%}
   {%- endif -%}
+  {%- capture discount_label -%}
+    {%- if my_biz.type == 'fixed' -%}{{ my_biz.value | times: 100 | money }} off{%- else -%}{{ my_biz.value }}% off{%- endif -%}
+  {%- endcapture -%}
 
   <style>
     .tofo-perks-hidden { display: none !important; }
@@ -53,9 +84,9 @@
       eligible: {{ eligible }},
       loggedIn: {% if customer %}true{% else %}false{% endif %},
       enabled: {{ cfg.enabled | default: false }},
-      percent: {{ cfg.percent | default: 0 | json }},
-      product: { employeeOnly: {{ p_only }}, discounted: {{ p_disc }}, isProductPage: {{ on_product }} },
-      hiddenHashes: [{%- unless eligible -%}{%- for h in cfg.employeeOnlyHandles -%}{{ h | sha256 | json }}{% unless forloop.last %},{% endunless %}{%- endfor -%}{%- endunless -%}],
+      discountLabel: {{ discount_label | strip | json }},
+      product: { handle: {{ product.handle | default: '' | json }}, discounted: {{ p_disc }}, isProductPage: {{ on_product }} },
+      hiddenHashes: [{{ hidden | strip | remove_last: ',' }}],
       hideCollection: {{ block.settings.employee_collection.handle | default: '' | json }},
       hideProducts: {{ block.settings.hide_products }},
       text: {
@@ -83,7 +114,7 @@
     { "type": "text", "id": "notice_body", "label": "Text", "default": "This product is available to employees of our partner companies. Log in with your work email to buy it." },
     { "type": "text", "id": "notice_cta", "label": "Button", "default": "Get employee access" },
     { "type": "header", "content": "Employee badge" },
-    { "type": "text", "id": "badge_text", "label": "Badge text", "default": "Employee price: {percent}% off at checkout", "info": "{percent} is replaced with your discount." },
+    { "type": "text", "id": "badge_text", "label": "Badge text", "default": "Employee price: {discount} at checkout", "info": "{discount} is replaced with the employee's discount, e.g. 15% off." },
     { "type": "color", "id": "badge_bg", "label": "Badge background", "default": "#E3F1DF" },
     { "type": "color", "id": "badge_fg", "label": "Badge text color", "default": "#0C5132" }
   ]

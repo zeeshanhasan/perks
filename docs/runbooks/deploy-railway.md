@@ -34,7 +34,7 @@ node scripts/make-prod-config.mjs https://perks.tofoapp.com
 | `SHOPIFY_API_KEY` | Client ID (step A) |
 | `SHOPIFY_API_SECRET` | Client secret (step A) |
 | `SHOPIFY_APP_URL` | `https://perks.tofoapp.com` |
-| `SCOPES` | `read_customers,write_customers,read_products,write_products,read_discounts,write_discounts,read_validations,write_validations` |
+| `SCOPES` | `read_customers,write_customers,read_orders,read_products,write_products,read_discounts,write_discounts,read_validations,write_validations` |
 | `CRON_SECRET` | any long random string (`openssl rand -hex 32`) |
 | `RESEND_API_KEY` | from Resend (until set, verification links only appear in Railway logs) |
 | `PERKS_EMAIL_FROM` | `Tofo Perks <perks@mail.tofoapp.com>` |
@@ -79,3 +79,16 @@ This creates a version with the Functions, the theme embed, metafield definition
   `curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://perks.tofoapp.com/api/cron/expire`
 - **Rollback:** Railway → Deployments → previous deploy → Redeploy. Shopify side: Partner dashboard → Versions → release the previous version.
 - **Keep 1 replica.** SQLite on one volume doesn't support multiple instances.
+
+## Releasing an update (after the first deploy)
+
+1. If scopes changed, update Railway `SCOPES` **first** (it must match `shopify.app.toml`).
+2. Merge the PR to `main`; Railway auto-deploys (migrations run on start).
+3. Push the Shopify side:
+
+```bash
+shopify app deploy --config production
+```
+
+4. Open the app in the store admin and accept new permissions, if prompted.
+5. Open **Settings** and click Save once (re-publishes config to the Functions).

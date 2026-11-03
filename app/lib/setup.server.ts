@@ -1,8 +1,11 @@
 import db from "../db.server";
-import { parseJsonList } from "./policy";
+import { describeDiscount } from "./business";
+import { listBusinesses } from "./business.server";
+import { businessSummary } from "./invoice.server";
+import { rangeFor } from "./report";
 
 export type SetupStep = {
-  id: "employer" | "products" | "program" | "theme";
+  id: "business" | "program" | "theme";
   title: string;
   description: string;
   done: boolean;
@@ -16,44 +19,34 @@ export function themeEditorEmbedUrl(shop: string, apiKey: string) {
   return `https://admin.shopify.com/store/${handle}/themes/current/editor?context=apps&activateAppId=${apiKey}/employee-mode`;
 }
 
-export async function getSetup(shop: string, apiKey: string) {
-  const [employer, policy, counts] = await Promise.all([
-    db.employer.findUnique({ where: { shop } }),
+export async function getSetup(shop: string, apiKey: string, currency: string) {
+  const businesses = await listBusinesses(shop);
+  const [policy, counts] = await Promise.all([
     db.benefitPolicy.findUnique({ where: { shop } }),
     db.employeeMembership.groupBy({ by: ["status", "source"], where: { shop }, _count: true }),
   ]);
-  const domains = parseJsonList(employer?.domains);
-  const employeeOnly = parseJsonList(policy?.employeeOnlyProducts).length;
-  const discounted = parseJsonList(policy?.discountedProducts).length;
-  const excluded = parseJsonList(policy?.excludedProducts).length;
-  const allProducts = policy?.discountScope === "all_products";
+  const month = rangeFor("this_month");
+  const usage = await businessSummary(shop, month.from, month.to);
 
   const steps: SetupStep[] = [
     {
-      id: "employer",
-      title: "Add your partner company",
-      description: "Enter the company name and its email domain, like company.com. People who log in with that email get employee perks.",
-      done: Boolean(employer?.name && domains.length),
-      action: { label: "Add company", href: "/app/settings" },
-    },
-    {
-      id: "products",
-      title: "Choose employee products",
-      description: "Pick products only employees can buy, and products where employees get the discount.",
-      done: allProducts || employeeOnly + discounted > 0,
-      action: { label: "Choose products", href: "/app/products" },
+      id: "business",
+      title: "Add a partner business",
+      description: "Add a company, its work email domains, its discount and which products it applies to.",
+      done: businesses.length > 0,
+      action: { label: "Add business", href: "/app/businesses/new" },
     },
     {
       id: "program",
       title: "Turn on employee perks",
-      description: "Switch the program on to start giving employees their discount.",
+      description: "Switch the program on in Settings to start giving discounts.",
       done: Boolean(policy?.enabled && policy.discountId),
-      action: { label: "Turn on", href: "/app/settings#program" },
+      action: { label: "Open settings", href: "/app/settings" },
     },
     {
       id: "theme",
       title: "Turn on Employee mode in your theme",
-      description: "Hides employee-only products from other shoppers and shows employees their perks. One click in the theme editor, then Save.",
+      description: "Hides employee-only products from other shoppers and shows employees their perks. One click, then Save.",
       done: false,
       manual: true,
       action: { label: "Open theme editor", href: themeEditorEmbedUrl(shop, apiKey), external: true },
@@ -61,29 +54,25 @@ export async function getSetup(shop: string, apiKey: string) {
   ];
 
   const count = (status: string, source?: string) =>
-    counts
-      .filter((c) => c.status === status && (!source || c.source === source))
-      .reduce((n, c) => n + c._count, 0);
+    counts.filter((c) => c.status === status && (!source || c.source === source)).reduce((n, c) => n + c._count, 0);
 
   return {
     steps,
     required: steps.filter((s) => !s.manual),
-    program: {
-      enabled: Boolean(policy?.enabled),
-      employerName: employer?.name ?? "",
-      domains,
-      percent: policy?.discountPercent ?? 10,
-      autoDomain: policy?.autoDomain ?? true,
-      allProducts,
-      employeeOnly,
-      discounted,
-      excluded,
-    },
+    enabled: Boolean(policy?.enabled),
+    businesses: businesses.map((b) => ({
+      id: b.id,
+      name: b.name,
+      domains: b.domains.join(", "),
+      discount: describeDiscount(b, currency),
+      active: b.active,
+    })),
     stats: {
       active: count("active"),
       viaDomain: count("active", "domain"),
       viaLink: count("active", "link"),
       revoked: count("revoked"),
     },
+    month: usage.totals,
   };
 }

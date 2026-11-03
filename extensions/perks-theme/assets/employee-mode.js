@@ -22,7 +22,7 @@
   }
 
   function hideCards(root) {
-    if (P.eligible || !P.hideProducts || !P.hiddenHashes.length || !window.crypto || !crypto.subtle) return;
+    if (!P.hideProducts || !P.hiddenHashes.length || !window.crypto || !crypto.subtle) return;
     var links = (root || document).querySelectorAll('a[href*="/products/"]');
     links.forEach(function (a) {
       if (a.dataset.tofoChecked) return;
@@ -45,30 +45,40 @@
     });
   }
 
+  function notice(form) {
+    document.querySelectorAll(BUY).forEach(function (el) { el.classList.add("tofo-perks-hidden"); });
+    var note = document.createElement("div");
+    note.className = "tofo-perks-note";
+    var t = document.createElement("strong");
+    t.textContent = P.text.title;
+    var b = document.createElement("p");
+    b.textContent = P.text.body;
+    var a = document.createElement("a");
+    a.className = "button button--primary";
+    a.href = P.verifyUrl;
+    a.textContent = P.text.cta;
+    note.appendChild(t); note.appendChild(b); note.appendChild(a);
+    form.parentNode.insertBefore(note, form);
+  }
+
+  function badge(form) {
+    var el = document.createElement("div");
+    el.className = "tofo-perks-badge";
+    el.textContent = P.text.badge.replace("{discount}", P.discountLabel).replace("{percent}%", P.discountLabel);
+    form.parentNode.insertBefore(el, form);
+  }
+
   function productPage() {
     if (!P.product.isProductPage) return;
     var form = document.querySelector(BUY);
     if (!form) return;
-    if (P.product.employeeOnly && !P.eligible) {
-      document.querySelectorAll(BUY).forEach(function (el) { el.classList.add("tofo-perks-hidden"); });
-      var note = document.createElement("div");
-      note.className = "tofo-perks-note";
-      var t = document.createElement("strong");
-      t.textContent = P.text.title;
-      var b = document.createElement("p");
-      b.textContent = P.text.body;
-      var a = document.createElement("a");
-      a.className = "button button--primary";
-      a.href = P.verifyUrl;
-      a.textContent = P.text.cta;
-      note.appendChild(t); note.appendChild(b); note.appendChild(a);
-      form.parentNode.insertBefore(note, form);
-    } else if (P.eligible && P.enabled && P.product.discounted && P.text.badge) {
-      var badge = document.createElement("div");
-      badge.className = "tofo-perks-badge";
-      badge.textContent = P.text.badge.replace("{percent}", String(P.percent));
-      form.parentNode.insertBefore(badge, form);
-    }
+    var blocked = P.product.handle && P.hiddenHashes.length && window.crypto && crypto.subtle
+      ? sha256(P.product.handle.toLowerCase()).then(function (d) { return P.hiddenHashes.indexOf(d) !== -1; })
+      : Promise.resolve(false);
+    blocked.then(function (isBlocked) {
+      if (isBlocked) notice(form);
+      else if (P.eligible && P.enabled && P.product.discounted && P.text.badge) badge(form);
+    });
   }
 
   function run(root) { hideCards(root); hideCollectionLinks(root); }

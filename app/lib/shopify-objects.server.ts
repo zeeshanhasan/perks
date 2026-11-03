@@ -3,16 +3,20 @@
  * - an automatic app discount backed by the perks-discount Function
  * - a cart & checkout validation (checkout rule) backed by the perks-validation Function
  * - an app-data metafield the theme embed reads (app.metafields.perks.storefront)
+ * Both Functions read a v2 config ($app.perks_config) and input variables ($app.perks_vars).
  */
 import type { BenefitPolicy } from "@prisma/client";
 import type { AdminClient } from "./admin-graphql.server";
 import { assertNoUserErrors, gql } from "./admin-graphql.server";
+import type { BusinessView } from "./business.server";
 import { DISCOUNT_CONFIG_KEY, ELIGIBILITY_NAMESPACE, STOREFRONT_KEY, STOREFRONT_NAMESPACE } from "./eligibility";
 import { setMetafields } from "./metafields.server";
-import { normalizeScope, parseJsonList } from "./policy";
+import { parseJsonList } from "./policy";
+import { toFunctionTarget } from "./targeting";
 
 export const DISCOUNT_TITLE = "Employee perks";
 export const VALIDATION_TITLE = "Employee-only products";
+export const VARS_KEY = "perks_vars";
 
 type FunctionNode = { id: string; apiType: string; title: string };
 
@@ -29,31 +33,42 @@ export async function findFunctions(admin: AdminClient) {
   };
 }
 
-type PolicyLike = Pick<BenefitPolicy, "discountPercent" | "discountScope" | "autoDomain">;
-
-/** Config read by both Functions. Domains are needed for auto-eligibility by account email. */
-export function eligibilityConfig(policy: Pick<BenefitPolicy, "autoDomain">, domains: string[]) {
-  return { v: 1 as const, autoDomain: policy.autoDomain, domains };
-}
-
-export function discountConfig(policy: PolicyLike, domains: string[]) {
+/** The config both Functions read. Only active businesses are included. */
+export function functionConfig(policy: Pick<BenefitPolicy, "autoDomain" | "excludedProducts">, businesses: BusinessView[]) {
   return {
-    ...eligibilityConfig(policy, domains),
-    percent: policy.discountPercent,
-    scope: normalizeScope(policy.discountScope),
-  };
-}
-
-export function storefrontConfig(policy: BenefitPolicy, domains: string[]) {
-  return {
-    v: 1,
-    enabled: policy.enabled,
+    v: 2 as const,
     autoDomain: policy.autoDomain,
-    domains,
-    percent: policy.discountPercent,
-    allProducts: normalizeScope(policy.discountScope) === "all_products",
-    employeeOnlyHandles: parseJsonList(policy.employeeOnlyHandles),
+    excluded: parseJsonList(policy.excludedProducts),
+    businesses: businesses
+      .filter((b) => b.active)
+      .map((b) => ({
+        id: b.id,
+        domains: b.domains,
+        type: b.discountType === "fixed" ? "fixed" : "percentage",
+        value: b.discountValue,
+        target: toFunctionTarget(b.discountTarget),
+        employeeOnly: { ...toFunctionTarget(b.employeeOnlyTarget), all: false },
+        limit:
+          b.limitPeriod !== "none" && b.limitAmount
+            ? { period: b.limitPeriod, basis: b.limitBasis, amount: b.limitAmount }
+            : null,
+      })),
   };
+}
+
+/** Input variables: every collection any business targets. */
+export function functionVars(businesses: BusinessView[]) {
+  const ids = new Set<string>();
+  for (const b of businesses.filter((x) => x.active))
+    for (const c of [...b.discountTarget.collections, ...b.employeeOnlyTarget.collections]) ids.add(c.id);
+  return { collectionIds: [...ids] };
+}
+
+function ownerMetafields(ownerId: string, config: unknown, vars: unknown) {
+  return [
+    { ownerId, namespace: ELIGIBILITY_NAMESPACE, key: DISCOUNT_CONFIG_KEY, type: "json", value: JSON.stringify(config) },
+    { ownerId, namespace: ELIGIBILITY_NAMESPACE, key: VARS_KEY, type: "json", value: JSON.stringify(vars) },
+  ];
 }
 
 const combinesWith = (p: BenefitPolicy) => ({
@@ -73,12 +88,12 @@ async function discountExists(admin: AdminClient, id: string): Promise<boolean> 
 }
 
 /** Returns the discount node GID. */
-export async function ensureDiscount(admin: AdminClient, policy: BenefitPolicy, domains: string[]): Promise<string> {
+export async function ensureDiscount(admin: AdminClient, policy: BenefitPolicy, businesses: BusinessView[]): Promise<string> {
   let id = policy.discountId && (await discountExists(admin, policy.discountId)) ? policy.discountId : null;
 
   if (!id) {
     const fns = await findFunctions(admin);
-    if (!fns.discount) throw new Error("Discount Function not deployed. Run `shopify app dev` or deploy first.");
+    if (!fns.discount) throw new Error("Discount Function not deployed. Run `shopify app deploy` first.");
     const data = await gql(admin, `#graphql
       mutation PerksDiscountCreate($input: DiscountAutomaticAppInput!) {
         discountAutomaticAppCreate(automaticAppDiscount: $input) {
@@ -107,17 +122,10 @@ export async function ensureDiscount(admin: AdminClient, policy: BenefitPolicy, 
     assertNoUserErrors(data.discountAutomaticAppUpdate, "discountAutomaticAppUpdate");
   }
 
-  await setMetafields(admin, [
-    {
-      ownerId: id,
-      namespace: ELIGIBILITY_NAMESPACE,
-      key: DISCOUNT_CONFIG_KEY,
-      type: "json",
-      value: JSON.stringify(discountConfig(policy, domains)),
-    },
-  ]);
+  await setMetafields(admin, ownerMetafields(id, functionConfig(policy, businesses), functionVars(businesses)));
 
-  const toggle = policy.enabled ? "discountAutomaticActivate" : "discountAutomaticDeactivate";
+  const on = policy.enabled && businesses.some((b) => b.active);
+  const toggle = on ? "discountAutomaticActivate" : "discountAutomaticDeactivate";
   const t = await gql(admin, `#graphql
     mutation PerksDiscountToggle($id: ID!) {
       ${toggle}(id: $id) { userErrors { field message } }
@@ -127,11 +135,10 @@ export async function ensureDiscount(admin: AdminClient, policy: BenefitPolicy, 
 }
 
 /**
- * The checkout rule is always on once set up. It only blocks carts that contain employee-only
- * products, so it's harmless with none selected, and switching the program off must never make
- * employee-only products buyable by everyone.
+ * The checkout rule is always on once set up. It only blocks carts with employee-only products,
+ * and switching the program off must never make them buyable by everyone.
  */
-export async function ensureValidation(admin: AdminClient, policy: BenefitPolicy, domains: string[]) {
+export async function ensureValidation(admin: AdminClient, policy: BenefitPolicy, businesses: BusinessView[]) {
   let id: string | null = null;
   if (policy.validationId) {
     try {
@@ -150,7 +157,7 @@ export async function ensureValidation(admin: AdminClient, policy: BenefitPolicy
   }
   if (!id) {
     const fns = await findFunctions(admin);
-    if (!fns.validation) throw new Error("Validation Function not deployed. Run `shopify app dev` or deploy first.");
+    if (!fns.validation) throw new Error("Validation Function not deployed. Run `shopify app deploy` first.");
     const data = await gql(admin, `#graphql
       mutation PerksValidationCreate($validation: ValidationCreateInput!) {
         validationCreate(validation: $validation) {
@@ -161,29 +168,50 @@ export async function ensureValidation(admin: AdminClient, policy: BenefitPolicy
     assertNoUserErrors(data.validationCreate, "validationCreate");
     id = data.validationCreate.validation.id as string;
   }
-  await setMetafields(admin, [
-    {
-      ownerId: id,
-      namespace: ELIGIBILITY_NAMESPACE,
-      key: DISCOUNT_CONFIG_KEY,
-      type: "json",
-      value: JSON.stringify(eligibilityConfig(policy, domains)),
-    },
-  ]);
+  const cfg = functionConfig(policy, businesses);
+  // The validation only needs identity + employee-only targeting.
+  const vcfg = { ...cfg, businesses: cfg.businesses.map((b) => ({ ...b, target: { ...b.target, all: false } })) };
+  await setMetafields(admin, ownerMetafields(id, vcfg, functionVars(businesses)));
   return id;
 }
 
+export type EmployeeOnlyIndex = { businessId: string; handles: string[] }[];
+
 /** App-data metafield read by the theme app embed. */
-export async function publishStorefrontConfig(admin: AdminClient, policy: BenefitPolicy, domains: string[]) {
+export async function publishStorefrontConfig(
+  admin: AdminClient,
+  policy: BenefitPolicy,
+  businesses: BusinessView[],
+  index: EmployeeOnlyIndex,
+) {
   const data = await gql(admin, `#graphql
     query PerksInstallation { currentAppInstallation { id } }`);
+  const active = businesses.filter((b) => b.active);
+  const value = {
+    v: 2,
+    enabled: policy.enabled,
+    autoDomain: policy.autoDomain,
+    excluded: parseJsonList(policy.excludedProducts).map((g) => g.split("/").pop()),
+    businesses: active.map((b) => {
+      const t = toFunctionTarget(b.discountTarget);
+      return {
+        id: b.id,
+        domains: b.domains,
+        type: b.discountType,
+        value: b.discountValue,
+        // numeric ids for Liquid comparisons
+        target: { ...t, productIds: t.productIds.map((g) => g.split("/").pop()), collectionIds: t.collectionIds.map((g) => g.split("/").pop()) },
+        employeeOnlyHandles: index.find((x) => x.businessId === b.id)?.handles ?? [],
+      };
+    }),
+  };
   await setMetafields(admin, [
     {
       ownerId: data.currentAppInstallation.id,
       namespace: STOREFRONT_NAMESPACE,
       key: STOREFRONT_KEY,
       type: "json",
-      value: JSON.stringify(storefrontConfig(policy, domains)),
+      value: JSON.stringify(value),
     },
   ]);
 }

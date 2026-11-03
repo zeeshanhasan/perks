@@ -1,4 +1,4 @@
-query CartValidationsGenerateRunInput {
+query CartValidationsGenerateRunInput($collectionIds: [ID!]) {
   buyerJourney {
     step
   }
@@ -17,6 +17,13 @@ query CartValidationsGenerateRunInput {
         __typename
         ... on ProductVariant {
           product {
+            id
+            vendor
+            productType
+            inCollections(ids: $collectionIds) {
+              collectionId
+              isMember
+            }
             employeeOnly: metafield(namespace: "$app", key: "perks_employee_only") {
               value
             }

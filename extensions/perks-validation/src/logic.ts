@@ -1,18 +1,10 @@
-import { isEligibleBuyer, parseEligibilityConfig, type Buyer } from "./eligibility";
+import { matches, parseConfig, resolveBusiness, type Buyer, type ProductInput } from "./eligibility";
 
-type Meta = { value: string } | null | undefined;
 export type ValidationInput = {
   buyerJourney: { step?: string | null };
-  cart: {
-    buyerIdentity?: Buyer;
-    lines: Array<{
-      merchandise:
-        | { __typename: "ProductVariant"; product: { employeeOnly?: Meta } }
-        | { __typename: string };
-    }>;
-  };
+  cart: { buyerIdentity?: Buyer; lines: Array<{ merchandise: { __typename: string; product?: ProductInput } }> };
   shop: { localTime: { date: string } };
-  validation?: { config?: Meta } | null;
+  validation?: { config?: { value: string } | null } | null;
 };
 
 export type ValidationOutput = {
@@ -20,27 +12,28 @@ export type ValidationOutput = {
 };
 
 export const BLOCK_MESSAGE =
-  "Some items in your cart are for employees only. Log in with your work email (or verify it) to buy them, or remove them.";
+  "Some items in your cart are for employees of partner companies only. Log in with your work email (or verify it) to buy them, or remove them.";
 
-function config(raw: string | null | undefined) {
-  if (!raw) return parseEligibilityConfig(null);
-  try {
-    const c = JSON.parse(raw);
-    return c?.v === 1 ? parseEligibilityConfig(c) : parseEligibilityConfig(null);
-  } catch {
-    return parseEligibilityConfig(null);
-  }
-}
-
-/** Fail closed: any employee-only line + not provably eligible = blocked. */
+/**
+ * Fail closed. A line is employee-only if a business's employee-only targeting matches it live,
+ * or the product carries the synced perks_employee_only flag (defence in depth).
+ * The buyer must belong to a business that owns the line (flag-only lines: any business).
+ */
 export function validateCart(input: ValidationInput): ValidationOutput {
-  const hasEmployeeOnly = input.cart.lines.some((line) => {
-    const m = line.merchandise;
-    return m.__typename === "ProductVariant" && "product" in m && m.product.employeeOnly?.value === "true";
+  const config = parseConfig(input.validation?.config?.value) ?? { autoDomain: false, excluded: [], businesses: [] };
+  let buyerBiz: ReturnType<typeof resolveBusiness> | undefined;
+  const biz = () =>
+    buyerBiz === undefined ? (buyerBiz = resolveBusiness(input.cart.buyerIdentity, config, input.shop.localTime.date)) : buyerBiz;
+
+  const blocked = input.cart.lines.some((line) => {
+    const p = line.merchandise.__typename === "ProductVariant" ? line.merchandise.product : undefined;
+    if (!p) return false;
+    const owners = config.businesses.filter((b) => matches(p, b.employeeOnly)).map((b) => b.id);
+    const flagged = p.employeeOnly?.value === "true";
+    if (!owners.length && !flagged) return false;
+    const mine = biz();
+    if (!mine) return true;
+    return owners.length ? !owners.includes(mine.id) : false;
   });
-  const eligible =
-    hasEmployeeOnly &&
-    isEligibleBuyer(input.cart.buyerIdentity, config(input.validation?.config?.value), input.shop.localTime.date);
-  const errors = hasEmployeeOnly && !eligible ? [{ message: BLOCK_MESSAGE, target: "$.cart" }] : [];
-  return { operations: [{ validationAdd: { errors } }] };
+  return { operations: [{ validationAdd: { errors: blocked ? [{ message: BLOCK_MESSAGE, target: "$.cart" }] : [] } }] };
 }

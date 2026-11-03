@@ -3100,7 +3100,9 @@ export enum WeightUnit {
   Pounds = 'POUNDS'
 }
 
-export type CartValidationsGenerateRunInputVariables = Exact<{ [key: string]: never; }>;
+export type CartValidationsGenerateRunInputVariables = Exact<{
+  collectionIds?: InputMaybe<Array<Scalars['ID']['input']> | Scalars['ID']['input']>;
+}>;
 
 
-export type CartValidationsGenerateRunInput = { __typename?: 'Input', buyerJourney: { __typename?: 'BuyerJourney', step?: BuyerJourneyStep | null }, cart: { __typename?: 'Cart', buyerIdentity?: { __typename?: 'BuyerIdentity', isAuthenticated: boolean, customer?: { __typename?: 'Customer', email?: string | null, eligibility?: { __typename?: 'Metafield', value: string } | null } | null } | null, lines: Array<{ __typename?: 'CartLine', merchandise: { __typename: 'CustomProduct' } | { __typename: 'ProductVariant', product: { __typename?: 'Product', employeeOnly?: { __typename?: 'Metafield', value: string } | null } } }> }, shop: { __typename?: 'Shop', localTime: { __typename?: 'LocalTime', date: string } }, validation: { __typename?: 'Validation', config?: { __typename?: 'Metafield', value: string } | null } };
+export type CartValidationsGenerateRunInput = { __typename?: 'Input', buyerJourney: { __typename?: 'BuyerJourney', step?: BuyerJourneyStep | null }, cart: { __typename?: 'Cart', buyerIdentity?: { __typename?: 'BuyerIdentity', isAuthenticated: boolean, customer?: { __typename?: 'Customer', email?: string | null, eligibility?: { __typename?: 'Metafield', value: string } | null } | null } | null, lines: Array<{ __typename?: 'CartLine', merchandise: { __typename: 'CustomProduct' } | { __typename: 'ProductVariant', product: { __typename?: 'Product', id: string, vendor?: string | null, productType?: string | null, inCollections: Array<{ __typename?: 'CollectionMembership', collectionId: string, isMember: boolean }>, employeeOnly?: { __typename?: 'Metafield', value: string } | null } } }> }, shop: { __typename?: 'Shop', localTime: { __typename?: 'LocalTime', date: string } }, validation: { __typename?: 'Validation', config?: { __typename?: 'Metafield', value: string } | null } };

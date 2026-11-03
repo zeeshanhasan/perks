@@ -28,7 +28,8 @@ export default function Help() {
       <s-section heading="How it works">
         <s-ordered-list>
           <s-list-item>
-            You add a partner company and its work email domain (for example <code>company.com</code>).
+            You add partner businesses on the Businesses page: each with its work email domains (for example{" "}
+            <code>company.com</code>), its discount, its products and optional limits.
           </s-list-item>
           <s-list-item>
             An employee logs in to your store with their work email. Shopify sends them a login code, which proves the
@@ -47,16 +48,35 @@ export default function Help() {
         </s-ordered-list>
       </s-section>
 
-      <s-section heading="Your three product lists">
+      <s-section heading="Choosing products for a business">
         <s-unordered-list>
           <s-list-item>
-            <strong>Employee-only:</strong> only employees can buy them. Everyone else is stopped at checkout.
+            <strong>Discounted products:</strong> anyone can buy them; that business&apos;s employees get the discount.
+            Pick all products, or any mix of products, collections, vendors and product types.
           </s-list-item>
           <s-list-item>
-            <strong>Discounted for employees:</strong> anyone can buy them, but only employees get the discount.
+            <strong>Employee-only products:</strong> only that business&apos;s employees can buy them (also discounted).
+            Everyone else is stopped at checkout.
           </s-list-item>
           <s-list-item>
-            <strong>Never discounted:</strong> no employee discount, ever.
+            <strong>Never discounted</strong> (Settings): no employee discount on these, for any business.
+          </s-list-item>
+        </s-unordered-list>
+      </s-section>
+
+      <s-section heading="Limits, reports and invoices">
+        <s-unordered-list>
+          <s-list-item>
+            <strong>Limits:</strong> cap each employee&apos;s discount or spend per month or per year. After the limit
+            they pay full price until the next period. The order that crosses the limit still gets the discount.
+          </s-list-item>
+          <s-list-item>
+            <strong>Reports:</strong> every employee order is recorded against their business. See orders, spend
+            and discount for any week, month or date range.
+          </s-list-item>
+          <s-list-item>
+            <strong>Invoices:</strong> bill a business for the discount its employees received, or for their total
+            spend. Print or save as PDF, or download CSV. Issued invoices don&apos;t change afterwards.
           </s-list-item>
         </s-unordered-list>
       </s-section>

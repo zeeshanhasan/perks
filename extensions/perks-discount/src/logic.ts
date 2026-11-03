@@ -1,82 +1,50 @@
-import { isEligibleBuyer, parseEligibilityConfig, type Buyer, type EligibilityConfig } from "./eligibility";
+import { matches, parseConfig, resolveBusiness, withinLimit, type Buyer, type ProductInput } from "./eligibility";
 
-export type DiscountConfig = EligibilityConfig & { percent: number; scope: "selected" | "all_products" };
-
-export function parseConfig(raw: string | null | undefined): DiscountConfig | null {
-  if (!raw) return null;
-  try {
-    const c = JSON.parse(raw);
-    const percent = Number(c?.percent);
-    if (c?.v !== 1 || !Number.isInteger(percent) || percent < 1 || percent > 90) return null;
-    const scope = c.scope === "all_products" ? "all_products" : "selected";
-    return { percent, scope, ...parseEligibilityConfig(c) };
-  } catch {
-    return null;
-  }
-}
-
-type Meta = { value: string } | null | undefined;
 export type DiscountInput = {
   cart: {
     buyerIdentity?: Buyer;
-    lines: Array<{
-      id: string;
-      merchandise:
-        | { __typename: "ProductVariant"; product: { employeeOnly?: Meta; discounted?: Meta; excluded?: Meta } }
-        | { __typename: string };
-    }>;
+    lines: Array<{ id: string; merchandise: { __typename: string; product?: ProductInput } }>;
   };
   shop: { localTime: { date: string } };
-  discount: { discountClasses: string[]; config?: Meta };
+  discount: { discountClasses: string[]; config?: { value: string } | null };
 };
 
+type Value = { percentage: { value: number } } | { fixedAmount: { amount: number; appliesToEachItem: boolean } };
 export type DiscountOutput = {
   operations: Array<{
     productDiscountsAdd: {
-      candidates: Array<{
-        message: string;
-        targets: Array<{ cartLine: { id: string } }>;
-        value: { percentage: { value: number } };
-      }>;
+      candidates: Array<{ message: string; targets: Array<{ cartLine: { id: string } }>; value: Value }>;
       selectionStrategy: "FIRST";
     };
   }>;
 };
 
 const EMPTY: DiscountOutput = { operations: [] };
-const isTrue = (m: Meta) => m?.value === "true";
 
 export function generateDiscounts(input: DiscountInput): DiscountOutput {
   if (!input.discount.discountClasses.includes("PRODUCT")) return EMPTY;
   const config = parseConfig(input.discount.config?.value);
   if (!config) return EMPTY;
-  if (!isEligibleBuyer(input.cart.buyerIdentity, config, input.shop.localTime.date)) return EMPTY;
+  const today = input.shop.localTime.date;
+  const biz = resolveBusiness(input.cart.buyerIdentity, config, today);
+  if (!biz) return EMPTY;
+  if (!withinLimit(input.cart.buyerIdentity?.customer?.usage?.value, biz, today)) return EMPTY;
 
   const targets = input.cart.lines
     .filter((line) => {
-      const m = line.merchandise;
-      if (m.__typename !== "ProductVariant" || !("product" in m)) return false;
-      const p = m.product;
-      if (isTrue(p.excluded)) return false;
-      return config.scope === "all_products" || isTrue(p.employeeOnly) || isTrue(p.discounted);
+      const p = line.merchandise.__typename === "ProductVariant" ? line.merchandise.product : undefined;
+      if (!p || (p.id && config.excluded.includes(p.id))) return false;
+      return matches(p, biz.target) || matches(p, biz.employeeOnly);
     })
     .map((line) => ({ cartLine: { id: line.id } }));
-
   if (!targets.length) return EMPTY;
+
+  const value: Value =
+    biz.type === "fixed"
+      ? { fixedAmount: { amount: biz.value, appliesToEachItem: true } }
+      : { percentage: { value: biz.value } };
+  const message = biz.type === "fixed" ? "Employee price" : `Employee price (${biz.value}% off)`;
   return {
-    operations: [
-      {
-        productDiscountsAdd: {
-          candidates: [
-            {
-              message: `Employee price (${config.percent}% off)`,
-              targets,
-              value: { percentage: { value: config.percent } },
-            },
-          ],
-          selectionStrategy: "FIRST",
-        },
-      },
-    ],
+    operations: [{ productDiscountsAdd: { candidates: [{ message, targets, value }], selectionStrategy: "FIRST" } }],
   };
 }
