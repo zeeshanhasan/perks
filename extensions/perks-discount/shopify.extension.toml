@@ -3,6 +3,7 @@ api_version = "2026-07"
 [[extensions]]
 name = "t:name"
 handle = "perks-discount"
+uid = "0ab5f1c6-ca81-37b3-c3c5-2770d6ba6b26506cb65d"
 type = "function"
 description = "t:description"
 
