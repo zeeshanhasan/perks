@@ -30,9 +30,10 @@ export default function App() {
   return (
     <div className={styles.index}>
       <div className={styles.content}>
-        <h1 className={styles.heading}>A short heading about [your app]</h1>
+        <h1 className={styles.heading}>Tofo Perks: employee discounts for Shopify</h1>
         <p className={styles.text}>
-          A tagline about [your app] that describes your value proposition.
+          Give partner company employees automatic discounts and employee-only products. Log in with your store
+          domain to open the app.
         </p>
         {showForm && (
           <Form className={styles.form} method="post">
@@ -48,18 +49,18 @@ export default function App() {
         )}
         <ul className={styles.list}>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Automatic perks</strong>. Employees who log in with their work email get the discount instantly.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Employee-only products</strong>. Only employees can check out, enforced by Shopify at checkout.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Full control</strong>. Remove access anytime, with every change in the activity log.
           </li>
         </ul>
+        <p className={styles.text}>
+          <a href="/privacy">Privacy policy</a> · <a href="mailto:support@tofoapp.com">support@tofoapp.com</a>
+        </p>
       </div>
     </div>
   );

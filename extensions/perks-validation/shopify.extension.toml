@@ -1,0 +1,17 @@
+api_version = "2026-07"
+
+[[extensions]]
+name = "t:name"
+handle = "perks-validation"
+uid = "06001d2c-20ea-f34d-b7b7-4668df36e541a7fc4493"
+type = "function"
+description = "t:description"
+
+  [[extensions.targeting]]
+  target = "cart.validations.generate.run"
+  input_query = "src/cart_validations_generate_run.graphql"
+  export = "cart-validations-generate-run"
+
+  [extensions.build]
+  command = ""
+  path = "dist/function.wasm"

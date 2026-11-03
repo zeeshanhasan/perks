@@ -1,34 +1,128 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Tofo Perks data model. SQLite locally, Cloudflare D1 in production (decision 001).
+// Every app table is scoped by `shop` (the myshopify domain).
+// JSON lists are stored as strings (portable across SQLite/D1).
 
 generator client {
   provider = "prisma-client-js"
 }
 
-// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
-// enough when changing adapters.
-// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
 datasource db {
   provider = "sqlite"
-  url      = "file:dev.sqlite"
+  // Local dev: DATABASE_URL="file:./dev.sqlite" in .env. Railway: file:/data/perks.sqlite (volume).
+  url      = env("DATABASE_URL")
 }
 
 model Session {
-  id            String    @id
-  shop          String
-  state         String
-  isOnline      Boolean   @default(false)
-  scope         String?
-  expires       DateTime?
-  accessToken   String
-  userId        BigInt?
-  firstName     String?
-  lastName      String?
-  email         String?
-  accountOwner  Boolean   @default(false)
-  locale        String?
-  collaborator  Boolean?  @default(false)
-  emailVerified Boolean?  @default(false)
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
   refreshToken        String?
   refreshTokenExpires DateTime?
+}
+
+/// One employer per shop in v1.
+model Employer {
+  shop      String   @id
+  name      String   @default("")
+  /// JSON array of lowercase domains, e.g. ["tofoapp.com"]
+  domains   String   @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BenefitPolicy {
+  shop                 String   @id
+  discountPercent      Int      @default(10)
+  /// null = no expiry
+  eligibilityMonths    Int?     @default(12)
+  /// "selected" (employee-only + discounted list) | "all_products". Legacy "employee_only" = "selected".
+  discountScope        String   @default("selected")
+  /// Logged-in customers whose account email is at an approved domain are eligible automatically.
+  autoDomain           Boolean  @default(true)
+  combinesWithProduct  Boolean  @default(false)
+  combinesWithOrder    Boolean  @default(false)
+  combinesWithShipping Boolean  @default(false)
+  /// JSON arrays of product GIDs
+  employeeOnlyProducts String   @default("[]")
+  excludedProducts     String   @default("[]")
+  /// Open to everyone; employees get the discount on these.
+  discountedProducts   String   @default("[]")
+  /// Handles of employee-only products, for the storefront embed (hiding product cards).
+  employeeOnlyHandles  String   @default("[]")
+  /// Shopify object GIDs created by the app
+  discountId           String?
+  validationId         String?
+  enabled              Boolean  @default(false)
+  updatedAt            DateTime @updatedAt
+}
+
+model EmployeeMembership {
+  id          String    @id @default(cuid())
+  shop        String
+  /// Numeric Shopify customer ID (from the signed app proxy request)
+  customerId  String
+  /// Private. Never written to Shopify, never logged. For source=domain it's the account email.
+  workEmail   String
+  /// "link" (verified via emailed link) | "domain" (account email at approved domain)
+  source      String    @default("link")
+  /// "active" | "revoked" | "expired" | "inactive" (domain no longer approved)
+  status      String
+  verifiedAt  DateTime
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([shop, customerId])
+  @@index([shop, status])
+}
+
+model VerificationChallenge {
+  id         String    @id @default(cuid())
+  shop       String
+  customerId String
+  workEmail  String
+  /// SHA-256 hex of the raw token. The raw token is never stored.
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([shop, customerId])
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  shop      String
+  /// "customer:<id>" | "merchant:<user id or 'admin'>" | "system"
+  actor     String
+  action    String
+  subject   String?
+  result    String
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([shop, createdAt])
+}
+
+/// Sliding-window rate limit hits.
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  shop      String
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([shop, key, createdAt])
 }

@@ -1,0 +1,91 @@
+{%- comment -%}
+  Employee mode (app embed). Cosmetic layer on top of checkout enforcement:
+  - Non-employees: employee-only products are hidden from product grids/search and their
+    product pages show a notice instead of buy buttons. Optional employee collection links hidden.
+  - Employees: a badge with their discount on eligible product pages.
+  Eligibility mirrors the Functions: logged in AND not revoked AND (verified metafield OR work-email domain).
+  Product handles are sent as SHA-256 hashes so the page source doesn't list employee-only products.
+{%- endcomment -%}
+{%- assign cfg = app.metafields.perks.storefront.value -%}
+{%- if cfg -%}
+  {%- assign eligible = false -%}
+  {%- if customer -%}
+    {%- assign elig = customer.metafields.app.perks_eligibility.value -%}
+    {%- assign revoked = false -%}
+    {%- if elig.status == 'revoked' -%}
+      {%- assign revoked = true -%}
+    {%- elsif elig.status == 'active' -%}
+      {%- assign today = 'now' | date: '%Y-%m-%d' -%}
+      {%- if elig.expiresAt == nil or today < elig.expiresAt -%}
+        {%- assign eligible = true -%}
+      {%- endif -%}
+    {%- endif -%}
+    {%- if eligible == false and revoked == false and cfg.autoDomain -%}
+      {%- assign email_domain = customer.email | downcase | split: '@' | last -%}
+      {%- if cfg.domains contains email_domain -%}
+        {%- assign eligible = true -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
+
+  {%- assign on_product = false -%}
+  {%- assign p_only = false -%}
+  {%- assign p_disc = false -%}
+  {%- if product -%}
+    {%- assign on_product = true -%}
+    {%- if product.metafields.app.perks_employee_only.value == true -%}{%- assign p_only = true -%}{%- endif -%}
+    {%- if cfg.allProducts or product.metafields.app.perks_discounted.value == true or p_only -%}
+      {%- unless product.metafields.app.perks_discount_excluded.value == true -%}{%- assign p_disc = true -%}{%- endunless -%}
+    {%- endif -%}
+  {%- endif -%}
+
+  <style>
+    .tofo-perks-hidden { display: none !important; }
+    .tofo-perks-note { border: 1px solid rgba(var(--color-foreground, 0,0,0), .15); border-radius: 8px; padding: 1.2rem 1.4rem; margin: 1.5rem 0; }
+    .tofo-perks-note strong { display: block; margin-bottom: .4rem; }
+    .tofo-perks-note p { margin: 0 0 .8rem; }
+    .tofo-perks-badge { display: inline-block; padding: .4rem .8rem; border-radius: 999px; font-size: 1.3rem; margin: .8rem 0;
+      background: {{ block.settings.badge_bg }}; color: {{ block.settings.badge_fg }}; }
+  </style>
+
+  <script>
+    window.TofoPerks = {
+      eligible: {{ eligible }},
+      loggedIn: {% if customer %}true{% else %}false{% endif %},
+      enabled: {{ cfg.enabled | default: false }},
+      percent: {{ cfg.percent | default: 0 | json }},
+      product: { employeeOnly: {{ p_only }}, discounted: {{ p_disc }}, isProductPage: {{ on_product }} },
+      hiddenHashes: [{%- unless eligible -%}{%- for h in cfg.employeeOnlyHandles -%}{{ h | sha256 | json }}{% unless forloop.last %},{% endunless %}{%- endfor -%}{%- endunless -%}],
+      hideCollection: {{ block.settings.employee_collection.handle | default: '' | json }},
+      hideProducts: {{ block.settings.hide_products }},
+      text: {
+        title: {{ block.settings.notice_title | json }},
+        body: {{ block.settings.notice_body | json }},
+        cta: {{ block.settings.notice_cta | json }},
+        badge: {{ block.settings.badge_text | json }}
+      },
+      verifyUrl: "/apps/perks/verify"
+    };
+  </script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Employee mode",
+  "target": "body",
+  "javascript": "employee-mode.js",
+  "settings": [
+    { "type": "paragraph", "content": "Hides employee-only products from other shoppers and shows employees their perks. Checkout is always protected, even with this off." },
+    { "type": "checkbox", "id": "hide_products", "label": "Hide employee-only products from other shoppers", "default": true },
+    { "type": "collection", "id": "employee_collection", "label": "Employee collection (optional)", "info": "Links to this collection are hidden from other shoppers." },
+    { "type": "header", "content": "Message on employee-only products" },
+    { "type": "text", "id": "notice_title", "label": "Title", "default": "Employee exclusive" },
+    { "type": "text", "id": "notice_body", "label": "Text", "default": "This product is available to employees of our partner companies. Log in with your work email to buy it." },
+    { "type": "text", "id": "notice_cta", "label": "Button", "default": "Get employee access" },
+    { "type": "header", "content": "Employee badge" },
+    { "type": "text", "id": "badge_text", "label": "Badge text", "default": "Employee price: {percent}% off at checkout", "info": "{percent} is replaced with your discount." },
+    { "type": "color", "id": "badge_bg", "label": "Badge background", "default": "#E3F1DF" },
+    { "type": "color", "id": "badge_fg", "label": "Badge text color", "default": "#0C5132" }
+  ]
+}
+{% endschema %}
