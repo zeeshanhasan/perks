@@ -1,3 +1,11 @@
 .cache
+.git
+.shopify
+.env
+.env.*
 build
 node_modules
+extensions/*/dist
+prisma/*.sqlite*
+docs
+tests

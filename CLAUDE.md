@@ -15,7 +15,7 @@ Employee Benefits Shopify app (public). Brand: tofoapp.
 
 - Shopify React Router template, TypeScript, Polaris web components, App Bridge
 - GraphQL Admin API, with the version pinned in `shopify.app.toml`
-- Prisma: SQLite locally, Cloudflare D1 in production (decision 001)
+- Prisma: SQLite via `DATABASE_URL` (local `file:./dev.sqlite`; Railway `file:/data/perks.sqlite`). Hosting: Railway (decision 007)
 - Shopify Functions in JavaScript/TypeScript for v1
 - Theme app extension: Liquid, CSS, minimal JS
 - Tests: Vitest (unit); acceptance tests by hand on the dev store
@@ -37,5 +37,7 @@ cloudflared tunnel run --protocol http2 --url http://localhost:3000 perks-dev
 shopify app dev --tunnel-url https://dev-perks.tofoapp.com:3000
 ```
 
+- `.env` must contain `DATABASE_URL="file:./dev.sqlite"`
 - Dev store: `perks-frtekwck.myshopify.com`
+- Deploy: `docs/runbooks/deploy-railway.md`
 - In dev, verification emails print to the console instead of sending.

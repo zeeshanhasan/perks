@@ -8,7 +8,8 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:dev.sqlite"
+  // Local dev: DATABASE_URL="file:./dev.sqlite" in .env. Railway: file:/data/perks.sqlite (volume).
+  url      = env("DATABASE_URL")
 }
 
 model Session {

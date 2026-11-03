@@ -26,9 +26,11 @@ Legend: `[ ]` todo · `[x]` done · 🧑 = needs Zeeshan
 - [ ] 🧑 Run `docs/runbooks/dev-testing.md` + acceptance tests A–F
 - [ ] Fix defects from testing
 - [ ] Demo seed script (vitamin products) for App Store screenshots
-- [ ] Cloudflare Workers + D1 port, Workers Cron (decision 001)
-- [ ] 🧑 Cloudflare token, Resend + `mail.tofoapp.com` DNS, `perks.tofoapp.com` route
-- [ ] Production app config, privacy policy page, listing copy, screenshots
+- [x] Railway deploy setup: Dockerfile, railway.json, /healthz, in-process expiry scheduler (decision 007)
+- [x] /privacy page, landing page copy, production config script
+- [ ] 🧑 Follow `docs/runbooks/deploy-railway.md` (production app, Railway, DNS, `shopify app deploy`)
+- [ ] 🧑 Resend + `mail.tofoapp.com` DNS for real verification emails
+- [ ] Screenshots + reviewer test instructions
 - [ ] 🧑 Submit to the App Store
 
 ## Known risks to check on the dev store
