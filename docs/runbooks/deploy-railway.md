@@ -91,4 +91,10 @@ shopify app deploy --config production
 ```
 
 4. Open the app in the store admin and accept new permissions, if prompted.
-5. Open **Settings** and click Save once (re-publishes config to the Functions).
+5. Open **Settings** and click Save once (re-publishes config to the Functions and the storefront).
+6. Open **Storefront** and make sure Employee mode shows as on.
+7. Run the smoke test:
+
+```bash
+sh scripts/smoke.sh
+```

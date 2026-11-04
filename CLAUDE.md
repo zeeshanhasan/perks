@@ -1,12 +1,14 @@
 @AGENTS.md
 
-# Tofo Perks: project rules
+# Employee Perks: project rules
 
-Employee Benefits Shopify app (public). Brand: tofoapp.
+Employee Benefits Shopify app (public), formerly "Tofo Perks". Brand: tofoapp. App handle: `tofo-perks`.
 
 ## Read first
 
-- `docs/PRD.md`: what we're building and why
+- `docs/HANDOFF.md`: current state and how to work locally
+- `docs/FEATURES.md`: what the app does today
+- `docs/PRD-v4.md`: roadmap (parts 0–11); `docs/PRD.md` is the original v1 PRD
 - `docs/acceptance-tests.md`: the definition of done
 - `docs/decisions/`: decisions already made. Don't re-litigate; add a new record to change one.
 - `TASKS.md`: current plan. Update the checkboxes as work lands.
@@ -29,6 +31,10 @@ Employee Benefits Shopify app (public). Brand: tofoapp.
 - No secrets in code, commits, prompts or chat. Use `.env` (gitignored).
 - Don't touch the tofoapp DNS or Workers routes beyond decision 004.
 - Work on feature branches. Never push to `main` without Zeeshan's OK.
+- Theme embed script under 10 KB; never put `{` or `}` inside a Liquid `{{ }}` (tests guard both).
+- Scope changes: update `shopify.app.toml`, then `node scripts/make-prod-config.mjs`, and Railway `SCOPES` before merging.
+- Saves write the database first, then sync Shopify; never let a Shopify error crash a page (decision 010).
+- Ask Zeeshan before writing code or docs he didn't ask for.
 
 ## Dev routine
 

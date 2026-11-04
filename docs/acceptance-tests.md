@@ -108,3 +108,37 @@ Run every test on the dev store `perks-frtekwck.myshopify.com` before submission
 | F3 | Employee opens a discounted product | Green "Employee price: 15% off at checkout" badge |
 | F4 | Employee collection set in the embed | Its menu links hidden for non-employees |
 | F5 | Embed off | Everything visible again; checkout still protected |
+
+## G. Setup wizard and businesses (v4)
+
+1. Businesses → Add business → "A partner company". Type `gmail.com` + Enter → rejected. Type a domain used by another business → rejected. Type `hr@acme-test.com` → chip `@acme-test.com`.
+2. Step 2: 15%, limit Rs 5,000 discount per month. Step 3: some products → pick a collection. The summary sentence matches. Create → "Business created. Perks are live."
+3. "Your own staff" preset: name = store name.
+4. Businesses list: switch a business off → toast, Activity shows "Business paused". Switch back on.
+5. Open a business → Delete → modal lists impact → Delete. It's gone from the list; Reports still shows its orders as "(deleted)".
+6. Shopify Discounts: exactly one "Employee perks" from this app.
+
+## H. Check a customer
+
+1. Home → Check a customer → `zeeshan@tofoapp.com` → "Gets perks from TOFO".
+2. `zeeshanhasan+normal@gmail.com` → "gmail.com isn't on any business".
+3. Remove perks for an employee on Employees → check again → "You removed this customer's perks".
+
+## I. Storefront page and employee price
+
+1. Storefront → status banner. Turn on Employee mode → Save in the theme editor → Check again → "Employee mode is on".
+2. Change the price label → Save.
+3. Log in as `zeeshan@tofoapp.com`. A discounted product page shows "<label> Rs X (15% off)" with the normal price crossed out. Switching variants updates it.
+4. A collection page and search results show the employee price on discounted products only.
+5. Log out: normal prices; employee-only products hidden; an employee-only product page shows the notice.
+
+## J. Core flows on the store
+
+1. Collection-targeted business: an employee gets the discount at checkout only on that collection's products.
+2. Place a test order as an employee → Reports shows it under the business this month.
+3. Create an invoice (discount basis) → PDF/print and CSV work; cancel the order → the issued invoice doesn't change.
+4. Set a low monthly limit → after crossing it, the next order has no employee discount.
+
+## K. Uninstall
+
+1. Uninstall the dev app → storefront shows no app markup; checkout no longer blocks employee-only products.

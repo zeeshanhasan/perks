@@ -1,6 +1,8 @@
 # PRD v4: Employee Perks
 
-**Status:** Draft · **Owner:** Zeeshan · **Brand:** tofoapp · **Builds on:** `docs/PRD.md` (v1), decisions 001–008
+**Status:** In progress · **Owner:** Zeeshan · **Brand:** tofoapp · **Builds on:** `docs/PRD.md` (v1), decisions 001–013
+
+**Progress (2026-11-04):** Part 0 done except billing (0.2) and the e2e script; Part 1 done; employee price on the storefront and the Storefront page added (decision 011). Part 2 (medical allowance) parked with a new direction: verified claims, not employer billing (decision 013). Part 3 (emails) parked. Live status: `TASKS.md`.
 
 ## What we build (the parts)
 
