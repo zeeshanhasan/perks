@@ -9,8 +9,13 @@ import styles from "./styles.module.css";
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
 
-  if (url.searchParams.get("shop")) {
-    throw redirect(`/app?${url.searchParams.toString()}`);
+  const p = url.searchParams;
+  // Opened from the Shopify admin (embedded iframe): go straight to the app, never the login page.
+  const embedded =
+    p.get("shop") || p.get("host") || p.get("embedded") || p.get("id_token") ||
+    request.headers.get("sec-fetch-dest") === "iframe";
+  if (embedded) {
+    throw redirect(`/app?${p.toString()}`);
   }
 
   return { showForm: Boolean(login) };
