@@ -36,6 +36,10 @@ export default async function handleRequest(
           const stream = createReadableStreamFromReadable(body);
 
           responseHeaders.set("Content-Type", "text/html");
+          // Stop proxies (Cloudflare Web Analytics, Rocket Loader) from injecting scripts into
+          // our pages. Their injection split React's markers and showed a stray "$".
+          const cc = responseHeaders.get("Cache-Control");
+          if (!cc?.includes("no-transform")) responseHeaders.set("Cache-Control", cc ? `${cc}, no-transform` : "no-transform");
           resolve(
             new Response(stream, {
               headers: responseHeaders,
