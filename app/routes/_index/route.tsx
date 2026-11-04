@@ -1,5 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { redirect, Form, useActionData, useLoaderData } from "react-router";
+import { useEffect } from "react";
+import { redirect, Form, useActionData, useLoaderData, useNavigate } from "react-router";
 
 import { login } from "../../shopify.server";
 import { loginErrorMessage } from "./error.server";
@@ -30,6 +31,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 export default function App() {
   const { showForm } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const navigate = useNavigate();
+  // Inside the Shopify admin (e.g. the app title link), always show the app, never this page.
+  useEffect(() => {
+    if (window.top !== window.self) navigate(`/app${window.location.search}`, { replace: true });
+  }, [navigate]);
   const errors = actionData?.errors;
 
   return (
