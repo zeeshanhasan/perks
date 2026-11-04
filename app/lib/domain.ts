@@ -55,3 +55,15 @@ export function maskEmail(email: string): string {
   if (at <= 0) return "***";
   return `${email[0]}***@${email.slice(at + 1)}`;
 }
+
+/** Public email providers. Never valid as a business domain: anyone can sign up for them. */
+const PUBLIC_EMAIL_DOMAINS = new Set([
+  "gmail.com", "googlemail.com", "yahoo.com", "ymail.com", "hotmail.com", "outlook.com", "live.com", "msn.com",
+  "icloud.com", "me.com", "mac.com", "aol.com", "proton.me", "protonmail.com", "gmx.com", "gmx.net", "mail.com",
+  "zoho.com", "yandex.com", "yandex.ru", "qq.com", "163.com", "hey.com", "fastmail.com", "tutanota.com",
+  "yahoo.co.uk", "hotmail.co.uk", "outlook.co.uk", "yahoo.ca", "hotmail.ca", "rocketmail.com",
+]);
+
+export function isPublicEmailDomain(domain: string): boolean {
+  return PUBLIC_EMAIL_DOMAINS.has(domain.toLowerCase());
+}

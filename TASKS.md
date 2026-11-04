@@ -62,3 +62,14 @@ Legend: `[ ]` todo · `[x]` done · 🧑 = needs Zeeshan
 - [x] 0.4 CI on every PR: lint, typecheck, tests, build
 - [x] 0.4 `scripts/smoke.sh` post-deploy check
 - [ ] 0.4 e2e script on the dev store (after local testing)
+
+### Part 1: Easy setup (branch `feat/foundations`)
+
+- [x] 1.1 "Add business" is a 3-step wizard: who → discount → products, with a plain-English summary
+- [x] 1.2 Presets: partner company / your own staff (prefills your email domain); 10 / 15 / 20% or custom
+- [x] 1.3 Sidebar: Home, Businesses, Employees, Reports, Settings. Activity and Help moved to Home, Settings and Employees links
+- [x] 1.4 Business page: employee-only products, limits and billing tucked under "More options"
+- [x] 1.5 Perk debugger: "Check a customer" explains why someone does or doesn't get perks, with the fix
+- [x] 1.6 Uninstall-safe: no theme code or theme scope; Help explains what happens on uninstall
+- [x] Public email domains (gmail.com etc.) can't be added to a business
+- [ ] 🧑 Test on the dev store

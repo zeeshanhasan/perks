@@ -121,8 +121,10 @@ export default function Home() {
 
       <s-section slot="aside" heading="Need help?">
         <s-stack gap="small">
-          <s-paragraph>Learn how employees get perks, and what to do when something doesn&apos;t work.</s-paragraph>
-          <s-link href="/app/help">Read the guide</s-link>
+          <s-paragraph>Someone says they don&apos;t get the discount? Check them in seconds.</s-paragraph>
+          <s-link href="/app/check">Check a customer</s-link>
+          <s-link href="/app/help">How Employee Perks works</s-link>
+          <s-link href="/app/audit">Activity log</s-link>
         </s-stack>
       </s-section>
     </s-page>

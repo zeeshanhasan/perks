@@ -85,6 +85,12 @@ export default function Settings() {
 
   return (
     <s-page heading="Settings">
+      <s-button slot="secondary-actions" href="/app/audit">
+        Activity log
+      </s-button>
+      <s-button slot="secondary-actions" href="/app/help">
+        Help
+      </s-button>
       <SaveBar id="settings-save-bar" open={dirty}>
         <button {...{ variant: "primary" }} onClick={save} {...(saving ? { loading: "" } : {})}></button>
         <button onClick={() => setS(initial)}></button>
