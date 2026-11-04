@@ -70,7 +70,10 @@ test("paused or deleted businesses drop out of the config; flags are removed", a
   expect(mf(DISCOUNT, "perks_config").businesses).toEqual([]);
   expect(metafields.has("gid://shopify/Product/1|perks_employee_only")).toBe(false);
   await deleteBusiness(admin, SHOP, "merchant:t", b.id);
-  expect(await db.business.count({ where: { shop: SHOP } })).toBe(0);
+  // Archived, not removed: reports keep the name, and the legacy migration can't recreate it.
+  expect(await db.business.count({ where: { shop: SHOP, archivedAt: null } })).toBe(0);
+  expect(await db.business.count({ where: { shop: SHOP } })).toBe(1);
+  expect(await listBusinesses(SHOP)).toHaveLength(0);
 });
 
 test("store-wide settings: exclusions reach the Functions", async () => {

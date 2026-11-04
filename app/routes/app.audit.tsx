@@ -18,6 +18,11 @@ const LABELS: Record<string, string> = {
   "membership.domain_inactive": "Work email no longer matches",
   "privacy.customer_data_request": "Customer data requested",
   "privacy.customer_redact": "Customer data deleted",
+  "business.create": "Business added",
+  "business.update": "Business updated",
+  "business.delete": "Business deleted",
+  "business.pause": "Business paused",
+  "business.resume": "Business resumed",
 };
 
 const DETAILS: Record<string, string> = {

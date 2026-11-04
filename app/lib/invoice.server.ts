@@ -23,11 +23,12 @@ export async function businessSummary(shop: string, from: Date, to: Date) {
     x.discount += r.discount;
     by.set(r.businessId, x);
   }
-  const lines = businesses.map((b) => {
+  // Deleted businesses only show up when they have orders in the range.
+  const lines = businesses.filter((b) => !b.archivedAt || by.has(b.id)).map((b) => {
     const x = by.get(b.id);
     return {
       businessId: b.id,
-      name: b.name,
+      name: b.archivedAt ? `${b.name} (deleted)` : b.name,
       orders: x?.orders ?? 0,
       employees: x?.employees.size ?? 0,
       spend: round2(x?.spend ?? 0),

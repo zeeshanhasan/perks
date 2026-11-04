@@ -16,7 +16,7 @@ const customerActor = (id: string) => `customer:${id}`;
 export async function getProgram(shop: string) {
   await migrateLegacy(shop);
   const [businesses, policy] = await Promise.all([
-    db.business.findMany({ where: { shop, active: true }, orderBy: { createdAt: "asc" } }),
+    db.business.findMany({ where: { shop, active: true, archivedAt: null }, orderBy: { createdAt: "asc" } }),
     db.benefitPolicy.findUnique({ where: { shop } }),
   ]);
   return {

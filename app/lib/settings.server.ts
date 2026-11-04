@@ -68,13 +68,36 @@ export async function saveBusiness(
   return b;
 }
 
+/**
+ * "Delete" archives the business: perks stop at once, but its orders, reports and invoices keep
+ * its name. Hard deletes would also let the legacy migration recreate a business.
+ */
 export async function deleteBusiness(admin: AdminClient, shop: string, actor: string, id: string) {
-  const b = await db.business.findFirst({ where: { id, shop } });
+  const b = await db.business.findFirst({ where: { id, shop, archivedAt: null } });
   if (!b) return;
-  await db.business.delete({ where: { id } });
+  await db.business.update({ where: { id }, data: { archivedAt: new Date(), active: false } });
   await db.employeeMembership.updateMany({ where: { shop, businessId: id, status: "active" }, data: { status: "inactive" } });
   await syncShopifyObjects(admin, shop);
   await audit({ shop, actor, action: "business.delete", subject: b.name, result: "ok" });
+}
+
+/** Pause or resume a business from the list. */
+export async function setBusinessActive(admin: AdminClient, shop: string, actor: string, id: string, active: boolean) {
+  const b = await db.business.findFirst({ where: { id, shop, archivedAt: null } });
+  if (!b || b.active === active) return b;
+  const u = await db.business.update({ where: { id }, data: { active } });
+  await syncShopifyObjects(admin, shop);
+  await audit({ shop, actor, action: active ? "business.resume" : "business.pause", subject: b.name, result: "ok" });
+  return u;
+}
+
+/** What deleting a business affects, shown before the merchant confirms. */
+export async function deleteImpact(shop: string, id: string) {
+  const [employees, orders] = await Promise.all([
+    db.employeeMembership.count({ where: { shop, businessId: id, status: "active" } }),
+    db.orderUsage.count({ where: { shop, businessId: id, cancelled: false } }),
+  ]);
+  return { employees, orders };
 }
 
 const MAX_RESOLVED = 5000;

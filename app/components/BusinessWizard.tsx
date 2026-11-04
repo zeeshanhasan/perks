@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { Targeting } from "../lib/targeting";
 import { EMPTY_TARGET, isEmptyTarget } from "../lib/targeting";
+import type { TakenDomain } from "./DomainChips";
+import { DomainChips } from "./DomainChips";
 import { TargetEditor } from "./TargetEditor";
 
 /**
@@ -18,6 +20,10 @@ export type WizardValues = {
   discountValue: string;
   discountTarget: Targeting;
   employeeOnlyTarget: Targeting;
+  limitPeriod: string;
+  limitBasis: string;
+  limitAmount: string;
+  billingEmail: string;
 };
 
 type Props = {
@@ -26,6 +32,7 @@ type Props = {
   types: string[];
   shopName: string;
   ownDomain: string | null;
+  taken: TakenDomain[];
   saving: boolean;
   errors: Record<string, string>;
   onSubmit: (v: WizardValues) => void;
@@ -34,11 +41,15 @@ type Props = {
 const value = (e: Event) => (e.currentTarget as unknown as { value: string }).value;
 const values = (e: Event) => (e.currentTarget as unknown as { values: string[] }).values ?? [];
 
-export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, saving, errors, onSubmit }: Props) {
+export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, taken, saving, errors, onSubmit }: Props) {
   const [step, setStep] = useState(1);
   const [preset, setPreset] = useState<Preset>("partner");
   const [name, setName] = useState("");
-  const [domains, setDomains] = useState("");
+  const [domains, setDomains] = useState<string[]>([]);
+  const [billingEmail, setBillingEmail] = useState("");
+  const [limitPeriod, setLimitPeriod] = useState("none");
+  const [limitBasis, setLimitBasis] = useState("discount");
+  const [limitAmount, setLimitAmount] = useState("");
   const [amount, setAmount] = useState("10");
   const [custom, setCustom] = useState(false);
   const [discountType, setDiscountType] = useState("percentage");
@@ -48,43 +59,51 @@ export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, 
 
   // Server errors: jump back to the step that has the problem.
   useEffect(() => {
-    if (errors.name || errors.domains) setStep(1);
-    else if (errors.discountValue) setStep(2);
+    if (errors.name || errors.domains || errors.billingEmail) setStep(1);
+    else if (errors.discountValue || errors.limitAmount) setStep(2);
     else if (errors.discountTarget) setStep(3);
   }, [errors]);
 
   const choosePreset = (p: Preset) => {
     setPreset(p);
     if (p === "staff") {
-      if (!name) setName(shopName ? `${shopName} team` : "Our team");
-      if (!domains && ownDomain) setDomains(ownDomain);
+      if (!name) setName(shopName || "Our team");
+      if (!domains.length && ownDomain && !taken.some((t) => t.domain === ownDomain)) setDomains([ownDomain]);
     }
   };
 
   const next = () => {
     setStepError("");
-    if (step === 1 && (!name.trim() || !domains.trim())) return setStepError("Add a name and at least one email domain.");
+    if (step === 1 && (!name.trim() || !domains.length))
+      return setStepError("Add a name and at least one email domain (type it and press Enter).");
     if (step === 2 && !(Number(amount) > 0)) return setStepError("Enter a discount.");
+    if (step === 2 && limitPeriod !== "none" && !(Number(limitAmount) > 0)) return setStepError("Enter the limit amount.");
     setStep(step + 1);
   };
 
   const pct = discountType !== "fixed";
   const discountText = pct ? `${amount}% off` : `${currency} ${amount} off each item`;
-  const firstDomain = domains.split(",")[0]?.trim() || "their domain";
+  const firstDomain = domains.length > 1 ? `${domains[0]} (or ${domains.length - 1} more)` : (domains[0] ?? "their domain");
   const scopeText =
     scope === "all" ? "everything in your store" : scope === "selected" ? "the products you picked" : "products only they can buy";
-  const summary = `Anyone who logs in with an @${firstDomain} email gets ${discountText} ${scopeText}.`;
+  const limitText =
+    limitPeriod === "none" ? "" : ` Up to ${currency} ${limitAmount || "0"} ${limitBasis === "spend" ? "of spend" : "of discount"} per employee per ${limitPeriod}.`;
+  const summary = `Anyone who logs in with an @${firstDomain} email gets ${discountText} ${scopeText}.${limitText}`;
 
   const create = () => {
     if (scope !== "all" && isEmptyTarget(target)) return setStepError("Pick at least one product, collection, vendor or type.");
     setStepError("");
     onSubmit({
       name: name.trim(),
-      domains,
+      domains: domains.join(", "),
       discountType,
       discountValue: amount,
       discountTarget: scope === "all" ? { ...EMPTY_TARGET, all: true } : scope === "selected" ? { ...target, all: false } : EMPTY_TARGET,
       employeeOnlyTarget: scope === "employeeOnly" ? { ...target, all: false } : EMPTY_TARGET,
+      limitPeriod,
+      limitBasis,
+      limitAmount: limitPeriod === "none" ? "" : limitAmount,
+      billingEmail: billingEmail.trim(),
     });
   };
 
@@ -113,14 +132,17 @@ export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, 
               error={errors.name}
               placeholder="Acme Pharma"
             />
-            <s-text-field
-              label="Work email domains"
-              details="Employees who log in with these email domains get perks. Separate with commas."
-              value={domains}
-              onInput={(e) => setDomains(value(e))}
-              error={errors.domains}
-              placeholder="acme.com, acme.pk"
-            />
+            <DomainChips value={domains} onChange={setDomains} taken={taken} error={errors.domains} />
+            {preset === "partner" ? (
+              <s-email-field
+                label="HR or billing email (optional)"
+                details="Where invoices for this company go. You can add it later."
+                value={billingEmail}
+                onInput={(e) => setBillingEmail(value(e))}
+                error={errors.billingEmail}
+                placeholder="hr@acme.com"
+              />
+            ) : null}
           </s-stack>
         </s-section>
       ) : null}
@@ -168,7 +190,33 @@ export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, 
                 />
               </s-stack>
             ) : null}
-            <s-text color="subdued">You can add a monthly or yearly limit per employee later.</s-text>
+            <s-divider />
+            <s-select label="Limit per employee" value={limitPeriod} onChange={(e) => setLimitPeriod(value(e))}>
+              <s-option value="none">No limit</s-option>
+              <s-option value="month">Per month</s-option>
+              <s-option value="year">Per year</s-option>
+            </s-select>
+            {limitPeriod !== "none" ? (
+              <s-stack direction="inline" gap="base">
+                <s-select label="Limit on" value={limitBasis} onChange={(e) => setLimitBasis(value(e))}>
+                  <s-option value="discount">Discount received</s-option>
+                  <s-option value="spend">Total spend</s-option>
+                </s-select>
+                <s-number-field
+                  label={`Amount (${currency})`}
+                  value={limitAmount}
+                  onInput={(e) => setLimitAmount(value(e))}
+                  min={0}
+                  step={0.01}
+                  error={errors.limitAmount}
+                />
+              </s-stack>
+            ) : null}
+            <s-text color="subdued">
+              {limitPeriod === "none"
+                ? "Optional. Cap how much each employee can get per month or year."
+                : `Once an employee reaches it, they pay full price until next ${limitPeriod}.`}
+            </s-text>
           </s-stack>
         </s-section>
       ) : null}

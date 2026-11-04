@@ -4,16 +4,17 @@ import { redirect, useFetcher, useLoaderData } from "react-router";
 import { SaveBar, useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { BusinessWizard } from "../components/BusinessWizard";
+import { DomainChips } from "../components/DomainChips";
 import type { WizardValues } from "../components/BusinessWizard";
 import { TargetEditor } from "../components/TargetEditor";
 import { useSaveBar } from "../components/useSaveBar";
 import { merchantActor } from "../lib/admin-actor.server";
 import { gql } from "../lib/admin-graphql.server";
 import { parseBusinessForm } from "../lib/business";
-import { domainConflicts, getBusiness } from "../lib/business.server";
+import { domainConflicts, getBusiness, takenDomains } from "../lib/business.server";
 import { catalogFacets } from "../lib/catalog.server";
 import { isPublicEmailDomain } from "../lib/domain";
-import { deleteBusiness, saveBusiness } from "../lib/settings.server";
+import { deleteBusiness, deleteImpact, saveBusiness } from "../lib/settings.server";
 import type { Targeting } from "../lib/targeting";
 import { EMPTY_TARGET, isEmptyTarget } from "../lib/targeting";
 import { authenticate } from "../shopify.server";
@@ -21,13 +22,15 @@ import { authenticate } from "../shopify.server";
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const facets = await catalogFacets(admin);
+  const taken = await takenDomains(session.shop, params.id === "new" ? undefined : params.id);
   if (params.id === "new") {
     const own = await ownEmailDomain(admin);
-    return { business: null, ...facets, ...own };
+    return { business: null, ...facets, ...own, taken, impact: { employees: 0, orders: 0 } };
   }
   const business = await getBusiness(session.shop, params.id!);
   if (!business) throw redirect("/app/businesses");
-  return { business, ...facets, shopName: "", ownDomain: null as string | null };
+  const impact = await deleteImpact(session.shop, business.id);
+  return { business, ...facets, taken, impact, shopName: "", ownDomain: null as string | null };
 };
 
 /** The store's own email domain (for the "Your own staff" preset). null for public providers. */
@@ -83,7 +86,7 @@ type FormState = {
 const SAVE_BAR_ID = "business-save-bar";
 
 export default function BusinessEdit() {
-  const { business, vendors, types, currency, shopName, ownDomain } = useLoaderData<typeof loader>();
+  const { business, vendors, types, currency, shopName, ownDomain, impact, taken } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
   const { leave } = useSaveBar(SAVE_BAR_ID);
@@ -137,10 +140,6 @@ export default function BusinessEdit() {
         ...v,
         discountTarget: JSON.stringify(v.discountTarget),
         employeeOnlyTarget: JSON.stringify(v.employeeOnlyTarget),
-        limitPeriod: "none",
-        limitBasis: "discount",
-        limitAmount: "",
-        billingEmail: "",
         billingAddress: "",
         active: "on",
       },
@@ -164,6 +163,7 @@ export default function BusinessEdit() {
           types={types}
           shopName={shopName}
           ownDomain={ownDomain}
+          taken={taken}
           saving={saving}
           errors={errors}
           onSubmit={create}
@@ -189,13 +189,11 @@ export default function BusinessEdit() {
         <s-section heading="Business">
           <s-stack gap="base">
             <s-text-field label="Name" value={f.name} onInput={input("name")} error={errors.name} placeholder="Acme Pharma" />
-            <s-text-field
-              label="Work email domains"
-              details="Employees who log in with these email domains get this business's perks. Separate with commas."
-              value={f.domains}
-              onInput={input("domains")}
+            <DomainChips
+              value={f.domains ? f.domains.split(/,\s*/).filter(Boolean) : []}
+              onChange={(d) => set({ domains: d.join(", ") })}
+              taken={taken}
               error={errors.domains}
-              placeholder="acme.com, acme.pk"
             />
             <s-checkbox
               label="Active"
@@ -310,26 +308,67 @@ export default function BusinessEdit() {
           </s-section>
         )}
 
-        {!isNew ? (
-          <s-section heading="Delete business">
-            <s-stack gap="small">
-              <s-paragraph>
-                Its employees lose their perks. Past orders and invoices stay in Reports.
-              </s-paragraph>
-              <s-box>
-                <s-button
-                  tone="critical"
-                  onClick={() => {
-                    if (confirm(`Delete ${business?.name}? This can't be undone.`))
-                      fetcher.submit({ intent: "delete" }, { method: "post" });
-                  }}
-                >
-                  Delete business
-                </s-button>
-              </s-box>
-            </s-stack>
-          </s-section>
-        ) : null}
+        <s-section heading="Delete business">
+          <s-stack gap="small">
+            <s-paragraph>Stop this business&apos;s perks for good. Its past orders and invoices stay in Reports.</s-paragraph>
+            <s-box>
+              <s-button tone="critical" commandFor="delete-modal" command="--show">
+                Delete business
+              </s-button>
+            </s-box>
+          </s-stack>
+        </s-section>
+
+        <s-modal id="delete-modal" heading={`Delete ${business?.name}?`}>
+          <s-stack gap="base">
+            <s-unordered-list>
+              <s-list-item>
+                <strong>
+                  {impact.employees} employee{impact.employees === 1 ? "" : "s"}
+                </strong>{" "}
+                lose their perks right away. Their customer accounts don&apos;t change, and there&apos;s nothing to clean up.
+              </s-list-item>
+              <s-list-item>
+                Orders already placed keep their discount. Anyone mid-checkout pays full price from their next update.
+              </s-list-item>
+              {!isEmptyTarget(initial.employeeOnlyTarget) ? (
+                <s-list-item>
+                  <strong>Its employee-only products become normal products anyone can buy.</strong> Unpublish them first
+                  if they must stay private.
+                </s-list-item>
+              ) : null}
+              <s-list-item>
+                Its {impact.orders} recorded order{impact.orders === 1 ? "" : "s"}, reports and invoices are kept.
+              </s-list-item>
+              <s-list-item>You can&apos;t undo this. To stop perks for a while, pause the business instead.</s-list-item>
+            </s-unordered-list>
+          </s-stack>
+          <s-button
+            slot="primary-action"
+            variant="primary"
+            tone="critical"
+            loading={saving}
+            onClick={() => fetcher.submit({ intent: "delete" }, { method: "post" })}
+          >
+            Delete business
+          </s-button>
+          {f.active ? (
+            <s-button
+              slot="secondary-actions"
+              commandFor="delete-modal"
+              command="--hide"
+              onClick={() => {
+                set({ active: false });
+                shopify.toast.show("Paused. Click Save to apply.");
+              }}
+            >
+              Pause instead
+            </s-button>
+          ) : null}
+          <s-button slot="secondary-actions" commandFor="delete-modal" command="--hide">
+            Cancel
+          </s-button>
+        </s-modal>
       </s-stack>
     </s-page>
   );

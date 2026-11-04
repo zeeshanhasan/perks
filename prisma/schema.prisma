@@ -150,6 +150,8 @@ model Business {
   billingEmail       String   @default("")
   billingAddress     String   @default("")
   active             Boolean  @default(true)
+  /// Set when deleted. Kept so reports and invoices still show the name.
+  archivedAt         DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
