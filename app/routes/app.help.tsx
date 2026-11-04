@@ -84,8 +84,9 @@ export default function Help() {
       <s-section heading="Turn on Employee mode in your theme">
         <s-stack gap="base">
           <s-paragraph>
-            Employee mode hides employee-only products from other shoppers in collections and search results, and
-            replaces the buy button with a message on their product pages. Employees see a badge with their discount.
+            Employee mode shows employees their price on product pages and in collections, hides employee-only
+            products from other shoppers, and replaces the buy button with a message on those products. Change its
+            texts on the <s-link href="/app/storefront">Storefront</s-link> page.
           </s-paragraph>
           <s-ordered-list>
             <s-list-item>Open the theme editor with the button below.</s-list-item>

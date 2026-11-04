@@ -7,7 +7,7 @@ name = "perks"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_customers,write_customers,read_orders,read_products,write_products,read_discounts,write_discounts,read_validations,write_validations"
+scopes = "read_customers,write_customers,read_orders,read_products,write_products,read_discounts,write_discounts,read_themes,read_validations,write_validations"
 
 # --- App-owned metafields (decision 003) -------------------------------------
 # The DB is the source of truth; these are the published copy the Functions read.

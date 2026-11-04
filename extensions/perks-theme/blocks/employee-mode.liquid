@@ -104,9 +104,9 @@
         prices: { {%- for v in product.variants -%}"{{ v.id }}":{{ v.price }}{%- unless forloop.last -%},{%- endunless -%}{%- endfor -%} }
       },
       price: {
-        show: {{ block.settings.show_price }},
-        strike: {{ block.settings.strike_price }},
-        text: {{ block.settings.price_text | json }},
+        show: {% if cfg.ui == nil or cfg.ui.showPrice %}true{% else %}false{% endif %},
+        strike: {% if cfg.ui == nil or cfg.ui.strikePrice %}true{% else %}false{% endif %},
+        text: {{ cfg.ui.priceLabel | default: 'Your employee price' | json }},
         type: {{ my_biz.type | default: 'percentage' | json }},
         value: {{ my_biz.value | default: 0 }},
         sameCurrency: {% if cart.currency.iso_code == shop.currency %}true{% else %}false{% endif %},
@@ -119,12 +119,12 @@
       },
       hiddenHashes: [{{ hidden | strip | remove_last: ',' }}],
       hideCollection: {{ block.settings.employee_collection.handle | default: '' | json }},
-      hideProducts: {{ block.settings.hide_products }},
+      hideProducts: {% if cfg.ui == nil or cfg.ui.hideProducts %}true{% else %}false{% endif %},
       text: {
-        title: {{ block.settings.notice_title | json }},
-        body: {{ block.settings.notice_body | json }},
-        cta: {{ block.settings.notice_cta | json }},
-        badge: {{ block.settings.badge_text | json }}
+        title: {{ cfg.ui.noticeTitle | default: 'Only for partner employees' | json }},
+        body: {{ cfg.ui.noticeBody | default: 'This product is reserved for employees of our partner companies. Log in with your work email to buy it.' | json }},
+        cta: {{ cfg.ui.noticeButton | default: 'Log in with work email' | json }},
+        badge: {{ cfg.ui.badgeText | default: 'Employee discount: {discount} applied at checkout' | json }}
       },
       verifyUrl: "/apps/perks/verify"
     };
@@ -137,18 +137,9 @@
   "target": "body",
   "javascript": "employee-mode.js",
   "settings": [
-    { "type": "paragraph", "content": "Hides employee-only products from other shoppers and shows employees their perks. Checkout is always protected, even with this off." },
-    { "type": "checkbox", "id": "hide_products", "label": "Hide employee-only products from other shoppers", "default": true },
+    { "type": "paragraph", "content": "Texts and options are set in the Employee Perks app, under Storefront. Checkout is always protected, even with this off." },
     { "type": "collection", "id": "employee_collection", "label": "Employee collection (optional)", "info": "Links to this collection are hidden from other shoppers." },
-    { "type": "header", "content": "Message on employee-only products" },
-    { "type": "text", "id": "notice_title", "label": "Title", "default": "Employee exclusive" },
-    { "type": "text", "id": "notice_body", "label": "Text", "default": "This product is available to employees of our partner companies. Log in with your work email to buy it." },
-    { "type": "text", "id": "notice_cta", "label": "Button", "default": "Get employee access" },
-    { "type": "header", "content": "Employee price" },
-    { "type": "checkbox", "id": "show_price", "label": "Show employees their price on products and collections", "default": true },
-    { "type": "checkbox", "id": "strike_price", "label": "Cross out the normal price on product pages", "default": true },
-    { "type": "text", "id": "price_text", "label": "Price label", "default": "Your employee price", "info": "Shown next to the price, e.g. Your employee price Rs 1,700 (15% off)." },
-    { "type": "text", "id": "badge_text", "label": "Fallback badge text", "default": "Employee price: {discount} at checkout", "info": "Used when the price can't be shown. {discount} is replaced with the employee's discount, e.g. 15% off." },
+    { "type": "header", "content": "Colours" },
     { "type": "color", "id": "badge_bg", "label": "Badge background", "default": "#E3F1DF" },
     { "type": "color", "id": "badge_fg", "label": "Badge text color", "default": "#0C5132" }
   ]

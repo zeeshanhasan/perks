@@ -65,6 +65,8 @@ model BenefitPolicy {
   discountId           String?
   validationId         String?
   enabled              Boolean  @default(false)
+  /// Storefront (Employee mode) options and texts, JSON. See app/lib/storefront.ts.
+  storefront           String   @default("{}")
   updatedAt            DateTime @updatedAt
 }
 

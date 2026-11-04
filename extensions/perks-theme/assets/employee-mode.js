@@ -31,6 +31,10 @@
 
   var P = window.TofoPerks;
   if (!P) return;
+  // Add ?perks_debug=1 to any store URL to see what Employee mode decided, in the browser console.
+  var DEBUG = /[?&]perks_debug=1/.test(location.search);
+  function debug() { if (DEBUG) console.log.apply(console, ["[Employee Perks]"].concat([].slice.call(arguments))); }
+  debug("state", { eligible: P.eligible, enabled: P.enabled, product: P.product, price: P.price });
 
   var CARD = "li, .grid__item, .card-wrapper, .product-card, .product-item, .predictive-search__list-item";
   var BUY = 'form[action*="/cart/add"], product-form, .product-form, .shopify-payment-button, .product-form__buttons';
@@ -124,7 +128,8 @@
     var cents = P.product.prices[currentVariant()];
     if (cents == null) return false;
     var priceEl = findProductPrice();
-    if (!priceEl) return false;
+    var form = document.querySelector(BUY);
+    if (!priceEl && !form) return false;
     var el = document.getElementById("tofo-perks-price");
     if (!el) {
       el = document.createElement("div");
@@ -140,8 +145,14 @@
     tag.textContent = l.off;
     el.appendChild(strong);
     el.appendChild(tag);
-    if (el.previousElementSibling !== priceEl) priceEl.insertAdjacentElement("afterend", el);
-    if (P.price.strike) priceEl.classList.add("tofo-perks-strike");
+    // Next to the theme's price; if the theme has no price element we can find, above the buy button.
+    if (priceEl) {
+      if (el.previousElementSibling !== priceEl) priceEl.insertAdjacentElement("afterend", el);
+      if (P.price.strike) priceEl.classList.add("tofo-perks-strike");
+    } else if (el.nextElementSibling !== form) {
+      form.parentNode.insertBefore(el, form);
+    }
+    debug("employee price shown", { variant: currentVariant(), cents: cents, priceEl: Boolean(priceEl) });
     return true;
   }
   function watchProductPrice() {
@@ -204,6 +215,7 @@
       ? sha256(P.product.handle.toLowerCase()).then(function (d) { return P.hiddenHashes.indexOf(d) !== -1; })
       : Promise.resolve(false);
     blocked.then(function (isBlocked) {
+      debug("product page", { blocked: isBlocked, discounted: P.product.discounted, canShowPrice: canShowPrice() });
       if (isBlocked) notice(form);
       else if (P.eligible && P.enabled && P.product.discounted) {
         if (canShowPrice() && renderProductPrice()) watchProductPrice();

@@ -12,6 +12,7 @@ import type { BusinessView } from "./business.server";
 import { DISCOUNT_CONFIG_KEY, ELIGIBILITY_NAMESPACE, STOREFRONT_KEY, STOREFRONT_NAMESPACE } from "./eligibility";
 import { setMetafields } from "./metafields.server";
 import { parseJsonList } from "./policy";
+import { parseStorefront } from "./storefront";
 import { toFunctionTarget } from "./targeting";
 
 export const DISCOUNT_TITLE = "Employee perks";
@@ -238,6 +239,7 @@ export async function publishStorefrontConfig(
   const value = {
     v: 2,
     enabled: policy.enabled,
+    ui: parseStorefront(policy.storefront),
     autoDomain: policy.autoDomain,
     excluded: parseJsonList(policy.excludedProducts).map((g) => g.split("/").pop()),
     businesses: active.map((b) => {

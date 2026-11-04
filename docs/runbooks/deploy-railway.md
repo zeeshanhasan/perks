@@ -34,7 +34,7 @@ node scripts/make-prod-config.mjs https://perks.tofoapp.com
 | `SHOPIFY_API_KEY` | Client ID (step A) |
 | `SHOPIFY_API_SECRET` | Client secret (step A) |
 | `SHOPIFY_APP_URL` | `https://perks.tofoapp.com` |
-| `SCOPES` | `read_customers,write_customers,read_orders,read_products,write_products,read_discounts,write_discounts,read_validations,write_validations` |
+| `SCOPES` | `read_customers,write_customers,read_orders,read_products,write_products,read_discounts,write_discounts,read_themes,read_validations,write_validations` |
 | `CRON_SECRET` | any long random string (`openssl rand -hex 32`) |
 | `RESEND_API_KEY` | from Resend (until set, verification links only appear in Railway logs) |
 | `PERKS_EMAIL_FROM` | `Tofo Perks <perks@mail.tofoapp.com>` |

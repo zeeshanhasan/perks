@@ -5,12 +5,14 @@ import { Stat } from "../components/ui";
 import { formatMoney } from "../lib/business";
 import { shopCurrency } from "../lib/catalog.server";
 import { getSetup } from "../lib/setup.server";
+import { embedStatus } from "../lib/storefront.server";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const { currency } = await shopCurrency(admin);
-  const setup = await getSetup(session.shop, process.env.SHOPIFY_API_KEY || "", currency);
+  const embed = await embedStatus(admin);
+  const setup = await getSetup(session.shop, process.env.SHOPIFY_API_KEY || "", currency, embed.on);
   return { currency, ...setup };
 };
 

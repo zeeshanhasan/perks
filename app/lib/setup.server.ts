@@ -19,7 +19,7 @@ export function themeEditorEmbedUrl(shop: string, apiKey: string) {
   return `https://admin.shopify.com/store/${handle}/themes/current/editor?context=apps&activateAppId=${apiKey}/employee-mode`;
 }
 
-export async function getSetup(shop: string, apiKey: string, currency: string) {
+export async function getSetup(shop: string, apiKey: string, currency: string, embedOn: boolean | null = null) {
   const businesses = await listBusinesses(shop);
   const [policy, counts] = await Promise.all([
     db.benefitPolicy.findUnique({ where: { shop } }),
@@ -46,10 +46,10 @@ export async function getSetup(shop: string, apiKey: string, currency: string) {
     {
       id: "theme",
       title: "Turn on Employee mode in your theme",
-      description: "Hides employee-only products from other shoppers and shows employees their perks. One click, then Save.",
-      done: false,
-      manual: true,
-      action: { label: "Open theme editor", href: themeEditorEmbedUrl(shop, apiKey), external: true },
+      description: "Shows employees their prices and hides employee-only products from other shoppers. One click, then Save.",
+      done: embedOn === true,
+      manual: embedOn === null,
+      action: { label: "Turn on Employee mode", href: themeEditorEmbedUrl(shop, apiKey), external: true },
     },
   ];
 
