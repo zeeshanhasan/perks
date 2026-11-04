@@ -31,3 +31,13 @@ describe("theme app extension limits", () => {
     expect(statSync(new URL("../extensions/perks-theme/assets/employee-mode.js", import.meta.url)).size).toBeLessThan(10_000);
   });
 });
+
+describe("theme Liquid", () => {
+  it("has no braces inside {{ }} (Shopify ends an output tag at the first })", async () => {
+    const { readFileSync } = await import("fs");
+    const src = readFileSync(new URL("../extensions/perks-theme/blocks/employee-mode.liquid", import.meta.url), "utf8");
+    const body = src.slice(0, src.indexOf("{% schema %}"));
+    const bad = [...body.matchAll(/\{\{([\s\S]*?)\}\}/g)].filter((m) => /[{}]/.test(m[1])).map((m) => m[0]);
+    expect(bad).toEqual([]);
+  });
+});

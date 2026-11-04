@@ -88,7 +88,7 @@
  function badge(form) {
   var el = document.createElement("div");
   el.className = "tofo-perks-badge";
-  el.textContent = P.text.badge.replace("{discount}", P.discountLabel).replace("{percent}%", P.discountLabel);
+  el.textContent = (P.text.badge || "Employee discount: {discount} applied at checkout").replace("{discount}", P.discountLabel).replace("{percent}%", P.discountLabel);
   form.parentNode.insertBefore(el, form);
  }
  var PRICE_SELS = ['[id^="price-template"] .price', ".product__info-container .price", ".product__info-wrapper .price", ".product-single__price", ".product__price", "[data-product-price]", "main .price"];
@@ -202,7 +202,7 @@
    if (isBlocked) notice(form);
    else if (P.eligible && P.enabled && P.product.discounted) {
     if (canShowPrice() && renderProductPrice()) watchProductPrice();
-    else if (P.text.badge) badge(form);
+    else badge(form);
    }
   });
  }

@@ -124,7 +124,7 @@
         title: {{ cfg.ui.noticeTitle | default: 'Only for partner employees' | json }},
         body: {{ cfg.ui.noticeBody | default: 'This product is reserved for employees of our partner companies. Log in with your work email to buy it.' | json }},
         cta: {{ cfg.ui.noticeButton | default: 'Log in with work email' | json }},
-        badge: {{ cfg.ui.badgeText | default: 'Employee discount: {discount} applied at checkout' | json }}
+        badge: {% if cfg.ui.badgeText %}{{ cfg.ui.badgeText | json }}{% else %}null{% endif %}
       },
       verifyUrl: "/apps/perks/verify"
     };
