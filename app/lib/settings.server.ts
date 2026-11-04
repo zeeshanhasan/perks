@@ -8,9 +8,9 @@ import { businessData, listBusinesses, migrateLegacy } from "./business.server";
 import { syncEmployeeOnly } from "./metafields.server";
 import type { SettingsInput } from "./policy";
 import { parseJsonList } from "./policy";
-import type { EmployeeOnlyIndex } from "./shopify-objects.server";
-import { ensureDiscount, ensureValidation, publishStorefrontConfig } from "./shopify-objects.server";
+import { type DiscountedIndex, type EmployeeOnlyIndex, ensureDiscount, ensureValidation, publishStorefrontConfig } from "./shopify-objects.server";
 import { productSearchQuery } from "./targeting";
+import type { Targeting } from "./targeting";
 
 export async function getSettings(shop: string) {
   await migrateLegacy(shop);
@@ -119,6 +119,8 @@ export async function deleteImpact(shop: string, id: string) {
 }
 
 const MAX_RESOLVED = 5000;
+/** Keeps the storefront config small enough for the theme to load quickly. */
+const MAX_STOREFRONT_HANDLES = 2000;
 
 type Page = { nodes: { id: string; handle: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } };
 
@@ -137,44 +139,66 @@ async function pageAll(fetchPage: (after: string | null) => Promise<Page>, out: 
  * Used for the theme embed (hiding) and the perks_employee_only product flag (defence in depth;
  * the Functions also evaluate targeting live at checkout).
  */
+/** Resolves targeting to concrete products (id → handle), up to MAX_RESOLVED. */
+async function resolveTarget(admin: AdminClient, t: Targeting) {
+  const products = new Map<string, string>();
+  if (t.products.length) {
+    for (let i = 0; i < t.products.length; i += 100) {
+      const data = await gql<{ nodes: ({ id: string; handle: string } | null)[] }>(admin, `#graphql
+        query PerksHandles($ids: [ID!]!) { nodes(ids: $ids) { ... on Product { id handle } } }`, {
+        ids: t.products.slice(i, i + 100).map((p) => p.id),
+      });
+      for (const n of data.nodes) if (n?.id) products.set(n.id, n.handle);
+    }
+  }
+  for (const c of t.collections) {
+    await pageAll(async (after) => {
+      const data = await gql(admin, `#graphql
+        query PerksCollectionProducts($id: ID!, $after: String) {
+          collection(id: $id) { products(first: 250, after: $after) { nodes { id handle } pageInfo { hasNextPage endCursor } } }
+        }`, { id: c.id, after });
+      return data.collection?.products ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
+    }, products);
+  }
+  const query = productSearchQuery(t);
+  if (query) {
+    await pageAll(async (after) => {
+      const data = await gql(admin, `#graphql
+        query PerksSearchProducts($q: String!, $after: String) {
+          products(first: 250, after: $after, query: $q) { nodes { id handle } pageInfo { hasNextPage endCursor } }
+        }`, { q: query, after });
+      return data.products;
+    }, products);
+  }
+  return products;
+}
+
+/**
+ * Resolves each business's employee-only targeting to concrete products (id → handle).
+ * Used for the theme embed (hiding) and the perks_employee_only product flag (defence in depth;
+ * the Functions also evaluate targeting live at checkout).
+ */
 export async function resolveEmployeeOnly(admin: AdminClient, businesses: BusinessView[]) {
   const perBusiness: { businessId: string; products: Map<string, string> }[] = [];
   for (const b of businesses.filter((x) => x.active)) {
-    const t = b.employeeOnlyTarget;
-    const products = new Map<string, string>();
-    if (t.products.length) {
-      for (let i = 0; i < t.products.length; i += 100) {
-        const data = await gql<{ nodes: ({ id: string; handle: string } | null)[] }>(admin, `#graphql
-          query PerksHandles($ids: [ID!]!) { nodes(ids: $ids) { ... on Product { id handle } } }`, {
-          ids: t.products.slice(i, i + 100).map((p) => p.id),
-        });
-        for (const n of data.nodes) if (n?.id) products.set(n.id, n.handle);
-      }
-    }
-    for (const c of t.collections) {
-      await pageAll(async (after) => {
-        const data = await gql(admin, `#graphql
-          query PerksCollectionProducts($id: ID!, $after: String) {
-            collection(id: $id) { products(first: 250, after: $after) { nodes { id handle } pageInfo { hasNextPage endCursor } } }
-          }`, { id: c.id, after });
-        return data.collection?.products ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
-      }, products);
-    }
-    const query = productSearchQuery(t);
-    if (query) {
-      await pageAll(async (after) => {
-        const data = await gql(admin, `#graphql
-          query PerksSearchProducts($q: String!, $after: String) {
-            products(first: 250, after: $after, query: $q) { nodes { id handle } pageInfo { hasNextPage endCursor } }
-          }`, { q: query, after });
-        return data.products;
-      }, products);
-    }
-    perBusiness.push({ businessId: b.id, products });
+    perBusiness.push({ businessId: b.id, products: await resolveTarget(admin, b.employeeOnlyTarget) });
   }
   const allIds = [...new Set(perBusiness.flatMap((x) => [...x.products.keys()]))];
   const index: EmployeeOnlyIndex = perBusiness.map((x) => ({ businessId: x.businessId, handles: [...x.products.values()] }));
   return { allIds, index };
+}
+
+/**
+ * Handles of each business's discounted products, for showing the employee price on collection
+ * cards. Not needed when a business discounts everything.
+ */
+export async function resolveDiscounted(admin: AdminClient, businesses: BusinessView[]): Promise<DiscountedIndex> {
+  const out: DiscountedIndex = [];
+  for (const b of businesses.filter((x) => x.active && !x.discountTarget.all)) {
+    const products = await resolveTarget(admin, b.discountTarget);
+    out.push({ businessId: b.id, handles: [...products.values()].slice(0, MAX_STOREFRONT_HANDLES) });
+  }
+  return out;
 }
 
 /** Pushes everything to Shopify: discount, checkout rule, product flags, storefront config. */
@@ -196,6 +220,7 @@ export async function syncShopifyObjects(admin: AdminClient, shop: string) {
       employeeOnlyHandles: JSON.stringify([...new Set(index.flatMap((x) => x.handles))]),
     },
   });
-  await publishStorefrontConfig(admin, updated, businesses, index);
+  const discounted = await resolveDiscounted(admin, businesses);
+  await publishStorefrontConfig(admin, updated, businesses, index, discounted);
   return updated;
 }

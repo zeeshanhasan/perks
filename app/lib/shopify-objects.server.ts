@@ -222,6 +222,7 @@ export async function ensureValidation(admin: AdminClient, policy: BenefitPolicy
 }
 
 export type EmployeeOnlyIndex = { businessId: string; handles: string[] }[];
+export type DiscountedIndex = { businessId: string; handles: string[] }[];
 
 /** App-data metafield read by the theme app embed. */
 export async function publishStorefrontConfig(
@@ -229,6 +230,7 @@ export async function publishStorefrontConfig(
   policy: BenefitPolicy,
   businesses: BusinessView[],
   index: EmployeeOnlyIndex,
+  discounted: DiscountedIndex = [],
 ) {
   const data = await gql(admin, `#graphql
     query PerksInstallation { currentAppInstallation { id } }`);
@@ -248,6 +250,8 @@ export async function publishStorefrontConfig(
         // numeric ids for Liquid comparisons
         target: { ...t, productIds: t.productIds.map((g) => g.split("/").pop()), collectionIds: t.collectionIds.map((g) => g.split("/").pop()) },
         employeeOnlyHandles: index.find((x) => x.businessId === b.id)?.handles ?? [],
+        // For collection cards (not needed when the business discounts everything).
+        discountedHandles: t.all ? [] : (discounted.find((x) => x.businessId === b.id)?.handles ?? []),
       };
     }),
   };

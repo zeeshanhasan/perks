@@ -1,5 +1,34 @@
 /* Tofo Perks: Employee mode. Cosmetic only; checkout enforcement happens in Shopify Functions. */
 (function () {
+  /* ---- Employee price math (pure; also exposed for tests) ---- */
+  function employeePrice(cents, pr) {
+    if (pr.type === "fixed") {
+      if (!pr.sameCurrency) return null; // fixed amounts are in the shop currency only
+      return Math.max(0, cents - Math.round(pr.value * 100));
+    }
+    return Math.round((cents * (100 - pr.value)) / 100);
+  }
+  function formatMoney(cents, format) {
+    var fmt = format || "{{amount}}";
+    function num(n, decimals, thousands, dec) {
+      var fixed = (n / 100).toFixed(decimals);
+      var parts = fixed.split(".");
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, thousands);
+      return parts[1] ? parts[0] + dec + parts[1] : parts[0];
+    }
+    return fmt.replace(/\{\{\s*(\w+)\s*\}\}/, function (_, k) {
+      switch (k) {
+        case "amount_no_decimals": return num(cents, 0, ",", ".");
+        case "amount_with_comma_separator": return num(cents, 2, ".", ",");
+        case "amount_no_decimals_with_comma_separator": return num(cents, 0, ".", ",");
+        case "amount_with_apostrophe_separator": return num(cents, 2, "'", ".");
+        case "amount_with_space_separator": return num(cents, 2, " ", ",");
+        default: return num(cents, 2, ",", ".");
+      }
+    });
+  }
+  window.TofoPerksPrice = { employeePrice: employeePrice, formatMoney: formatMoney };
+
   var P = window.TofoPerks;
   if (!P) return;
 
@@ -68,6 +97,105 @@
     form.parentNode.insertBefore(el, form);
   }
 
+  /* ---- Employee price on the product page ---- */
+  // Most specific first: querySelector alone would return whichever comes first in the page.
+  var PRICE_SELS = ['[id^="price-template"] .price', ".product__info-container .price", ".product__info-wrapper .price", ".product-single__price", ".product__price", "[data-product-price]", "main .price"];
+  function findProductPrice() {
+    for (var i = 0; i < PRICE_SELS.length; i++) {
+      var el = document.querySelector(PRICE_SELS[i]);
+      if (el) return el;
+    }
+    return null;
+  }
+  function canShowPrice() {
+    return P.eligible && P.enabled && P.price && P.price.show && !(P.price.type === "fixed" && !P.price.sameCurrency);
+  }
+  function label(cents) {
+    var pr = P.price;
+    var off = pr.type === "fixed" ? P.discountLabel : pr.value + "% off";
+    return { price: formatMoney(employeePrice(cents, pr), pr.format), off: off };
+  }
+  function currentVariant() {
+    var input = document.querySelector('form[action*="/cart/add"] [name="id"]');
+    var id = input && input.value ? input.value : new URLSearchParams(location.search).get("variant");
+    return id && P.product.prices[id] != null ? id : String(P.product.variant);
+  }
+  function renderProductPrice() {
+    var cents = P.product.prices[currentVariant()];
+    if (cents == null) return false;
+    var priceEl = findProductPrice();
+    if (!priceEl) return false;
+    var el = document.getElementById("tofo-perks-price");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "tofo-perks-price";
+      el.className = "tofo-perks-price";
+    }
+    var l = label(cents);
+    el.textContent = "";
+    el.appendChild(document.createTextNode(P.price.text + " "));
+    var strong = document.createElement("strong");
+    strong.textContent = l.price;
+    var tag = document.createElement("span");
+    tag.textContent = l.off;
+    el.appendChild(strong);
+    el.appendChild(tag);
+    if (el.previousElementSibling !== priceEl) priceEl.insertAdjacentElement("afterend", el);
+    if (P.price.strike) priceEl.classList.add("tofo-perks-strike");
+    return true;
+  }
+  function watchProductPrice() {
+    var pending = false;
+    function again() {
+      if (pending) return;
+      pending = true;
+      setTimeout(function () { pending = false; renderProductPrice(); }, 50);
+    }
+    document.addEventListener("change", again, true);
+    // Themes re-render the price block when the variant changes; put our line back each time.
+    new MutationObserver(function () {
+      var priceEl = findProductPrice();
+      if (!document.getElementById("tofo-perks-price") || (P.price.strike && priceEl && !priceEl.classList.contains("tofo-perks-strike"))) again();
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+
+  /* ---- Employee price on product cards ---- */
+  var productJson = {};
+  function fetchProduct(handle) {
+    if (!productJson[handle])
+      productJson[handle] = fetch("/products/" + encodeURIComponent(handle) + ".js", { credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; });
+    return productJson[handle];
+  }
+  function cardEligible(handle) {
+    var pr = P.price;
+    return pr.all || pr.collection || pr.handles.indexOf(handle) !== -1 || pr.mine.indexOf(handle) !== -1;
+  }
+  function priceCards(root) {
+    if (!canShowPrice()) return;
+    (root || document).querySelectorAll('a[href*="/products/"]').forEach(function (a) {
+      if (a.dataset.tofoPrice) return;
+      a.dataset.tofoPrice = "1";
+      var h = handleOf(a);
+      if (!h || h === (P.product.handle || "").toLowerCase() && P.product.isProductPage && !a.closest(CARD)) return;
+      if (!cardEligible(h)) return;
+      var card = a.closest(CARD);
+      if (!card || card.querySelector(".tofo-perks-card-price") || card.dataset.tofoPriced) return;
+      card.dataset.tofoPriced = "1";
+      fetchProduct(h).then(function (p) {
+        if (!p || P.price.excluded.indexOf(String(p.id)) !== -1) return;
+        var priceEl = card.querySelector(".price, [class*='price']");
+        if (!priceEl) return;
+        var l = label(p.price_min != null ? p.price_min : p.price);
+        var el = document.createElement("span");
+        el.className = "tofo-perks-card-price";
+        el.textContent = (p.price_varies ? "From " : "") + P.price.text + " " + l.price;
+        priceEl.insertAdjacentElement("afterend", el);
+      });
+    });
+  }
+
   function productPage() {
     if (!P.product.isProductPage) return;
     var form = document.querySelector(BUY);
@@ -77,11 +205,14 @@
       : Promise.resolve(false);
     blocked.then(function (isBlocked) {
       if (isBlocked) notice(form);
-      else if (P.eligible && P.enabled && P.product.discounted && P.text.badge) badge(form);
+      else if (P.eligible && P.enabled && P.product.discounted) {
+        if (canShowPrice() && renderProductPrice()) watchProductPrice();
+        else if (P.text.badge) badge(form);
+      }
     });
   }
 
-  function run(root) { hideCards(root); hideCollectionLinks(root); }
+  function run(root) { hideCards(root); hideCollectionLinks(root); priceCards(root); }
 
   function start() {
     run(document);

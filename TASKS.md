@@ -73,3 +73,11 @@ Legend: `[ ]` todo · `[x]` done · 🧑 = needs Zeeshan
 - [x] 1.6 Uninstall-safe: no theme code or theme scope; Help explains what happens on uninstall
 - [x] Public email domains (gmail.com etc.) can't be added to a business
 - [ ] 🧑 Test on the dev store
+
+### Employee price on the storefront
+
+- [x] Product page: "Your employee price Rs 1,700 (15% off)", normal price crossed out, follows variant changes
+- [x] Product cards (collections, search, home): employee price under the normal price
+- [x] Only for logged-in employees with the Employee mode embed on; theme settings to turn off, change the label, or keep the normal price
+- [x] Discounted product handles published for businesses that don't discount everything
+- [ ] 🧑 Test on the dev store (Dawn): product page, variant switch, collection page, search
