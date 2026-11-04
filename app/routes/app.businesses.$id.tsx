@@ -51,7 +51,12 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   const form = await request.formData();
   const id = params.id === "new" ? undefined : params.id;
   if (form.get("intent") === "delete" && id) {
-    await deleteBusiness(ctx.admin, shop, merchantActor(ctx), id);
+    try {
+      await deleteBusiness(ctx.admin, shop, merchantActor(ctx), id);
+    } catch (err) {
+      console.error("[perks] delete business failed", err);
+      return { ok: false as const, errors: { form: "Couldn't delete the business. Try again." } as Record<string, string>, id };
+    }
     return redirect("/app/businesses");
   }
   const parsed = parseBusinessForm(form);
@@ -61,7 +66,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     return { ok: false as const, errors: { domains: `Already used by another business: ${taken.join(", ")}` }, id: id ?? null };
   try {
     const b = await saveBusiness(ctx.admin, shop, merchantActor(ctx), parsed.value, id);
-    return { ok: true as const, errors: {} as Record<string, string>, id: b.id };
+    return { ok: true as const, errors: {} as Record<string, string>, id: b.id, warning: b.syncError };
   } catch (err) {
     console.error("[perks] save business failed", err);
     return { ok: false as const, errors: { form: err instanceof Error ? err.message : "Couldn't save" }, id: id ?? null };
@@ -118,7 +123,9 @@ export default function BusinessEdit() {
 
   useEffect(() => {
     if (fetcher.data?.ok) {
-      shopify.toast.show("Business saved");
+      if (fetcher.data.warning)
+        shopify.toast.show("Saved, but Shopify wasn't updated yet. Save again in a minute.", { isError: true });
+      else shopify.toast.show(isNew ? "Business created. Perks are live." : "Business saved");
       if (isNew && fetcher.data.id) void leave(`/app/businesses/${fetcher.data.id}`);
     }
   }, [fetcher.data, shopify, isNew, leave]);

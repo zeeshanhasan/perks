@@ -97,3 +97,41 @@ test("legacy single-employer data migrates into one business", async () => {
   expect((await db.employeeMembership.findFirstOrThrow({ where: { shop: SHOP } })).businessId).toBe(b.id);
   expect(await listBusinesses(SHOP)).toHaveLength(1); // idempotent
 });
+
+test("a lost discount id re-adopts our existing discount instead of creating a duplicate", async () => {
+  const { admin, calls } = fakeAdmin({
+    PerksFindDiscounts: () => ({
+      discountNodes: {
+        nodes: [
+          { id: "gid://shopify/DiscountAutomaticNode/77", discount: { __typename: "DiscountAutomaticApp", title: "Employee perks", appDiscountType: { functionId: "fn-d" } } },
+        ],
+        pageInfo: { hasNextPage: false, endCursor: null },
+      },
+    }),
+  });
+  await saveBusiness(admin as any, SHOP, "merchant:t", tofo);
+  expect(calls.some((c) => c.op === "PerksDiscountCreate")).toBe(false);
+  expect((await db.benefitPolicy.findUnique({ where: { shop: SHOP } }))?.discountId).toBe("gid://shopify/DiscountAutomaticNode/77");
+});
+
+test("another discount already called 'Employee perks' gets a free title", async () => {
+  const { admin, calls } = fakeAdmin({
+    PerksFindDiscounts: () => ({
+      discountNodes: {
+        nodes: [{ id: "gid://shopify/DiscountAutomaticNode/5", discount: { __typename: "DiscountAutomaticApp", title: "Employee perks", appDiscountType: { functionId: "other-app" } } }],
+        pageInfo: { hasNextPage: false, endCursor: null },
+      },
+    }),
+  });
+  await saveBusiness(admin as any, SHOP, "merchant:t", tofo);
+  expect(calls.find((c) => c.op === "PerksDiscountCreate")?.vars.input.title).toBe("Employee perks (2)");
+});
+
+test("a Shopify failure keeps the saved business and reports the error", async () => {
+  const { admin } = fakeAdmin({
+    PerksDiscountCreate: () => ({ discountAutomaticAppCreate: { automaticAppDiscount: null, userErrors: [{ field: ["title"], message: "Title must be unique" }] } }),
+  });
+  const b = await saveBusiness(admin as any, SHOP, "merchant:t", tofo);
+  expect(b.syncError).toMatch(/Title must be unique/);
+  expect(await db.business.count({ where: { shop: SHOP } })).toBe(1);
+});

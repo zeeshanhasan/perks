@@ -19,6 +19,7 @@ const LABELS: Record<string, string> = {
   "privacy.customer_data_request": "Customer data requested",
   "privacy.customer_redact": "Customer data deleted",
   "business.create": "Business added",
+  "shopify.sync": "Updating Shopify failed",
   "business.update": "Business updated",
   "business.delete": "Business deleted",
   "business.pause": "Business paused",

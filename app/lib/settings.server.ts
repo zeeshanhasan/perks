@@ -56,7 +56,7 @@ export async function saveBusiness(
   const b = id
     ? await db.business.update({ where: { id, shop }, data })
     : await db.business.create({ data: { shop, ...data } });
-  await syncShopifyObjects(admin, shop);
+  const syncError = await trySync(admin, shop);
   await audit({
     shop,
     actor,
@@ -65,7 +65,23 @@ export async function saveBusiness(
     result: "ok",
     detail: `${input.discountType}=${input.discountValue} domains=${input.domains.join(",")} limit=${input.limitPeriod}`,
   });
-  return b;
+  return Object.assign(b, { syncError });
+}
+
+/**
+ * Saves are recorded first, then pushed to Shopify. If the push fails, the change is kept and the
+ * error is returned (and retried on the next save), instead of failing the whole request.
+ */
+async function trySync(admin: AdminClient, shop: string): Promise<string | null> {
+  try {
+    await syncShopifyObjects(admin, shop);
+    return null;
+  } catch (err) {
+    console.error("[perks] sync to Shopify failed", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    await audit({ shop, actor: "system", action: "shopify.sync", result: "error", detail: msg.slice(0, 200) });
+    return msg;
+  }
 }
 
 /**
@@ -77,8 +93,9 @@ export async function deleteBusiness(admin: AdminClient, shop: string, actor: st
   if (!b) return;
   await db.business.update({ where: { id }, data: { archivedAt: new Date(), active: false } });
   await db.employeeMembership.updateMany({ where: { shop, businessId: id, status: "active" }, data: { status: "inactive" } });
-  await syncShopifyObjects(admin, shop);
+  const syncError = await trySync(admin, shop);
   await audit({ shop, actor, action: "business.delete", subject: b.name, result: "ok" });
+  return { syncError };
 }
 
 /** Pause or resume a business from the list. */
@@ -86,7 +103,8 @@ export async function setBusinessActive(admin: AdminClient, shop: string, actor:
   const b = await db.business.findFirst({ where: { id, shop, archivedAt: null } });
   if (!b || b.active === active) return b;
   const u = await db.business.update({ where: { id }, data: { active } });
-  await syncShopifyObjects(admin, shop);
+  const syncError = await trySync(admin, shop);
+  if (syncError) throw new Error(syncError);
   await audit({ shop, actor, action: active ? "business.resume" : "business.pause", subject: b.name, result: "ok" });
   return u;
 }
@@ -166,6 +184,8 @@ export async function syncShopifyObjects(admin: AdminClient, shop: string) {
   const { allIds, index } = await resolveEmployeeOnly(admin, businesses);
   await syncEmployeeOnly(admin, parseJsonList(policy.employeeOnlyProducts), allIds);
   const discountId = await ensureDiscount(admin, policy, businesses);
+  // Save the id right away, so a later failure can't make the next save create a duplicate.
+  if (discountId !== policy.discountId) await db.benefitPolicy.update({ where: { shop }, data: { discountId } });
   const validationId = await ensureValidation(admin, { ...policy, discountId }, businesses);
   const updated = await db.benefitPolicy.update({
     where: { shop },
