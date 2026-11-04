@@ -4,6 +4,7 @@ import { useFetcher, useLoaderData } from "react-router";
 import { SaveBar, useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { PageHelp } from "../components/ui";
+import { useSaveBar } from "../components/useSaveBar";
 import { merchantActor } from "../lib/admin-actor.server";
 import type { AdminClient } from "../lib/admin-graphql.server";
 import { gql } from "../lib/admin-graphql.server";
@@ -65,8 +66,7 @@ export default function Settings() {
     if (fetcher.data?.ok) shopify.toast.show("Settings saved");
     if (fetcher.data && !fetcher.data.ok) shopify.toast.show(fetcher.data.error ?? "Couldn't save", { isError: true });
   }, [fetcher.data, shopify]);
-  // App Bridge keeps the save bar open after an unmount unless it's hidden explicitly.
-  useEffect(() => () => void shopify.saveBar.hide("settings-save-bar").catch(() => {}), [shopify]);
+  useSaveBar("settings-save-bar");
 
   const save = () => {
     const body: Record<string, string> = {

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { redirect, useFetcher, useLoaderData, useNavigate } from "react-router";
+import { redirect, useFetcher, useLoaderData } from "react-router";
 import { SaveBar, useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { TargetEditor } from "../components/TargetEditor";
+import { useSaveBar } from "../components/useSaveBar";
 import { merchantActor } from "../lib/admin-actor.server";
 import { parseBusinessForm } from "../lib/business";
 import { domainConflicts, getBusiness } from "../lib/business.server";
@@ -66,7 +67,7 @@ export default function BusinessEdit() {
   const { business, vendors, types, currency } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
-  const navigate = useNavigate();
+  const { leave } = useSaveBar(SAVE_BAR_ID);
   const isNew = !business;
 
   const initial: FormState = useMemo(
@@ -96,19 +97,10 @@ export default function BusinessEdit() {
   useEffect(() => {
     if (fetcher.data?.ok) {
       shopify.toast.show("Business saved");
-      if (isNew && fetcher.data.id) {
-        void shopify.saveBar.hide(SAVE_BAR_ID).catch(() => {});
-        navigate(`/app/businesses/${fetcher.data.id}`);
-      }
+      if (isNew && fetcher.data.id) void leave(`/app/businesses/${fetcher.data.id}`);
     }
-  }, [fetcher.data, shopify, isNew, navigate]);
+  }, [fetcher.data, shopify, isNew, leave]);
 
-  // App Bridge keeps the save bar open after an unmount unless it's hidden explicitly.
-  function leave(to: string) {
-    void shopify.saveBar.hide(SAVE_BAR_ID).catch(() => {});
-    navigate(to);
-  }
-  useEffect(() => () => void shopify.saveBar.hide(SAVE_BAR_ID).catch(() => {}), [shopify]);
 
   const save = () =>
     fetcher.submit(
@@ -129,7 +121,7 @@ export default function BusinessEdit() {
       </s-link>
       <SaveBar id={SAVE_BAR_ID} open={dirty}>
         <button {...{ variant: "primary" }} onClick={save} {...(saving ? { loading: "" } : {})}></button>
-        <button onClick={() => (isNew ? leave("/app/businesses") : setF(initial))}></button>
+        <button onClick={() => (isNew ? void leave("/app/businesses") : setF(initial))}></button>
       </SaveBar>
 
       <s-stack gap="base">
