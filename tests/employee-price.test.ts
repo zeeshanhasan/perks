@@ -24,3 +24,10 @@ describe("employee price (theme)", () => {
     expect(formatMoney(123456789, "€{{ amount_with_comma_separator }}")).toBe("€1.234.567,89");
   });
 });
+
+describe("theme app extension limits", () => {
+  it("embed script stays under Shopify's 10 KB limit (over it, dev preview and deploy fail)", async () => {
+    const { statSync } = await import("fs");
+    expect(statSync(new URL("../extensions/perks-theme/assets/employee-mode.js", import.meta.url)).size).toBeLessThan(10_000);
+  });
+});
