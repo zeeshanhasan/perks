@@ -6,6 +6,7 @@ import { type EntryContext } from "react-router";
 import { isbot } from "isbot";
 import { addDocumentResponseHeaders } from "./shopify.server";
 import { startScheduler } from "./lib/cron.server";
+import { stripTrailingMarkers } from "./lib/strip-trailing-markers";
 
 startScheduler();
 
@@ -41,7 +42,7 @@ export default async function handleRequest(
               status: responseStatusCode,
             })
           );
-          pipe(body);
+          pipe(stripTrailingMarkers()).pipe(body);
         },
         onShellError(error) {
           reject(error);
