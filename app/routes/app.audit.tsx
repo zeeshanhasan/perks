@@ -33,7 +33,7 @@ const DETAILS: Record<string, string> = {
 };
 
 function who(actor: string) {
-  if (actor === "system") return "Tofo Perks";
+  if (actor === "system") return "Employee Perks";
   if (actor.startsWith("merchant:")) return "Staff";
   if (actor.startsWith("customer:")) return `Customer ${actor.slice(9)}`;
   return actor;

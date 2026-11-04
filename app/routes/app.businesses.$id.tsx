@@ -60,6 +60,8 @@ type FormState = {
   active: boolean;
 };
 
+const SAVE_BAR_ID = "business-save-bar";
+
 export default function BusinessEdit() {
   const { business, vendors, types, currency } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
@@ -94,9 +96,19 @@ export default function BusinessEdit() {
   useEffect(() => {
     if (fetcher.data?.ok) {
       shopify.toast.show("Business saved");
-      if (isNew && fetcher.data.id) navigate(`/app/businesses/${fetcher.data.id}`);
+      if (isNew && fetcher.data.id) {
+        void shopify.saveBar.hide(SAVE_BAR_ID).catch(() => {});
+        navigate(`/app/businesses/${fetcher.data.id}`);
+      }
     }
   }, [fetcher.data, shopify, isNew, navigate]);
+
+  // App Bridge keeps the save bar open after an unmount unless it's hidden explicitly.
+  function leave(to: string) {
+    void shopify.saveBar.hide(SAVE_BAR_ID).catch(() => {});
+    navigate(to);
+  }
+  useEffect(() => () => void shopify.saveBar.hide(SAVE_BAR_ID).catch(() => {}), [shopify]);
 
   const save = () =>
     fetcher.submit(
@@ -115,9 +127,9 @@ export default function BusinessEdit() {
       <s-link slot="breadcrumb-actions" href="/app/businesses">
         Businesses
       </s-link>
-      <SaveBar id="business-save-bar" open={dirty || isNew}>
+      <SaveBar id={SAVE_BAR_ID} open={dirty}>
         <button {...{ variant: "primary" }} onClick={save} {...(saving ? { loading: "" } : {})}></button>
-        <button onClick={() => (isNew ? navigate("/app/businesses") : setF(initial))}></button>
+        <button onClick={() => (isNew ? leave("/app/businesses") : setF(initial))}></button>
       </SaveBar>
 
       <s-stack gap="base">

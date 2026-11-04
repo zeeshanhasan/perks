@@ -48,3 +48,17 @@ Legend: `[ ]` todo · `[x]` done · 🧑 = needs Zeeshan
 - The app-embed deep link `activateAppId=<api key>/employee-mode` may just open the editor without auto-enabling. Then turn it on manually.
 - Employee mode card hiding is tuned for Dawn-family themes.
 - The validation Function also runs at the cart stage, so some themes show the block message on add-to-cart. Intended (fail closed).
+
+## v4: Employee Perks (see `docs/PRD-v4.md`)
+
+### Part 0: Foundations (branch `feat/foundations`)
+
+- [x] 0.1 Rename to **Employee Perks** in config and app copy (handle stays `tofo-perks`)
+- [ ] 🧑 0.1 Partner dashboard: confirm the name, then `shopify app deploy --config production`
+- [ ] 0.2 Billing ($10 flat): later
+- [x] 0.3 Save bar no longer sticks after Discard or leaving a page
+- [x] 0.3 Stale URLs after an update go to the app home instead of a 404
+- [x] 0.3 Removed `include_config_on_deploy` (dropped by the CLI)
+- [x] 0.4 CI on every PR: lint, typecheck, tests, build
+- [x] 0.4 `scripts/smoke.sh` post-deploy check
+- [ ] 0.4 e2e script on the dev store (after local testing)

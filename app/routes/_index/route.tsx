@@ -30,7 +30,7 @@ export default function App() {
   return (
     <div className={styles.index}>
       <div className={styles.content}>
-        <h1 className={styles.heading}>Tofo Perks: employee discounts for Shopify</h1>
+        <h1 className={styles.heading}>Employee Perks: corporate discounts for Shopify</h1>
         <p className={styles.text}>
           Give partner company employees automatic discounts and employee-only products. Log in with your store
           domain to open the app.

@@ -1,6 +1,6 @@
 import type { MetaFunction } from "react-router";
 
-export const meta: MetaFunction = () => [{ title: "Tofo Perks: Privacy policy" }];
+export const meta: MetaFunction = () => [{ title: "Employee Perks: Privacy policy" }];
 
 const S = {
   page: { maxWidth: 720, margin: "48px auto", padding: "0 20px", font: "16px/1.6 Inter, system-ui, sans-serif", color: "#1a1a1a" },
@@ -12,11 +12,11 @@ const S = {
 export default function Privacy() {
   return (
     <main style={S.page}>
-      <h1 style={S.h1}>Tofo Perks: Privacy policy</h1>
+      <h1 style={S.h1}>Employee Perks: Privacy policy</h1>
       <p style={S.muted}>Last updated: 3 November 2026</p>
 
       <p>
-        Tofo Perks (&ldquo;the App&rdquo;) is provided by Tofoapp to Shopify merchants. This policy explains what the
+        Employee Perks (&ldquo;the App&rdquo;) is provided by Tofoapp to Shopify merchants. This policy explains what the
         App collects when a merchant installs it, and how that data is used.
       </p>
 
