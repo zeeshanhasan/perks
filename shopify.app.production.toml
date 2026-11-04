@@ -8,7 +8,7 @@ name = "Tofo Perks"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_customers,write_customers,read_products,write_products,read_discounts,write_discounts,read_validations,write_validations"
+scopes = "read_customers,write_customers,read_orders,read_products,write_products,read_discounts,write_discounts,read_validations,write_validations"
 
 # --- App-owned metafields (decision 003) -------------------------------------
 # The DB is the source of truth; these are the published copy the Functions read.
@@ -22,6 +22,14 @@ description = "Employee perks eligibility, managed by the Tofo Perks app"
   admin = "merchant_read"
   # Liquid can only read the logged-in customer's own record. Used by the Employee mode embed.
   storefront = "public_read"
+
+[customer.metafields.app.perks_usage]
+type = "json"
+name = "Perks usage"
+description = "Employee perks spend and discount this month/year (for limits), managed by Tofo Perks"
+
+  [customer.metafields.app.perks_usage.access]
+  admin = "merchant_read"
 
 [product.metafields.app.perks_employee_only]
 type = "boolean"
@@ -71,6 +79,10 @@ api_version = "2026-07"
   [[webhooks.subscriptions]]
   uri = "/webhooks/customers"
   topics = [ "customers/create", "customers/update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders"
+  topics = [ "orders/create", "orders/cancelled" ]
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/compliance"

@@ -32,7 +32,7 @@ model Session {
   refreshTokenExpires DateTime?
 }
 
-/// One employer per shop in v1.
+/// LEGACY (v1, single employer). Migrated into Business on first load; kept for rollback.
 model Employer {
   shop      String   @id
   name      String   @default("")
@@ -73,6 +73,8 @@ model EmployeeMembership {
   shop        String
   /// Numeric Shopify customer ID (from the signed app proxy request)
   customerId  String
+  /// Business the employee belongs to (null = legacy single-employer row)
+  businessId  String?
   /// Private. Never written to Shopify, never logged. For source=domain it's the account email.
   workEmail   String
   /// "link" (verified via emailed link) | "domain" (account email at approved domain)
@@ -126,3 +128,77 @@ model RateLimitHit {
 
   @@index([shop, key, createdAt])
 }
+
+/// A partner company whose employees get perks. Many per shop.
+model Business {
+  id                 String   @id @default(cuid())
+  shop               String
+  name               String
+  /// JSON array of lowercase domains
+  domains            String   @default("[]")
+  /// "percentage" | "fixed" (fixed = amount off each eligible item, shop currency)
+  discountType       String   @default("percentage")
+  discountValue      Float    @default(10)
+  /// Targeting JSON: { all, products:[{id,title}], collections:[{id,title}], vendors:[], types:[] }
+  discountTarget     String   @default("{}")
+  employeeOnlyTarget String   @default("{}")
+  /// "none" | "month" | "year"
+  limitPeriod        String   @default("none")
+  /// "discount" (cap on discount received) | "spend" (cap on employee spend)
+  limitBasis         String   @default("discount")
+  limitAmount        Float?
+  billingEmail       String   @default("")
+  billingAddress     String   @default("")
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([shop])
+}
+
+/// One row per employee order (recorded from the orders/create webhook).
+model OrderUsage {
+  id          String   @id @default(cuid())
+  shop        String
+  orderId     String
+  orderName   String
+  customerId  String
+  businessId  String
+  processedAt DateTime
+  currency    String
+  /// Subtotal after discounts (what the employee paid for goods)
+  spend       Float
+  /// Order total incl. shipping and tax
+  total       Float
+  /// Employee discount received on this order
+  discount    Float
+  cancelled   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@unique([shop, orderId])
+  @@index([shop, businessId, processedAt])
+  @@index([shop, customerId, processedAt])
+}
+
+model Invoice {
+  id          String   @id @default(cuid())
+  shop        String
+  businessId  String
+  number      String
+  periodStart DateTime
+  /// Exclusive end
+  periodEnd   DateTime
+  /// "discount" | "spend"
+  basis       String
+  amount      Float
+  orderCount  Int
+  currency    String
+  /// Frozen snapshot of billed orders (JSON), so later cancellations don't change an issued invoice
+  lines       String   @default("[]")
+  businessName String  @default("")
+  createdAt   DateTime @default(now())
+
+  @@unique([shop, number])
+  @@index([shop, businessId])
+}
+

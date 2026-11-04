@@ -1,100 +1,96 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { beforeEach, expect, test, vi } from "vitest";
+import { beforeEach, expect, test } from "vitest";
 import db from "../app/db.server";
-import { saveProducts, saveSettings } from "../app/lib/settings.server";
+import type { BusinessInput } from "../app/lib/business";
+import { listBusinesses } from "../app/lib/business.server";
+import { deleteBusiness, saveBusiness, saveSettings } from "../app/lib/settings.server";
+import { EMPTY_TARGET } from "../app/lib/targeting";
+import { fakeAdmin } from "./fake-admin";
 
 const SHOP = "perks-settings.myshopify.com";
+const DISCOUNT = "gid://shopify/DiscountAutomaticNode/1";
+const VALIDATION = "gid://shopify/Validation/9";
+const INSTALL = "gid://shopify/AppInstallation/7";
 
-function fakeAdmin() {
-  const calls: { op: string; vars: any }[] = [];
-  const metafields: any[] = [];
-  const admin = {
-    graphql: vi.fn(async (query: string, opts?: { variables?: any }) => {
-      const v = opts?.variables ?? {};
-      const op = (query.match(/(?:query|mutation)\s+(\w+)/) ?? [])[1] ?? "?";
-      calls.push({ op, vars: v });
-      const ok = (data: any) => Response.json({ data });
-      switch (op) {
-        case "PerksFunctions":
-          return ok({ shopifyFunctions: { nodes: [
-            { id: "fn-d", apiType: "discount", title: "d" },
-            { id: "fn-v", apiType: "cart_checkout_validation", title: "v" },
-          ] } });
-        case "PerksDiscountCreate":
-          return ok({ discountAutomaticAppCreate: { automaticAppDiscount: { discountId: "gid://shopify/DiscountAutomaticNode/1" }, userErrors: [] } });
-        case "PerksDiscountNode":
-          return ok({ discountNode: { id: v.id } });
-        case "PerksDiscountUpdate":
-          return ok({ discountAutomaticAppUpdate: { automaticAppDiscount: { discountId: v.id }, userErrors: [] } });
-        case "PerksDiscountToggle":
-          return ok({ discountAutomaticActivate: { userErrors: [] }, discountAutomaticDeactivate: { userErrors: [] } });
-        case "PerksValidationCreate":
-          return ok({ validationCreate: { validation: { id: "gid://shopify/Validation/9" }, userErrors: [] } });
-        case "PerksValidationUpdate":
-          return ok({ validationUpdate: { validation: { id: v.id }, userErrors: [] } });
-        case "PerksInstallation":
-          return ok({ currentAppInstallation: { id: "gid://shopify/AppInstallation/7" } });
-        case "PerksMetafieldsSet":
-          metafields.push(...v.metafields);
-          return ok({ metafieldsSet: { metafields: [], userErrors: [] } });
-        case "PerksMetafieldsDelete":
-          return ok({ metafieldsDelete: { deletedMetafields: [], userErrors: [] } });
-        case "PerksProductHandles":
-          return ok({ nodes: v.ids.map((id: string) => ({ handle: `h-${id.split("/").pop()}` })) });
-        default:
-          throw new Error(`unexpected ${op}`);
-      }
-    }),
-  };
-  return { admin, calls, metafields };
-}
-
-const settings = {
-  employerName: "Tofo",
+const tofo: BusinessInput = {
+  name: "Tofo",
   domains: ["tofoapp.com"],
-  discountPercent: 15,
-  eligibilityMonths: 12,
-  discountScope: "selected" as const,
-  autoDomain: true,
-  combinesWithProduct: false,
-  combinesWithOrder: false,
-  combinesWithShipping: false,
-  enabled: true,
+  discountType: "percentage",
+  discountValue: 15,
+  discountTarget: { ...EMPTY_TARGET, vendors: ["Solgar"], collections: [{ id: "gid://shopify/Collection/77", title: "Vitamins" }] },
+  employeeOnlyTarget: { ...EMPTY_TARGET, products: [{ id: "gid://shopify/Product/1", title: "A" }], collections: [{ id: "gid://shopify/Collection/5", title: "Rx" }], types: ["Rx"] },
+  limitPeriod: "month",
+  limitBasis: "discount",
+  limitAmount: 5000,
+  billingEmail: "hr@tofoapp.com",
+  billingAddress: "",
+  active: true,
 };
+const google: BusinessInput = { ...tofo, name: "Google", domains: ["google.com"], discountType: "fixed", discountValue: 200, employeeOnlyTarget: EMPTY_TARGET, limitPeriod: "none", limitAmount: null };
 
 beforeEach(async () => {
-  await db.benefitPolicy.deleteMany({ where: { shop: SHOP } });
-  await db.employer.deleteMany({ where: { shop: SHOP } });
+  for (const m of [db.business, db.benefitPolicy, db.employer, db.employeeMembership] as any[]) await m.deleteMany({ where: { shop: SHOP } });
+  await db.benefitPolicy.create({ data: { shop: SHOP, enabled: true } });
 });
 
-test("saving settings creates the discount, the checkout rule and the storefront config", async () => {
-  const { admin, calls, metafields } = fakeAdmin();
-  const policy = await saveSettings(admin, SHOP, "merchant:test", settings);
-  expect(policy.discountId).toBe("gid://shopify/DiscountAutomaticNode/1");
-  expect(policy.validationId).toBe("gid://shopify/Validation/9");
-  expect(calls.map((c) => c.op)).toContain("PerksValidationCreate");
+test("saving businesses pushes one v2 config with every business to both Functions", async () => {
+  const { admin, mf } = fakeAdmin();
+  await saveBusiness(admin, SHOP, "merchant:t", tofo);
+  await saveBusiness(admin, SHOP, "merchant:t", google);
 
-  const byOwner = (o: string) => JSON.parse(metafields.find((m) => m.ownerId === o).value);
-  expect(byOwner("gid://shopify/DiscountAutomaticNode/1")).toEqual({
-    v: 1, autoDomain: true, domains: ["tofoapp.com"], percent: 15, scope: "selected",
-  });
-  expect(byOwner("gid://shopify/Validation/9")).toEqual({ v: 1, autoDomain: true, domains: ["tofoapp.com"] });
-  expect(byOwner("gid://shopify/AppInstallation/7")).toMatchObject({ v: 1, enabled: true, domains: ["tofoapp.com"], percent: 15 });
+  const cfg = mf(DISCOUNT, "perks_config");
+  expect(cfg.v).toBe(2);
+  expect(cfg.businesses.map((b: any) => [b.domains, b.type, b.value])).toEqual([
+    [["tofoapp.com"], "percentage", 15],
+    [["google.com"], "fixed", 200],
+  ]);
+  expect(cfg.businesses[0].target).toMatchObject({ vendors: ["solgar"], collectionIds: ["gid://shopify/Collection/77"] });
+  expect(cfg.businesses[0].limit).toEqual({ period: "month", basis: "discount", amount: 5000 });
+  expect(mf(DISCOUNT, "perks_vars")).toEqual({ collectionIds: ["gid://shopify/Collection/77", "gid://shopify/Collection/5"] });
+  expect(mf(VALIDATION, "perks_config").businesses[0].employeeOnly.types).toEqual(["rx"]);
+  expect(mf(VALIDATION, "perks_vars").collectionIds).toContain("gid://shopify/Collection/5");
 });
 
-test("saving products flags products, keeps lists exclusive and publishes handles", async () => {
-  const { admin, metafields } = fakeAdmin();
-  await saveSettings(admin, SHOP, "merchant:test", settings);
-  metafields.length = 0;
-  await saveProducts(admin, SHOP, "merchant:test", {
-    employeeOnly: ["gid://shopify/Product/1", "gid://shopify/Product/2"],
-    discounted: ["gid://shopify/Product/2", "gid://shopify/Product/3"],
-    excluded: ["gid://shopify/Product/2"],
-  });
-  const flags = metafields.filter((m) => m.ownerId.includes("/Product/")).map((m) => `${m.ownerId.split("/").pop()}:${m.key}`);
-  expect(flags.sort()).toEqual(["1:perks_employee_only", "2:perks_discount_excluded", "2:perks_employee_only", "3:perks_discounted"]);
+test("employee-only targeting is resolved to products (flags + hashed handles for the theme)", async () => {
+  const { admin, mf } = fakeAdmin();
+  await saveBusiness(admin, SHOP, "merchant:t", tofo);
+  // product 1 (picked), 50 (from collection 5), 60 (from type search)
+  for (const id of [1, 50, 60]) expect(mf(`gid://shopify/Product/${id}`, "perks_employee_only")).toBe(true);
+  const sf = mf(INSTALL, "storefront");
+  expect(sf.businesses[0].employeeOnlyHandles.sort()).toEqual(["h-1", "h-50", "h-60"]);
+  expect(sf.businesses[0].target.collectionIds).toEqual(["77"]);
   const policy = await db.benefitPolicy.findUniqueOrThrow({ where: { shop: SHOP } });
-  expect(JSON.parse(policy.discountedProducts)).toEqual(["gid://shopify/Product/3"]);
-  const storefront = JSON.parse(metafields.find((m) => m.ownerId.includes("AppInstallation")).value);
-  expect(storefront.employeeOnlyHandles).toEqual(["h-1", "h-2"]);
+  expect(JSON.parse(policy.employeeOnlyProducts)).toHaveLength(3);
+});
+
+test("paused or deleted businesses drop out of the config; flags are removed", async () => {
+  const { admin, mf, metafields } = fakeAdmin();
+  const b = await saveBusiness(admin, SHOP, "merchant:t", tofo);
+  await saveBusiness(admin, SHOP, "merchant:t", { ...tofo, active: false }, b.id);
+  expect(mf(DISCOUNT, "perks_config").businesses).toEqual([]);
+  expect(metafields.has("gid://shopify/Product/1|perks_employee_only")).toBe(false);
+  await deleteBusiness(admin, SHOP, "merchant:t", b.id);
+  expect(await db.business.count({ where: { shop: SHOP } })).toBe(0);
+});
+
+test("store-wide settings: exclusions reach the Functions", async () => {
+  const { admin, mf } = fakeAdmin();
+  await saveBusiness(admin, SHOP, "merchant:t", google);
+  await saveSettings(admin, SHOP, "merchant:t", {
+    enabled: true, autoDomain: false, eligibilityMonths: 6, combinesWithProduct: false, combinesWithOrder: true, combinesWithShipping: false,
+    excludedProducts: ["gid://shopify/Product/9"],
+  });
+  expect(mf(DISCOUNT, "perks_config")).toMatchObject({ autoDomain: false, excluded: ["gid://shopify/Product/9"] });
+});
+
+test("legacy single-employer data migrates into one business", async () => {
+  await db.employer.create({ data: { shop: SHOP, name: "Old Co", domains: '["old.com"]' } });
+  await db.benefitPolicy.update({ where: { shop: SHOP }, data: { discountPercent: 12, employeeOnlyProducts: '["gid://shopify/Product/3"]', discountedProducts: '["gid://shopify/Product/4"]' } });
+  await db.employeeMembership.create({ data: { shop: SHOP, customerId: "1", workEmail: "a@old.com", status: "active", verifiedAt: new Date() } });
+  const [b] = await listBusinesses(SHOP);
+  expect(b).toMatchObject({ name: "Old Co", domains: ["old.com"], discountValue: 12 });
+  expect(b.employeeOnlyTarget.products.map((p) => p.id)).toEqual(["gid://shopify/Product/3"]);
+  expect(b.discountTarget.products.map((p) => p.id)).toEqual(["gid://shopify/Product/4"]);
+  expect((await db.employeeMembership.findFirstOrThrow({ where: { shop: SHOP } })).businessId).toBe(b.id);
+  expect(await listBusinesses(SHOP)).toHaveLength(1); // idempotent
 });

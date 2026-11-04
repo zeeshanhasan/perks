@@ -3,6 +3,7 @@ import { gql } from "../lib/admin-graphql.server";
 import {
   getCustomerEmail,
   getMembership,
+  businessOf,
   getProgram,
   isDomainEligible,
   recordDomainCustomer,
@@ -23,13 +24,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const m = await getMembership(shop, customerId);
   if (m?.status === "revoked") return liquid(pages.revoked());
-  if (m?.status === "active" && m.source === "link") return liquid(pages.verified(program.employerName, m.expiresAt));
+  if (m?.status === "active" && m.source === "link")
+    return liquid(pages.verified(program.businesses.find((b) => b.id === m.businessId)?.name ?? program.employerName, m.expiresAt));
 
   if (admin) {
     const email = await getCustomerEmail(admin, customerId);
     if (isDomainEligible(program, email)) {
       await recordDomainCustomer(shop, customerId, email);
-      return liquid(pages.autoEligible(program.employerName));
+      return liquid(pages.autoEligible(businessOf(program, email)?.name ?? program.employerName));
     }
   }
   const note =

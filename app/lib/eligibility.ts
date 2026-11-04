@@ -8,6 +8,8 @@ export type EligibilityValue =
       status: "active";
       /** YYYY-MM-DD. Eligible while the shop's local date is strictly before this. null = no expiry. */
       expiresAt: string | null;
+      /** Business the employee verified for (absent on legacy v1 values). */
+      businessId?: string;
     }
   /** Blocks the customer even if their account email domain is approved. */
   | { v: 1; status: "revoked" };
@@ -23,6 +25,7 @@ export const DISCOUNTED_KEY = "perks_discounted";
 export const STOREFRONT_NAMESPACE = "perks";
 export const STOREFRONT_KEY = "storefront";
 export const DISCOUNT_CONFIG_KEY = "perks_config";
+export const USAGE_KEY = "perks_usage";
 
 export function addMonths(date: Date, months: number): Date {
   const d = new Date(date.getTime());
@@ -42,8 +45,13 @@ export function toDateString(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function buildEligibilityValue(expiresAt: Date | null): EligibilityValue {
-  return { v: 1, status: "active", expiresAt: expiresAt ? toDateString(expiresAt) : null };
+export function buildEligibilityValue(expiresAt: Date | null, businessId?: string | null): EligibilityValue {
+  return {
+    v: 1,
+    status: "active",
+    expiresAt: expiresAt ? toDateString(expiresAt) : null,
+    ...(businessId ? { businessId } : {}),
+  };
 }
 
 export function isExpired(expiresAt: Date | null, now: Date): boolean {

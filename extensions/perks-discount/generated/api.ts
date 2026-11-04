@@ -3472,7 +3472,9 @@ export enum WeightUnit {
   Pounds = 'POUNDS'
 }
 
-export type CartInputVariables = Exact<{ [key: string]: never; }>;
+export type CartInputVariables = Exact<{
+  collectionIds?: InputMaybe<Array<Scalars['ID']['input']> | Scalars['ID']['input']>;
+}>;
 
 
-export type CartInput = { __typename?: 'Input', cart: { __typename?: 'Cart', buyerIdentity?: { __typename?: 'BuyerIdentity', isAuthenticated: boolean, customer?: { __typename?: 'Customer', email?: string | null, eligibility?: { __typename?: 'Metafield', value: string } | null } | null } | null, lines: Array<{ __typename?: 'CartLine', id: string, merchandise: { __typename: 'CustomProduct' } | { __typename: 'ProductVariant', product: { __typename?: 'Product', employeeOnly?: { __typename?: 'Metafield', value: string } | null, discounted?: { __typename?: 'Metafield', value: string } | null, excluded?: { __typename?: 'Metafield', value: string } | null } } }> }, shop: { __typename?: 'Shop', localTime: { __typename?: 'LocalTime', date: string } }, discount: { __typename?: 'Discount', discountClasses: Array<DiscountClass>, config?: { __typename?: 'Metafield', value: string } | null } };
+export type CartInput = { __typename?: 'Input', cart: { __typename?: 'Cart', buyerIdentity?: { __typename?: 'BuyerIdentity', isAuthenticated: boolean, customer?: { __typename?: 'Customer', email?: string | null, eligibility?: { __typename?: 'Metafield', value: string } | null, usage?: { __typename?: 'Metafield', value: string } | null } | null } | null, lines: Array<{ __typename?: 'CartLine', id: string, merchandise: { __typename: 'CustomProduct' } | { __typename: 'ProductVariant', product: { __typename?: 'Product', id: string, vendor?: string | null, productType?: string | null, inCollections: Array<{ __typename?: 'CollectionMembership', collectionId: string, isMember: boolean }> } } }> }, shop: { __typename?: 'Shop', localTime: { __typename?: 'LocalTime', date: string } }, discount: { __typename?: 'Discount', discountClasses: Array<DiscountClass>, config?: { __typename?: 'Metafield', value: string } | null } };

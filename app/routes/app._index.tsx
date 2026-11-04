@@ -1,21 +1,25 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import { KeyValue, Stat } from "../components/ui";
+import { Stat } from "../components/ui";
+import { formatMoney } from "../lib/business";
+import { shopCurrency } from "../lib/catalog.server";
 import { getSetup } from "../lib/setup.server";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const setup = await getSetup(session.shop, process.env.SHOPIFY_API_KEY || "");
-  return { shop: session.shop, ...setup };
+  const { admin, session } = await authenticate.admin(request);
+  const { currency } = await shopCurrency(admin);
+  const setup = await getSetup(session.shop, process.env.SHOPIFY_API_KEY || "", currency);
+  return { currency, ...setup };
 };
 
 export default function Home() {
-  const { steps, required, program, stats } = useLoaderData<typeof loader>();
+  const { steps, required, enabled, businesses, stats, month, currency } = useLoaderData<typeof loader>();
   const doneCount = required.filter((s) => s.done).length;
   const allDone = doneCount === required.length;
   const next = steps.find((s) => !s.done && !s.manual);
+  const money = (n: number) => formatMoney(n, currency);
 
   return (
     <s-page heading="Employee perks">
@@ -23,14 +27,17 @@ export default function Home() {
         <s-button slot="primary-action" variant="primary" href={next.action.href}>
           {next.action.label}
         </s-button>
-      ) : null}
+      ) : (
+        <s-button slot="primary-action" variant="primary" href="/app/businesses/new">
+          Add business
+        </s-button>
+      )}
 
       {!allDone ? (
         <s-section heading="Set up employee perks">
           <s-stack gap="base">
             <s-paragraph>
-              Give employees of a partner company a discount and access to products only they can buy. Takes about 3
-              minutes.
+              Give employees of partner companies discounts and products only they can buy. Takes about 3 minutes.
             </s-paragraph>
             <s-stack gap="small-200">
               <s-text color="subdued">
@@ -72,35 +79,43 @@ export default function Home() {
         </s-section>
       ) : (
         <s-banner tone="success" heading="Employee perks are live">
-          Employees who log in with an approved work email get {program.percent}% off automatically.
+          Employees of {businesses.length} business{businesses.length === 1 ? "" : "es"} get their perks automatically
+          when they log in with a work email.
         </s-banner>
       )}
 
-      <s-section heading="Employees">
+      <s-section heading="This month">
         <s-grid gridTemplateColumns="repeat(auto-fit, minmax(160px, 1fr))" gap="base">
+          <Stat label="Employee orders" value={month.orders} />
+          <Stat label="Employee spend" value={money(month.spend)} />
+          <Stat label="Discount given" value={money(month.discount)} />
           <Stat label="Active employees" value={stats.active} />
-          <Stat label="Joined by work-email login" value={stats.viaDomain} />
-          <Stat label="Verified by email link" value={stats.viaLink} />
-          <Stat label="Removed" value={stats.revoked} />
         </s-grid>
         <s-box paddingBlockStart="base">
-          <s-link href="/app/employees">View all employees</s-link>
+          <s-link href="/app/reports">Reports and invoices</s-link>
         </s-box>
       </s-section>
 
-      <s-section slot="aside" heading="Program">
+      <s-section slot="aside" heading="Businesses">
         <s-stack gap="small">
-          <KeyValue label="Status">
-            <s-badge tone={program.enabled ? "success" : "neutral"}>{program.enabled ? "On" : "Off"}</s-badge>
-          </KeyValue>
-          <KeyValue label="Company">{program.employerName || "Not set"}</KeyValue>
-          <KeyValue label="Email domains">{program.domains.length ? program.domains.join(", ") : "Not set"}</KeyValue>
-          <KeyValue label="Discount">{program.percent}%</KeyValue>
-          <KeyValue label="Applies to">
-            {program.allProducts ? "All products" : `${program.employeeOnly + program.discounted} products`}
-          </KeyValue>
-          <KeyValue label="Employee-only products">{program.employeeOnly}</KeyValue>
-          <s-link href="/app/settings">Edit settings</s-link>
+          <s-stack direction="inline" gap="small" alignItems="center">
+            <s-text color="subdued">Program</s-text>
+            <s-badge tone={enabled ? "success" : "neutral"}>{enabled ? "On" : "Off"}</s-badge>
+          </s-stack>
+          {businesses.length ? (
+            businesses.map((b) => (
+              <s-stack key={b.id} gap="small-300">
+                <s-link href={`/app/businesses/${b.id}`}>{b.name}</s-link>
+                <s-text color="subdued">
+                  {b.discount} · {b.domains}
+                  {!b.active ? " · paused" : ""}
+                </s-text>
+              </s-stack>
+            ))
+          ) : (
+            <s-text color="subdued">None yet.</s-text>
+          )}
+          <s-link href="/app/businesses">Manage businesses</s-link>
         </s-stack>
       </s-section>
 

@@ -16,26 +16,32 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
   const q = (url.searchParams.get("q") ?? "").trim().toLowerCase();
   const status = url.searchParams.get("status") ?? "all";
-  const [members, total] = await Promise.all([
+  const businessId = url.searchParams.get("business") ?? "all";
+  const [members, total, businesses] = await Promise.all([
     db.employeeMembership.findMany({
       where: {
         shop: session.shop,
         ...(status !== "all" ? { status } : {}),
+        ...(businessId !== "all" ? { businessId } : {}),
         ...(q ? { OR: [{ workEmail: { contains: q } }, { customerId: { contains: q } }] } : {}),
       },
       orderBy: { updatedAt: "desc" },
       take: PAGE,
     }),
     db.employeeMembership.count({ where: { shop: session.shop } }),
+    db.business.findMany({ where: { shop: session.shop }, select: { id: true, name: true }, orderBy: { createdAt: "asc" } }),
   ]);
+  const names = new Map(businesses.map((b) => [b.id, b.name]));
   return {
     shop: session.shop,
     total,
-    filtered: Boolean(q || status !== "all"),
+    filtered: Boolean(q || status !== "all" || businessId !== "all"),
+    businesses,
     members: members.map((m) => ({
       customerId: m.customerId,
       workEmail: m.workEmail,
       source: m.source,
+      business: m.businessId ? (names.get(m.businessId) ?? "Deleted business") : "",
       status: m.status,
       since: m.verifiedAt.toISOString().slice(0, 10),
       expiresAt: m.expiresAt ? m.expiresAt.toISOString().slice(0, 10) : null,
@@ -106,6 +112,7 @@ function Row({ m, shop }: { m: Member; shop: string }) {
           </s-link>
         </s-stack>
       </s-table-cell>
+      <s-table-cell>{m.business || "—"}</s-table-cell>
       <s-table-cell>{m.source === "domain" ? "Work-email login" : "Email link"}</s-table-cell>
       <s-table-cell>
         <s-badge tone={st.tone}>{st.label}</s-badge>
@@ -137,7 +144,7 @@ function Row({ m, shop }: { m: Member; shop: string }) {
 }
 
 export default function Employees() {
-  const { members, shop, total, filtered } = useLoaderData<typeof loader>();
+  const { members, shop, total, filtered, businesses } = useLoaderData<typeof loader>();
   const [params] = useSearchParams();
   const sync = useFetcher<typeof action>();
   useToastResult(sync.data);
@@ -189,6 +196,16 @@ export default function Employees() {
                       defaultValue={params.get("q") ?? ""}
                     />
                   </s-box>
+                  <s-select name="business" label="Business" labelAccessibilityVisibility="exclusive">
+                    <s-option value="all" defaultSelected={(params.get("business") ?? "all") === "all"}>
+                      All businesses
+                    </s-option>
+                    {businesses.map((b) => (
+                      <s-option key={b.id} value={b.id} defaultSelected={params.get("business") === b.id}>
+                        {b.name}
+                      </s-option>
+                    ))}
+                  </s-select>
                   <s-select name="status" label="Status" labelAccessibilityVisibility="exclusive">
                     {["all", "active", "revoked", "expired", "inactive"].map((v) => (
                       <s-option key={v} value={v} defaultSelected={status === v}>
@@ -204,6 +221,7 @@ export default function Employees() {
               <s-table>
                 <s-table-header-row>
                   <s-table-header>Employee</s-table-header>
+                  <s-table-header>Business</s-table-header>
                   <s-table-header>Joined by</s-table-header>
                   <s-table-header>Status</s-table-header>
                   <s-table-header>Since</s-table-header>

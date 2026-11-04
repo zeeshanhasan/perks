@@ -33,6 +33,15 @@ Legend: `[ ]` todo · `[x]` done · 🧑 = needs Zeeshan
 - [ ] Screenshots + reviewer test instructions
 - [ ] 🧑 Submit to the App Store
 
+## v3: multiple businesses (branch `feat/multi-business`)
+
+- [x] Businesses: many per store, multiple domains, % or fixed discount, per-business targeting (products / collections / vendors / types), employee-only per business, limits (month/year, discount/spend), billing details
+- [x] Functions v2 with live targeting via input variables + limit check from usage metafield
+- [x] Order webhooks → usage per business; Reports dashboard; invoices (discount or spend, any range, frozen, print/PDF + CSV)
+- [x] Legacy single-employer data auto-migrates
+- [ ] 🧑 Update Railway `SCOPES` (adds `read_orders`), merge, `shopify app deploy --config production`, accept permissions
+- [ ] 🧑 Test on the dev store: two businesses, collection/vendor targeting, a limit, an order, then an invoice
+
 ## Known risks to check on the dev store
 
 - Customer account email field: the code reads `customer.defaultEmailAddress.emailAddress` (Admin API) and `buyerIdentity.customer.email` (Functions). Needs Level 2 access.

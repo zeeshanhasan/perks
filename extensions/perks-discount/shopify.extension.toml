@@ -10,6 +10,8 @@ description = "t:description"
   [[extensions.targeting]]
   target = "cart.lines.discounts.generate.run"
   input_query = "src/cart_lines_discounts_generate_run.graphql"
+  # $collectionIds comes from this JSON metafield on the discount / validation (set by the app)
+  input_variables = { namespace = "$app", key = "perks_vars" }
   export = "cart-lines-discounts-generate-run"
 
   [extensions.build]

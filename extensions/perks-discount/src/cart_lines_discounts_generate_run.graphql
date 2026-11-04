@@ -1,10 +1,13 @@
-query CartInput {
+query CartInput($collectionIds: [ID!]) {
   cart {
     buyerIdentity {
       isAuthenticated
       customer {
         email
         eligibility: metafield(namespace: "$app", key: "perks_eligibility") {
+          value
+        }
+        usage: metafield(namespace: "$app", key: "perks_usage") {
           value
         }
       }
@@ -15,14 +18,12 @@ query CartInput {
         __typename
         ... on ProductVariant {
           product {
-            employeeOnly: metafield(namespace: "$app", key: "perks_employee_only") {
-              value
-            }
-            discounted: metafield(namespace: "$app", key: "perks_discounted") {
-              value
-            }
-            excluded: metafield(namespace: "$app", key: "perks_discount_excluded") {
-              value
+            id
+            vendor
+            productType
+            inCollections(ids: $collectionIds) {
+              collectionId
+              isMember
             }
           }
         }

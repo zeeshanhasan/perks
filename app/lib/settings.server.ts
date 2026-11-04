@@ -2,33 +2,37 @@ import db from "../db.server";
 import type { AdminClient } from "./admin-graphql.server";
 import { gql } from "./admin-graphql.server";
 import { audit } from "./audit.server";
-import { syncDiscountExcluded, syncDiscounted, syncEmployeeOnly } from "./metafields.server";
+import type { BusinessInput } from "./business";
+import type { BusinessView } from "./business.server";
+import { businessData, listBusinesses, migrateLegacy } from "./business.server";
+import { syncEmployeeOnly } from "./metafields.server";
 import type { SettingsInput } from "./policy";
 import { parseJsonList } from "./policy";
+import type { EmployeeOnlyIndex } from "./shopify-objects.server";
 import { ensureDiscount, ensureValidation, publishStorefrontConfig } from "./shopify-objects.server";
+import { productSearchQuery } from "./targeting";
 
 export async function getSettings(shop: string) {
-  const [employer, policy] = await Promise.all([
-    db.employer.findUnique({ where: { shop } }),
-    db.benefitPolicy.findUnique({ where: { shop } }),
-  ]);
-  return {
-    employer: employer ?? { shop, name: "", domains: "[]" },
-    policy: policy ?? (await db.benefitPolicy.upsert({ where: { shop }, create: { shop }, update: {} })),
-    configured: Boolean(employer?.name && parseJsonList(employer?.domains).length),
-  };
+  await migrateLegacy(shop);
+  const policy =
+    (await db.benefitPolicy.findUnique({ where: { shop } })) ??
+    (await db.benefitPolicy.upsert({ where: { shop }, create: { shop }, update: {} }));
+  return { policy };
 }
 
 export async function saveSettings(admin: AdminClient, shop: string, actor: string, input: SettingsInput) {
-  await db.employer.upsert({
+  await getSettings(shop);
+  await db.benefitPolicy.update({
     where: { shop },
-    create: { shop, name: input.employerName, domains: JSON.stringify(input.domains) },
-    update: { name: input.employerName, domains: JSON.stringify(input.domains) },
-  });
-  await db.benefitPolicy.upsert({
-    where: { shop },
-    create: { shop, ...policyFields(input) },
-    update: policyFields(input),
+    data: {
+      enabled: input.enabled,
+      autoDomain: input.autoDomain,
+      eligibilityMonths: input.eligibilityMonths,
+      combinesWithProduct: input.combinesWithProduct,
+      combinesWithOrder: input.combinesWithOrder,
+      combinesWithShipping: input.combinesWithShipping,
+      excludedProducts: JSON.stringify(input.excludedProducts),
+    },
   });
   const policy = await syncShopifyObjects(admin, shop);
   await audit({
@@ -36,78 +40,119 @@ export async function saveSettings(admin: AdminClient, shop: string, actor: stri
     actor,
     action: "settings.update",
     result: "ok",
-    detail: `discount=${input.discountPercent}% scope=${input.discountScope} autoDomain=${input.autoDomain} months=${input.eligibilityMonths ?? "none"} enabled=${input.enabled} domains=${input.domains.join(",")}`,
+    detail: `enabled=${input.enabled} autoDomain=${input.autoDomain} months=${input.eligibilityMonths ?? "none"} excluded=${input.excludedProducts.length}`,
   });
   return policy;
 }
 
-function policyFields(i: SettingsInput) {
-  return {
-    discountPercent: i.discountPercent,
-    eligibilityMonths: i.eligibilityMonths,
-    discountScope: i.discountScope,
-    autoDomain: i.autoDomain,
-    combinesWithProduct: i.combinesWithProduct,
-    combinesWithOrder: i.combinesWithOrder,
-    combinesWithShipping: i.combinesWithShipping,
-    enabled: i.enabled,
-  };
-}
-
-/** Pushes the current policy to Shopify: discount, checkout rule and storefront config. */
-export async function syncShopifyObjects(admin: AdminClient, shop: string) {
-  const [policy, employer] = await Promise.all([
-    db.benefitPolicy.findUniqueOrThrow({ where: { shop } }),
-    db.employer.findUnique({ where: { shop } }),
-  ]);
-  const domains = parseJsonList(employer?.domains);
-  const discountId = await ensureDiscount(admin, policy, domains);
-  const validationId = await ensureValidation(admin, { ...policy, discountId }, domains);
-  const updated = await db.benefitPolicy.update({ where: { shop }, data: { discountId, validationId } });
-  await publishStorefrontConfig(admin, updated, domains);
-  return updated;
-}
-
-async function handlesFor(admin: AdminClient, ids: string[]): Promise<string[]> {
-  if (!ids.length) return [];
-  const out: string[] = [];
-  for (let i = 0; i < ids.length; i += 100) {
-    const data = await gql<{ nodes: ({ handle?: string } | null)[] }>(
-      admin,
-      `#graphql
-      query PerksProductHandles($ids: [ID!]!) { nodes(ids: $ids) { ... on Product { handle } } }`,
-      { ids: ids.slice(i, i + 100) },
-    );
-    for (const n of data.nodes) if (n?.handle) out.push(n.handle);
-  }
-  return out;
-}
-
-export type ProductLists = { employeeOnly: string[]; discounted: string[]; excluded: string[] };
-
-export async function saveProducts(admin: AdminClient, shop: string, actor: string, lists: ProductLists) {
-  const { policy, configured } = await getSettings(shop);
-  // A product can't be both employee-only and "open + discounted": employee-only wins.
-  const discounted = lists.discounted.filter((id) => !lists.employeeOnly.includes(id));
-  await syncEmployeeOnly(admin, parseJsonList(policy.employeeOnlyProducts), lists.employeeOnly);
-  await syncDiscounted(admin, parseJsonList(policy.discountedProducts), discounted);
-  await syncDiscountExcluded(admin, parseJsonList(policy.excludedProducts), lists.excluded);
-  await db.benefitPolicy.update({
-    where: { shop },
-    data: {
-      employeeOnlyProducts: JSON.stringify(lists.employeeOnly),
-      discountedProducts: JSON.stringify(discounted),
-      excludedProducts: JSON.stringify(lists.excluded),
-      employeeOnlyHandles: JSON.stringify(await handlesFor(admin, lists.employeeOnly)),
-    },
-  });
-  // Make sure the checkout rule + storefront config exist even if Settings was never saved.
-  if (configured) await syncShopifyObjects(admin, shop);
+export async function saveBusiness(
+  admin: AdminClient,
+  shop: string,
+  actor: string,
+  input: BusinessInput,
+  id?: string,
+) {
+  const data = businessData(input);
+  const b = id
+    ? await db.business.update({ where: { id, shop }, data })
+    : await db.business.create({ data: { shop, ...data } });
+  await syncShopifyObjects(admin, shop);
   await audit({
     shop,
     actor,
-    action: "products.update",
+    action: id ? "business.update" : "business.create",
+    subject: b.name,
     result: "ok",
-    detail: `employeeOnly=${lists.employeeOnly.length} discounted=${discounted.length} excluded=${lists.excluded.length}`,
+    detail: `${input.discountType}=${input.discountValue} domains=${input.domains.join(",")} limit=${input.limitPeriod}`,
   });
+  return b;
+}
+
+export async function deleteBusiness(admin: AdminClient, shop: string, actor: string, id: string) {
+  const b = await db.business.findFirst({ where: { id, shop } });
+  if (!b) return;
+  await db.business.delete({ where: { id } });
+  await db.employeeMembership.updateMany({ where: { shop, businessId: id, status: "active" }, data: { status: "inactive" } });
+  await syncShopifyObjects(admin, shop);
+  await audit({ shop, actor, action: "business.delete", subject: b.name, result: "ok" });
+}
+
+const MAX_RESOLVED = 5000;
+
+type Page = { nodes: { id: string; handle: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } };
+
+async function pageAll(fetchPage: (after: string | null) => Promise<Page>, out: Map<string, string>) {
+  let after: string | null = null;
+  for (let i = 0; i < 50 && out.size < MAX_RESOLVED; i++) {
+    const p: Page = await fetchPage(after);
+    for (const n of p.nodes) out.set(n.id, n.handle);
+    if (!p.pageInfo.hasNextPage) break;
+    after = p.pageInfo.endCursor;
+  }
+}
+
+/**
+ * Resolves each business's employee-only targeting to concrete products (id → handle).
+ * Used for the theme embed (hiding) and the perks_employee_only product flag (defence in depth;
+ * the Functions also evaluate targeting live at checkout).
+ */
+export async function resolveEmployeeOnly(admin: AdminClient, businesses: BusinessView[]) {
+  const perBusiness: { businessId: string; products: Map<string, string> }[] = [];
+  for (const b of businesses.filter((x) => x.active)) {
+    const t = b.employeeOnlyTarget;
+    const products = new Map<string, string>();
+    if (t.products.length) {
+      for (let i = 0; i < t.products.length; i += 100) {
+        const data = await gql<{ nodes: ({ id: string; handle: string } | null)[] }>(admin, `#graphql
+          query PerksHandles($ids: [ID!]!) { nodes(ids: $ids) { ... on Product { id handle } } }`, {
+          ids: t.products.slice(i, i + 100).map((p) => p.id),
+        });
+        for (const n of data.nodes) if (n?.id) products.set(n.id, n.handle);
+      }
+    }
+    for (const c of t.collections) {
+      await pageAll(async (after) => {
+        const data = await gql(admin, `#graphql
+          query PerksCollectionProducts($id: ID!, $after: String) {
+            collection(id: $id) { products(first: 250, after: $after) { nodes { id handle } pageInfo { hasNextPage endCursor } } }
+          }`, { id: c.id, after });
+        return data.collection?.products ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
+      }, products);
+    }
+    const query = productSearchQuery(t);
+    if (query) {
+      await pageAll(async (after) => {
+        const data = await gql(admin, `#graphql
+          query PerksSearchProducts($q: String!, $after: String) {
+            products(first: 250, after: $after, query: $q) { nodes { id handle } pageInfo { hasNextPage endCursor } }
+          }`, { q: query, after });
+        return data.products;
+      }, products);
+    }
+    perBusiness.push({ businessId: b.id, products });
+  }
+  const allIds = [...new Set(perBusiness.flatMap((x) => [...x.products.keys()]))];
+  const index: EmployeeOnlyIndex = perBusiness.map((x) => ({ businessId: x.businessId, handles: [...x.products.values()] }));
+  return { allIds, index };
+}
+
+/** Pushes everything to Shopify: discount, checkout rule, product flags, storefront config. */
+export async function syncShopifyObjects(admin: AdminClient, shop: string) {
+  const { policy } = await getSettings(shop);
+  const businesses = await listBusinesses(shop);
+  const { allIds, index } = await resolveEmployeeOnly(admin, businesses);
+  await syncEmployeeOnly(admin, parseJsonList(policy.employeeOnlyProducts), allIds);
+  const discountId = await ensureDiscount(admin, policy, businesses);
+  const validationId = await ensureValidation(admin, { ...policy, discountId }, businesses);
+  const updated = await db.benefitPolicy.update({
+    where: { shop },
+    data: {
+      discountId,
+      validationId,
+      employeeOnlyProducts: JSON.stringify(allIds),
+      employeeOnlyHandles: JSON.stringify([...new Set(index.flatMap((x) => x.handles))]),
+    },
+  });
+  await publishStorefrontConfig(admin, updated, businesses, index);
+  return updated;
 }

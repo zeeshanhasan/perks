@@ -35,7 +35,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const result = await confirmVerification({ admin, shop, customerId, token: form.get("token") });
   if (result.ok)
     return liquid(
-      pages.verified(program.employerName, result.expiresAt, { kind: "ok", text: "Verified. Welcome aboard!" }),
+      pages.verified(result.businessName, result.expiresAt, { kind: "ok", text: "Verified. Welcome aboard!" }),
     );
   if (result.reason === "revoked") return liquid(pages.revoked());
   return liquid(pages.failed(CONFIRM_MESSAGES[result.reason]));
