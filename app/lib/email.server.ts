@@ -19,7 +19,7 @@ export async function sendVerificationEmail(msg: VerificationEmail): Promise<voi
     );
     return;
   }
-  const from = process.env.PERKS_EMAIL_FROM || "Tofo Perks <perks@mail.tofoapp.com>";
+  const from = process.env.PERKS_EMAIL_FROM || "Employee Perks <perks@mail.tofoapp.com>";
   const html = `
     <p>Hi,</p>
     <p>Confirm your ${escapeHtml(msg.employerName)} work email to unlock employee perks at ${escapeHtml(msg.shopName)}.</p>

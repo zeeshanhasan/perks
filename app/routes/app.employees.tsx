@@ -152,6 +152,9 @@ export default function Employees() {
 
   return (
     <s-page heading="Employees">
+      <s-button slot="secondary-actions" href="/app/check">
+        Check a customer
+      </s-button>
       <s-button
         slot="secondary-actions"
         icon="refresh"

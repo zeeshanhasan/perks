@@ -1,4 +1,4 @@
-import { parseDomainList } from "./domain";
+import { isPublicEmailDomain, parseDomainList } from "./domain";
 import type { Targeting } from "./targeting";
 import { isEmptyTarget, parseTargeting } from "./targeting";
 
@@ -33,6 +33,11 @@ export function parseBusinessForm(form: FormData): BusinessResult {
   const { domains, invalid } = parseDomainList(String(form.get("domains") ?? ""));
   if (invalid.length) errors.domains = `Invalid domain(s): ${invalid.join(", ")}`;
   else if (!domains.length) errors.domains = "Add at least one email domain";
+  else {
+    const open = domains.filter(isPublicEmailDomain);
+    if (open.length)
+      errors.domains = `${open.join(", ")} is a public email provider: anyone could sign up and get perks. Use the company's own domain.`;
+  }
 
   const discountType: DiscountType = form.get("discountType") === "fixed" ? "fixed" : "percentage";
   const discountValue = Number(form.get("discountValue"));

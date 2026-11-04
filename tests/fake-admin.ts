@@ -17,6 +17,8 @@ export function fakeAdmin(overrides: Record<string, (vars: any) => any> = {}) {
           return ok({ shopifyFunctions: { nodes: [{ id: "fn-d", apiType: "discount", title: "d" }, { id: "fn-v", apiType: "cart_checkout_validation", title: "v" }] } });
         case "PerksDiscountCreate":
           return ok({ discountAutomaticAppCreate: { automaticAppDiscount: { discountId: "gid://shopify/DiscountAutomaticNode/1" }, userErrors: [] } });
+        case "PerksFindDiscounts":
+          return ok({ discountNodes: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } });
         case "PerksDiscountNode":
           return ok({ discountNode: { id: v.id } });
         case "PerksDiscountUpdate":

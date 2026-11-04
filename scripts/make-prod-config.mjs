@@ -22,7 +22,7 @@ if (!existsSync(prodPath)) {
 const prod = readFileSync(prodPath, "utf8");
 const pick = (key) => (prod.match(new RegExp(`^${key}\\s*=\\s*"([^"]+)"`, "m")) || [])[1];
 const clientId = pick("client_id");
-const name = pick("name") || "Tofo Perks";
+const name = pick("name") || "Employee Perks";
 if (!clientId) {
   console.error(`No client_id in ${prodPath}`);
   process.exit(1);

@@ -1,11 +1,15 @@
-import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { useLoaderData } from "react-router";
+import { useEffect } from "react";
+import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
+import { useFetcher, useLoaderData } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import db from "../db.server";
 import { PageHelp } from "../components/ui";
 import { describeDiscount, describeLimit } from "../lib/business";
 import { listBusinesses } from "../lib/business.server";
+import { merchantActor } from "../lib/admin-actor.server";
 import { shopCurrency } from "../lib/catalog.server";
+import { setBusinessActive } from "../lib/settings.server";
 import { describeTarget } from "../lib/targeting";
 import { authenticate } from "../shopify.server";
 
@@ -32,6 +36,43 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   };
 };
 
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const ctx = await authenticate.admin(request);
+  const form = await request.formData();
+  const id = String(form.get("id") ?? "");
+  const active = form.get("active") === "on";
+  try {
+    const b = await setBusinessActive(ctx.admin, ctx.session.shop, merchantActor(ctx), id, active);
+    return { ok: true as const, message: b ? `${b.name} ${active ? "is active" : "paused"}` : "Business not found" };
+  } catch (err) {
+    console.error("[perks] toggle business failed", err);
+    return { ok: false as const, message: "Couldn't update the business. Try again." };
+  }
+};
+
+function ActiveSwitch({ id, name, active }: { id: string; name: string; active: boolean }) {
+  const fetcher = useFetcher<typeof action>();
+  const shopify = useAppBridge();
+  const pending = fetcher.formData ? fetcher.formData.get("active") === "on" : active;
+  useEffect(() => {
+    if (fetcher.data) shopify.toast.show(fetcher.data.message, { isError: !fetcher.data.ok });
+  }, [fetcher.data, shopify]);
+  return (
+    <s-switch
+      label={pending ? "Active" : "Paused"}
+      accessibilityLabel={`${name}: ${pending ? "active" : "paused"}`}
+      checked={pending}
+      disabled={fetcher.state !== "idle"}
+      onChange={(e) =>
+        fetcher.submit(
+          { id, active: (e.currentTarget as unknown as { checked: boolean }).checked ? "on" : "off" },
+          { method: "post" },
+        )
+      }
+    />
+  );
+}
+
 export default function Businesses() {
   const { businesses } = useLoaderData<typeof loader>();
   return (
@@ -54,6 +95,7 @@ export default function Businesses() {
                 <s-table-header>Employee-only</s-table-header>
                 <s-table-header>Limit</s-table-header>
                 <s-table-header>Employees</s-table-header>
+                <s-table-header>Perks</s-table-header>
               </s-table-header-row>
               <s-table-body>
                 {businesses.map((b) => (
@@ -62,7 +104,6 @@ export default function Businesses() {
                       <s-stack gap="small-300">
                         <s-link href={`/app/businesses/${b.id}`}>{b.name}</s-link>
                         <s-text color="subdued">{b.domains}</s-text>
-                        {!b.active ? <s-badge>Paused</s-badge> : null}
                       </s-stack>
                     </s-table-cell>
                     <s-table-cell>{b.discount}</s-table-cell>
@@ -70,6 +111,9 @@ export default function Businesses() {
                     <s-table-cell>{b.employeeOnly}</s-table-cell>
                     <s-table-cell>{b.limit}</s-table-cell>
                     <s-table-cell>{String(b.employees)}</s-table-cell>
+                    <s-table-cell>
+                      <ActiveSwitch id={b.id} name={b.name} active={b.active} />
+                    </s-table-cell>
                   </s-table-row>
                 ))}
               </s-table-body>

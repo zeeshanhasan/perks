@@ -12,6 +12,7 @@ import type { BusinessView } from "./business.server";
 import { DISCOUNT_CONFIG_KEY, ELIGIBILITY_NAMESPACE, STOREFRONT_KEY, STOREFRONT_NAMESPACE } from "./eligibility";
 import { setMetafields } from "./metafields.server";
 import { parseJsonList } from "./policy";
+import { parseStorefront } from "./storefront";
 import { toFunctionTarget } from "./targeting";
 
 export const DISCOUNT_TITLE = "Employee perks";
@@ -87,13 +88,59 @@ async function discountExists(admin: AdminClient, id: string): Promise<boolean> 
   }
 }
 
+type DiscountPage = {
+  discountNodes: {
+    nodes: { id: string; discount: { __typename: string; title?: string; appDiscountType?: { functionId: string } } }[];
+    pageInfo: { hasNextPage: boolean; endCursor: string | null };
+  };
+};
+
+/**
+ * Our own automatic discount, found by its Function. Lets us re-adopt it when the saved id was lost,
+ * instead of creating a duplicate (Shopify requires unique titles for automatic discounts).
+ */
+async function findOwnDiscount(admin: AdminClient, functionId: string) {
+  let after: string | null = null;
+  const titles = new Set<string>();
+  for (let i = 0; i < 10; i++) {
+    const data: DiscountPage = await gql<DiscountPage>(admin, `#graphql
+      query PerksFindDiscounts($after: String) {
+        discountNodes(first: 100, after: $after) {
+          nodes { id discount { __typename ... on DiscountAutomaticApp { title appDiscountType { functionId } } ... on DiscountAutomaticBasic { title } ... on DiscountAutomaticBxgy { title } ... on DiscountAutomaticFreeShipping { title } } }
+          pageInfo { hasNextPage endCursor }
+        }
+      }`, { after });
+    for (const n of data.discountNodes.nodes) {
+      if (n.discount.appDiscountType?.functionId === functionId) return { id: n.id, titles };
+      if (n.discount.title) titles.add(n.discount.title);
+    }
+    if (!data.discountNodes.pageInfo.hasNextPage) break;
+    after = data.discountNodes.pageInfo.endCursor;
+  }
+  return { id: null, titles };
+}
+
+/** "Employee perks", or "Employee perks (2)" when another discount already has that title. */
+export function freeTitle(taken: Set<string>) {
+  if (!taken.has(DISCOUNT_TITLE)) return DISCOUNT_TITLE;
+  for (let n = 2; ; n++) if (!taken.has(`${DISCOUNT_TITLE} (${n})`)) return `${DISCOUNT_TITLE} (${n})`;
+}
+
 /** Returns the discount node GID. */
 export async function ensureDiscount(admin: AdminClient, policy: BenefitPolicy, businesses: BusinessView[]): Promise<string> {
   let id = policy.discountId && (await discountExists(admin, policy.discountId)) ? policy.discountId : null;
+  let title = DISCOUNT_TITLE;
 
   if (!id) {
     const fns = await findFunctions(admin);
     if (!fns.discount) throw new Error("Discount Function not deployed. Run `shopify app deploy` first.");
+    const own = await findOwnDiscount(admin, fns.discount.id);
+    id = own.id;
+    title = freeTitle(own.titles);
+  }
+
+  if (!id) {
+    const fns = await findFunctions(admin);
     const data = await gql(admin, `#graphql
       mutation PerksDiscountCreate($input: DiscountAutomaticAppInput!) {
         discountAutomaticAppCreate(automaticAppDiscount: $input) {
@@ -102,8 +149,8 @@ export async function ensureDiscount(admin: AdminClient, policy: BenefitPolicy, 
         }
       }`, {
       input: {
-        title: DISCOUNT_TITLE,
-        functionId: fns.discount.id,
+        title,
+        functionId: fns.discount!.id,
         startsAt: new Date().toISOString(),
         discountClasses: ["PRODUCT"],
         combinesWith: combinesWith(policy),
@@ -118,7 +165,7 @@ export async function ensureDiscount(admin: AdminClient, policy: BenefitPolicy, 
           automaticAppDiscount { discountId }
           userErrors { field message }
         }
-      }`, { id, input: { title: DISCOUNT_TITLE, combinesWith: combinesWith(policy) } });
+      }`, { id, input: { combinesWith: combinesWith(policy) } });
     assertNoUserErrors(data.discountAutomaticAppUpdate, "discountAutomaticAppUpdate");
   }
 
@@ -176,6 +223,7 @@ export async function ensureValidation(admin: AdminClient, policy: BenefitPolicy
 }
 
 export type EmployeeOnlyIndex = { businessId: string; handles: string[] }[];
+export type DiscountedIndex = { businessId: string; handles: string[] }[];
 
 /** App-data metafield read by the theme app embed. */
 export async function publishStorefrontConfig(
@@ -183,6 +231,7 @@ export async function publishStorefrontConfig(
   policy: BenefitPolicy,
   businesses: BusinessView[],
   index: EmployeeOnlyIndex,
+  discounted: DiscountedIndex = [],
 ) {
   const data = await gql(admin, `#graphql
     query PerksInstallation { currentAppInstallation { id } }`);
@@ -190,6 +239,7 @@ export async function publishStorefrontConfig(
   const value = {
     v: 2,
     enabled: policy.enabled,
+    ui: parseStorefront(policy.storefront),
     autoDomain: policy.autoDomain,
     excluded: parseJsonList(policy.excludedProducts).map((g) => g.split("/").pop()),
     businesses: active.map((b) => {
@@ -202,6 +252,8 @@ export async function publishStorefrontConfig(
         // numeric ids for Liquid comparisons
         target: { ...t, productIds: t.productIds.map((g) => g.split("/").pop()), collectionIds: t.collectionIds.map((g) => g.split("/").pop()) },
         employeeOnlyHandles: index.find((x) => x.businessId === b.id)?.handles ?? [],
+        // For collection cards (not needed when the business discounts everything).
+        discountedHandles: t.all ? [] : (discounted.find((x) => x.businessId === b.id)?.handles ?? []),
       };
     }),
   };

@@ -84,8 +84,9 @@ export default function Help() {
       <s-section heading="Turn on Employee mode in your theme">
         <s-stack gap="base">
           <s-paragraph>
-            Employee mode hides employee-only products from other shoppers in collections and search results, and
-            replaces the buy button with a message on their product pages. Employees see a badge with their discount.
+            Employee mode shows employees their price on product pages and in collections, hides employee-only
+            products from other shoppers, and replaces the buy button with a message on those products. Change its
+            texts on the <s-link href="/app/storefront">Storefront</s-link> page.
           </s-paragraph>
           <s-ordered-list>
             <s-list-item>Open the theme editor with the button below.</s-list-item>
@@ -116,12 +117,17 @@ export default function Help() {
             matches your domain.
           </Faq>
           <Faq q="An employee says they don't get the discount.">
-            Check that they&apos;re logged in with their work email (not a guest), that the product is in one of your
-            lists, and that the program is on in Settings. Their Activity entries show what happened.
+            Use <s-link href="/app/check">Check a customer</s-link>: type their email and you&apos;ll see exactly why,
+            with the fix. Also check that the product is in that business&apos;s products.
           </Faq>
           <Faq q="Does the discount stack with other discounts?">
             Only if you allow it under Settings, &ldquo;Combining with other discounts&rdquo;. Otherwise Shopify applies
             the better discount.
+          </Faq>
+          <Faq q="Is it safe to uninstall?">
+            Yes. Employee Perks never edits your theme code, so nothing is left behind. The storefront parts are theme
+            app blocks that Shopify removes for you. Employee-only products become normal products again, so unpublish
+            them first if they must stay private.
           </Faq>
           <Faq q="What happens if I uninstall?">
             The discount and checkout rule stop working straight away. Your app data is deleted 48 hours later, as

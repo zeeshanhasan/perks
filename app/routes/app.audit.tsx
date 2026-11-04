@@ -18,6 +18,12 @@ const LABELS: Record<string, string> = {
   "membership.domain_inactive": "Work email no longer matches",
   "privacy.customer_data_request": "Customer data requested",
   "privacy.customer_redact": "Customer data deleted",
+  "business.create": "Business added",
+  "shopify.sync": "Updating Shopify failed",
+  "business.update": "Business updated",
+  "business.delete": "Business deleted",
+  "business.pause": "Business paused",
+  "business.resume": "Business resumed",
 };
 
 const DETAILS: Record<string, string> = {
@@ -33,7 +39,7 @@ const DETAILS: Record<string, string> = {
 };
 
 function who(actor: string) {
-  if (actor === "system") return "Tofo Perks";
+  if (actor === "system") return "Employee Perks";
   if (actor.startsWith("merchant:")) return "Staff";
   if (actor.startsWith("customer:")) return `Customer ${actor.slice(9)}`;
   return actor;

@@ -1,8 +1,10 @@
 # App Store listing (draft)
 
-**App name:** Tofo Perks: Employee Discounts
+**App name:** Employee Perks (by Tofo)
 
-**Tagline (≤ 62 chars):** Employee discounts and private products for partner companies
+**Pricing:** $10/month, everything included (decision 009). Free launch is an option for faster review.
+
+**Tagline (≤ 62 chars):** Corporate discounts and employee prices for partner companies
 
 **Introduction (≤ 100 chars):** Reward partner company employees with automatic discounts and employee-only products.
 

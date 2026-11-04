@@ -1,5 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { redirect, Form, useActionData, useLoaderData } from "react-router";
+import { useEffect } from "react";
+import { redirect, Form, useActionData, useLoaderData, useNavigate } from "react-router";
 
 import { login } from "../../shopify.server";
 import { loginErrorMessage } from "./error.server";
@@ -9,8 +10,13 @@ import styles from "./styles.module.css";
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
 
-  if (url.searchParams.get("shop")) {
-    throw redirect(`/app?${url.searchParams.toString()}`);
+  const p = url.searchParams;
+  // Opened from the Shopify admin (embedded iframe): go straight to the app, never the login page.
+  const embedded =
+    p.get("shop") || p.get("host") || p.get("embedded") || p.get("id_token") ||
+    request.headers.get("sec-fetch-dest") === "iframe";
+  if (embedded) {
+    throw redirect(`/app?${p.toString()}`);
   }
 
   return { showForm: Boolean(login) };
@@ -25,12 +31,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 export default function App() {
   const { showForm } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const navigate = useNavigate();
+  // Inside the Shopify admin (e.g. the app title link), always show the app, never this page.
+  useEffect(() => {
+    if (window.top !== window.self) navigate(`/app${window.location.search}`, { replace: true });
+  }, [navigate]);
   const errors = actionData?.errors;
 
   return (
     <div className={styles.index}>
       <div className={styles.content}>
-        <h1 className={styles.heading}>Tofo Perks: employee discounts for Shopify</h1>
+        <h1 className={styles.heading}>Employee Perks: corporate discounts for Shopify</h1>
         <p className={styles.text}>
           Give partner company employees automatic discounts and employee-only products. Log in with your store
           domain to open the app.

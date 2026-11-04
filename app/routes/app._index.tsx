@@ -5,12 +5,14 @@ import { Stat } from "../components/ui";
 import { formatMoney } from "../lib/business";
 import { shopCurrency } from "../lib/catalog.server";
 import { getSetup } from "../lib/setup.server";
+import { embedStatus } from "../lib/storefront.server";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const { currency } = await shopCurrency(admin);
-  const setup = await getSetup(session.shop, process.env.SHOPIFY_API_KEY || "", currency);
+  const embed = await embedStatus(admin);
+  const setup = await getSetup(session.shop, process.env.SHOPIFY_API_KEY || "", currency, embed.on);
   return { currency, ...setup };
 };
 
@@ -121,8 +123,10 @@ export default function Home() {
 
       <s-section slot="aside" heading="Need help?">
         <s-stack gap="small">
-          <s-paragraph>Learn how employees get perks, and what to do when something doesn&apos;t work.</s-paragraph>
-          <s-link href="/app/help">Read the guide</s-link>
+          <s-paragraph>Someone says they don&apos;t get the discount? Check them in seconds.</s-paragraph>
+          <s-link href="/app/check">Check a customer</s-link>
+          <s-link href="/app/help">How Employee Perks works</s-link>
+          <s-link href="/app/audit">Activity log</s-link>
         </s-stack>
       </s-section>
     </s-page>

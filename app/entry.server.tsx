@@ -6,6 +6,7 @@ import { type EntryContext } from "react-router";
 import { isbot } from "isbot";
 import { addDocumentResponseHeaders } from "./shopify.server";
 import { startScheduler } from "./lib/cron.server";
+import { stripTrailingMarkers } from "./lib/strip-trailing-markers";
 
 startScheduler();
 
@@ -35,13 +36,17 @@ export default async function handleRequest(
           const stream = createReadableStreamFromReadable(body);
 
           responseHeaders.set("Content-Type", "text/html");
+          // Stop proxies (Cloudflare Web Analytics, Rocket Loader) from injecting scripts into
+          // our pages. Their injection split React's markers and showed a stray "$".
+          const cc = responseHeaders.get("Cache-Control");
+          if (!cc?.includes("no-transform")) responseHeaders.set("Cache-Control", cc ? `${cc}, no-transform` : "no-transform");
           resolve(
             new Response(stream, {
               headers: responseHeaders,
               status: responseStatusCode,
             })
           );
-          pipe(body);
+          pipe(stripTrailingMarkers()).pipe(body);
         },
         onShellError(error) {
           reject(error);

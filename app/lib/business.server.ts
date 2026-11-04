@@ -50,12 +50,12 @@ export async function migrateLegacy(shop: string) {
 
 export async function listBusinesses(shop: string): Promise<BusinessView[]> {
   await migrateLegacy(shop);
-  const rows = await db.business.findMany({ where: { shop }, orderBy: { createdAt: "asc" } });
+  const rows = await db.business.findMany({ where: { shop, archivedAt: null }, orderBy: { createdAt: "asc" } });
   return rows.map(view);
 }
 
 export async function getBusiness(shop: string, id: string): Promise<BusinessView | null> {
-  const b = await db.business.findFirst({ where: { shop, id } });
+  const b = await db.business.findFirst({ where: { shop, id, archivedAt: null } });
   return b ? view(b) : null;
 }
 
@@ -78,10 +78,16 @@ export function businessData(i: BusinessInput) {
 
 /** Domains already used by another business in this shop (a domain can belong to one business). */
 export async function domainConflicts(shop: string, domains: string[], exceptId?: string) {
-  const others = await db.business.findMany({ where: { shop, ...(exceptId ? { NOT: { id: exceptId } } : {}) } });
+  const others = await db.business.findMany({ where: { shop, archivedAt: null, ...(exceptId ? { NOT: { id: exceptId } } : {}) } });
   const taken: string[] = [];
   for (const o of others) for (const d of parseJsonList(o.domains)) if (domains.includes(d)) taken.push(`${d} (${o.name})`);
   return taken;
+}
+
+/** Domains used by other (non-deleted) businesses, for instant checks in the UI. */
+export async function takenDomains(shop: string, exceptId?: string) {
+  const others = await db.business.findMany({ where: { shop, archivedAt: null, ...(exceptId ? { NOT: { id: exceptId } } : {}) } });
+  return others.flatMap((o) => parseJsonList(o.domains).map((domain) => ({ domain, business: o.name })));
 }
 
 /** Active business whose domains include the email's domain. */
@@ -89,12 +95,12 @@ export async function businessForEmail(shop: string, email: string | null | unde
   const e = email ? normalizeEmail(email) : null;
   if (!e) return null;
   const d = emailDomain(e);
-  const rows = await db.business.findMany({ where: { shop, active: true } });
+  const rows = await db.business.findMany({ where: { shop, active: true, archivedAt: null } });
   const b = rows.find((r) => parseJsonList(r.domains).includes(d));
   return b ? view(b) : null;
 }
 
 export async function allActiveDomains(shop: string) {
-  const rows = await db.business.findMany({ where: { shop, active: true } });
+  const rows = await db.business.findMany({ where: { shop, active: true, archivedAt: null } });
   return rows.flatMap((r) => parseJsonList(r.domains));
 }
