@@ -155,3 +155,46 @@ export const CONFIRM_MESSAGES: Record<string, string> = {
   email_in_use: "That work email is already linked to another account.",
   publish_failed: "Something went wrong activating your perks. Please contact the store.",
 };
+
+// --- Public perks page (/apps/perks) -----------------------------------------------------
+
+export type PerksPageItem = { name: string; discount: string; appliesTo: string; domains: string[] };
+
+const PERKS_STYLE = `
+<style>
+  .perks--wide { max-width: 52rem; }
+  .perks__list { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); margin: 0 0 2rem; padding: 0; list-style: none; }
+  .perks__card { border: 1px solid rgba(0,0,0,.12); border-radius: 8px; padding: 1.25rem; }
+  .perks__card h2 { margin: 0 0 .25rem; font-size: 1.15em; }
+  .perks__deal { font-size: 1.5em; font-weight: 600; margin: .25rem 0; }
+  .perks__meta { font-size: .9rem; opacity: .75; margin: .25rem 0 0; }
+</style>`;
+
+/** "On everything", or up to 3 collection/product names. */
+export function publicAppliesTo(t: { all: boolean; collections: { title?: string }[]; products: { title?: string }[]; vendors: string[]; types: string[] }) {
+  if (t.all) return "On everything in the store";
+  const names = [...t.collections, ...t.products].map((x) => x.title).filter((x): x is string => Boolean(x));
+  const all = [...names, ...t.vendors, ...t.types];
+  if (!all.length) return "On selected products";
+  const shown = all.slice(0, 3).join(", ");
+  return `On ${shown}${all.length > 3 ? ` and ${all.length - 3} more` : ""}`;
+}
+
+export function perksPage(opts: { title: string; intro: string; items: PerksPageItem[]; showDomains: boolean; loggedIn: boolean }) {
+  const cards = opts.items
+    .map(
+      (i) => `<li class="perks__card">
+        <h2>${escapeHtml(i.name)}</h2>
+        <p class="perks__deal">${escapeHtml(i.discount)}</p>
+        <p class="perks__meta">${escapeHtml(i.appliesTo)}</p>
+        ${opts.showDomains && i.domains.length ? `<p class="perks__meta">For ${i.domains.map((d) => `@${escapeHtml(d)}`).join(", ")} emails</p>` : ""}
+      </li>`,
+    )
+    .join("");
+  const body = opts.items.length
+    ? `<ul class="perks__list">${cards}</ul>
+       <a class="button button--primary" href="/apps/perks/verify">${opts.loggedIn ? "Check my perks" : "Get my perks"}</a>
+       <p class="perks__note">Perks apply automatically at checkout when you're logged in with your work email, or after you verify it.</p>`
+    : `<p class="perks__lead">There are no employee perks to show right now.</p>`;
+  return PERKS_STYLE + shell({ eyebrow: "Employee perks", title: opts.title, lead: opts.intro, body }).replace('class="perks page-width"', 'class="perks perks--wide page-width"');
+}

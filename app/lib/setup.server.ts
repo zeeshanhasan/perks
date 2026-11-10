@@ -2,7 +2,9 @@ import db from "../db.server";
 import { describeDiscount } from "./business";
 import { listBusinesses } from "./business.server";
 import { businessSummary } from "./invoice.server";
-import { rangeFor } from "./report";
+import type { MonthRange } from "./home";
+import { monthRange, previousMonth } from "./home";
+import { parseStorefront } from "./storefront";
 
 export type SetupStep = {
   id: "business" | "program" | "theme";
@@ -19,14 +21,32 @@ export function themeEditorEmbedUrl(shop: string, apiKey: string) {
   return `https://admin.shopify.com/store/${handle}/themes/current/editor?context=apps&activateAppId=${apiKey}/employee-mode`;
 }
 
-export async function getSetup(shop: string, apiKey: string, currency: string, embedOn: boolean | null = null) {
+/** Orders, spend, discount, employees and businesses for one month (businesses and employees as of its end). */
+async function monthNumbers(shop: string, r: MonthRange) {
+  const [usage, employees, newEmployees, businesses, invoices] = await Promise.all([
+    businessSummary(shop, r.from, r.to),
+    db.employeeMembership.count({ where: { shop, createdAt: { lt: r.to } } }),
+    db.employeeMembership.count({ where: { shop, createdAt: { gte: r.from, lt: r.to } } }),
+    db.business.count({ where: { shop, createdAt: { lt: r.to }, OR: [{ archivedAt: null }, { archivedAt: { gte: r.to } }] } }),
+    db.invoice.count({ where: { shop, createdAt: { gte: r.from, lt: r.to } } }),
+  ]);
+  return { ...usage.totals, employees, newEmployees, businesses, invoices, label: r.label, key: r.key };
+}
+
+export async function getSetup(
+  shop: string,
+  apiKey: string,
+  currency: string,
+  embedOn: boolean | null = null,
+  month: string | null = null,
+) {
   const businesses = await listBusinesses(shop);
   const [policy, counts] = await Promise.all([
     db.benefitPolicy.findUnique({ where: { shop } }),
     db.employeeMembership.groupBy({ by: ["status", "source"], where: { shop }, _count: true }),
   ]);
-  const month = rangeFor("this_month");
-  const usage = await businessSummary(shop, month.from, month.to);
+  const selected = monthRange(month);
+  const [current, previous] = await Promise.all([monthNumbers(shop, selected), monthNumbers(shop, previousMonth(selected))]);
 
   const steps: SetupStep[] = [
     {
@@ -73,6 +93,8 @@ export async function getSetup(shop: string, apiKey: string, currency: string, e
       viaLink: count("active", "link"),
       revoked: count("revoked"),
     },
-    month: usage.totals,
+    perksPage: parseStorefront(policy?.storefront).perksPage,
+    month: current,
+    lastMonth: previous,
   };
 }

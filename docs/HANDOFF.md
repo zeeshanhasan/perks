@@ -1,4 +1,4 @@
-# Handoff (2026-11-04)
+# Handoff (2026-11-10)
 
 Read this first in a new session or in Claude Code on the Mac. Then `CLAUDE.md`, `TASKS.md`, `docs/PRD-v4.md`, `docs/decisions/`.
 
@@ -14,8 +14,10 @@ Read this first in a new session or in Claude Code on the Mac. Then `CLAUDE.md`,
 
 ## State
 
-- `main` = v3 (multi-business), released as tofo-perks-3.
-- Branch `feat/foundations` = v4: rename, Part 0 fixes, Part 1 easy setup, storefront employee price, Storefront page. One PR, see `TASKS.md` → Release.
+- `main` = v4 (PR #3 merged: rename, Part 0 fixes, easy setup, storefront employee price, Storefront page). Not yet released to production, see `TASKS.md` → Release.
+- Branch `feat/home-redesign` = Home redesign, public perks page (`/apps/perks`), Employee perks block on the Shopify customer page. One PR.
+- 2026-11-10: acceptance tests G–J3 run on the dev store. Results and the bugs found are in `TASKS.md` → Verified / Bugs found. J4, I5, K still to run.
+- Dev store state: test-data theme has the **dev** embed on and the **production** embed off; production program paused; perks page on; the Employee perks block is pinned on customer pages.
 - Credits for cloud sessions are used up: work continues locally.
 
 ## Daily dev (Mac)
@@ -34,6 +36,13 @@ shopify app dev --tunnel-url https://dev-perks.tofoapp.com:3000
 
 ## Gotchas learned
 
+- **Never run `shopify app dev --verbose` for long:** Babel debug logging fills the heap and the CLI crashes after ~12 min ("JavaScript heap out of memory"); the app then looks broken (no save bar, spinners). Use it only to read one error, then restart without it.
+- **The production app is also installed on the dev store.** Its discount, checkout rule, theme embed and `/apps/perks` proxy clash with the dev app's. Keep its program paused and its embed off while testing, or uninstall it there.
+- `s-clickable href` reloads the app iframe without the embedded params (404). Navigate with `useNavigate()` in `onClick`.
+- Native `s-select` dropdowns and tooltips inside the app iframe can't be driven by browser automation; test those by hand.
+- Admin blocks: merchants add them with "+ Block" on the resource page and must pin them, or they disappear on reload. Keep them short; the admin warns when a block is too tall.
+- The CLI regenerates `extensions/*/shopify.d.ts` (with `@ts-ignore`) on every dev run; lint skips that file.
+- Test card payments on the dev store (Bogus gateway, card `1`) are placed by Zeeshan, not the agent.
 - Theme embed script must stay under 10 KB; no `{` or `}` inside `{{ }}` in Liquid (tests guard both).
 - The CLI edits `shopify.app.production.toml` on deploy; regenerate it with `node scripts/make-prod-config.mjs` instead of hand-merging.
 - Scope changes: update Railway `SCOPES` before merging.
@@ -42,4 +51,6 @@ shopify app dev --tunnel-url https://dev-perks.tofoapp.com:3000
 
 ## Next
 
-See `TASKS.md` → Next: Resend emails, App Store submission (launch free), billing, e2e script.
+1. Merge `feat/home-redesign` after Zeeshan's hand checks (`TASKS.md` → Home redesign).
+2. Fix the rest of the pages and the bugs in `TASKS.md` → Bugs found, on a new branch from `main`.
+3. Then `TASKS.md` → Next: Resend emails, App Store submission (launch free), billing, e2e script.
