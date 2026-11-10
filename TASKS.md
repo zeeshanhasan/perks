@@ -38,10 +38,29 @@ Legend: `[ ]` todo · `[x]` done · 🧑 = needs Zeeshan. Plan: `docs/PRD-v4.md`
 ### Verified on the dev store
 
 - [x] Save bar, 404, "$", app title link, dev preview
-- [ ] 🧑 Wizard, chips, delete modal, pause switch, Check a customer
-- [ ] 🧑 Storefront page: status, Turn on, Check again, edit texts
-- [ ] 🧑 Employee price: product page, variant switch, collection, search
-- [ ] 🧑 Core flows never tested on a store: collection targeting at checkout, order → Reports → invoice, limit stops the discount (`docs/acceptance-tests.md` G–K)
+- [x] Wizard, chips, delete modal, pause switch, Check a customer (G1–G5, H1–H3 on 2026-11-10)
+- [x] Storefront page: status, Turn on, Check again, edit texts (I1–I2)
+- [x] Employee price: product page, variant switch, collection, search (I3–I4; bugs below)
+- [x] Collection targeting at checkout, order → Reports → invoice, cancel keeps the invoice (J1–J3)
+- [ ] 🧑 J4 limit stops the discount, I5 guest view, K uninstall (not run yet)
+- [ ] G6 "exactly one discount": the dev store also has the production app installed, so it shows two (see bugs)
+
+### Bugs found while testing (2026-11-10, not fixed yet)
+
+- [ ] Employee price shows twice on product pages on first load: the card-price pass also matches the main product price (`price-template--…__main`)
+- [ ] Gift cards show an employee price, but Shopify never discounts gift cards
+- [ ] Dev and production apps on one store clash: both embeds write `window.TofoPerks` (last one wins); `embedEnabled` matches any app's `employee-mode` block (`app/lib/storefront.ts`), not our extension uid; both claim `/apps/perks`
+- [ ] A removed membership whose business was deleted can be restored and shows "Active · Deleted business"
+- [ ] Small: Enter doesn't run Check a customer; gmail.com hint says "Add this domain"; "Restore them on the Employees page" isn't a link; wizard summary "PKR 50000" has no comma; cards say "From Staff price…"; delete modal takes ~4 s to open
+
+## Home redesign + new features on branch `feat/home-redesign` (one PR)
+
+- [x] Home: top bar (Add business, Check a customer, Ask Sidekick when available), Overview with month picker, 4 cards with tooltips and ↑/↓ vs previous month, compact Manage list (green box and right column removed)
+- [x] Perks page: public `/apps/perks` listing partner companies and discounts; switch, title, intro and domains option on the Storefront page (off by default)
+- [x] Employee perks block on the Shopify customer page (`extensions/perks-customer-block`, API `/api/customer-perks/:id`): business, discount, limit used/left, orders and savings
+- [ ] 🧑 Check by hand: tooltips, month picker, block's "Manage in Employee Perks" link, perks page on a store without the production app
+- [ ] 🧑 App icon: upload a 1200×1200 icon for "perks" and "Employee Perks" in the Dev Dashboard
+- [ ] Sidekick app extension (data tools + action intents) so Sidekick can answer about and set up this app
 
 ## Release (🧑, see `docs/runbooks/deploy-railway.md` → Releasing an update)
 

@@ -12,6 +12,11 @@ export type StorefrontOptions = {
   noticeBody: string;
   noticeButton: string;
   badgeText: string;
+  /** Public page at /apps/perks listing partner companies and their discounts. Off until the merchant turns it on. */
+  perksPage: boolean;
+  perksPageDomains: boolean;
+  perksPageTitle: string;
+  perksPageIntro: string;
 };
 
 export const STOREFRONT_DEFAULTS: StorefrontOptions = {
@@ -23,6 +28,10 @@ export const STOREFRONT_DEFAULTS: StorefrontOptions = {
   noticeBody: "This product is reserved for employees of our partner companies. Log in with your work email to buy it.",
   noticeButton: "Log in with work email",
   badgeText: "Employee discount: {discount} applied at checkout",
+  perksPage: false,
+  perksPageDomains: true,
+  perksPageTitle: "Employee perks",
+  perksPageIntro: "Work at one of these companies? Log in with your work email and your discount is applied at checkout.",
 };
 
 export const STOREFRONT_LIMITS: Record<keyof StorefrontOptions, number> = {
@@ -34,10 +43,14 @@ export const STOREFRONT_LIMITS: Record<keyof StorefrontOptions, number> = {
   noticeBody: 240,
   noticeButton: 40,
   badgeText: 80,
+  perksPage: 0,
+  perksPageDomains: 0,
+  perksPageTitle: 60,
+  perksPageIntro: 240,
 };
 
-const BOOLS = ["hideProducts", "showPrice", "strikePrice"] as const;
-const TEXTS = ["priceLabel", "noticeTitle", "noticeBody", "noticeButton", "badgeText"] as const;
+const BOOLS = ["hideProducts", "showPrice", "strikePrice", "perksPage", "perksPageDomains"] as const;
+const TEXTS = ["priceLabel", "noticeTitle", "noticeBody", "noticeButton", "badgeText", "perksPageTitle", "perksPageIntro"] as const;
 
 /** Parses stored JSON (or a form), falling back to defaults for anything missing or invalid. */
 export function parseStorefront(raw: unknown): StorefrontOptions {
@@ -56,6 +69,15 @@ export function parseStorefront(raw: unknown): StorefrontOptions {
     if (t) out[k] = t;
   }
   return out;
+}
+
+const PERKS_PAGE_KEYS = ["perksPage", "perksPageDomains", "perksPageTitle", "perksPageIntro"] as const;
+
+/** The part the theme embed needs (the perks page is served by the app, so it stays out of the theme's data). */
+export function themeOptions(o: StorefrontOptions) {
+  const rest: Partial<StorefrontOptions> = { ...o };
+  for (const k of PERKS_PAGE_KEYS) delete rest[k];
+  return rest;
 }
 
 export function storefrontFromForm(form: FormData): StorefrontOptions {

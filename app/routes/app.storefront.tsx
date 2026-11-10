@@ -14,7 +14,12 @@ import { authenticate } from "../shopify.server";
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const [options, embed] = await Promise.all([getStorefront(session.shop), embedStatus(admin)]);
-  return { options, embed, themeUrl: themeEditorEmbedUrl(session.shop, process.env.SHOPIFY_API_KEY || "") };
+  return {
+    options,
+    embed,
+    themeUrl: themeEditorEmbedUrl(session.shop, process.env.SHOPIFY_API_KEY || ""),
+    perksUrl: `https://${session.shop}/apps/perks`,
+  };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -29,10 +34,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 const SAVE_BAR_ID = "storefront-save-bar";
-type TextKey = "priceLabel" | "noticeTitle" | "noticeBody" | "noticeButton" | "badgeText";
+type TextKey = "priceLabel" | "noticeTitle" | "noticeBody" | "noticeButton" | "badgeText" | "perksPageTitle" | "perksPageIntro";
 
 export default function Storefront() {
-  const { options, embed, themeUrl } = useLoaderData<typeof loader>();
+  const { options, embed, themeUrl, perksUrl } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
   const revalidator = useRevalidator();
@@ -54,7 +59,7 @@ export default function Storefront() {
     for (const [k, v] of Object.entries(o)) body[k] = typeof v === "boolean" ? (v ? "on" : "off") : v;
     fetcher.submit(body, { method: "post" });
   };
-  const toggle = (k: "hideProducts" | "showPrice" | "strikePrice") => (e: Event) =>
+  const toggle = (k: "hideProducts" | "showPrice" | "strikePrice" | "perksPage" | "perksPageDomains") => (e: Event) =>
     set({ [k]: (e.currentTarget as unknown as { checked: boolean }).checked });
   const text = (k: TextKey, label: string, details?: string, area = false) => {
     const props = {
@@ -134,6 +139,37 @@ export default function Storefront() {
             {text("noticeTitle", "Title")}
             {text("noticeBody", "Text", undefined, true)}
             {text("noticeButton", "Button", "Opens the page where employees verify their work email.")}
+          </s-stack>
+        </s-section>
+
+        <s-section heading="Perks page">
+          <s-stack gap="base">
+            <s-paragraph>
+              A page on your store that lists your partner companies and their discounts, so employees can see what they
+              get and how to claim it. Add it to your store menu under Online Store, then Navigation.
+            </s-paragraph>
+            <s-switch label="Show the perks page" checked={o.perksPage} onChange={toggle("perksPage")} />
+            {o.perksPage ? (
+              <>
+                <s-checkbox
+                  label="Show each company's work email domains"
+                  details="Helps employees see if their email qualifies, e.g. @acme.com."
+                  checked={o.perksPageDomains}
+                  onChange={toggle("perksPageDomains")}
+                />
+                {text("perksPageTitle", "Page title")}
+                {text("perksPageIntro", "Intro", undefined, true)}
+                {options.perksPage ? (
+                  <s-box>
+                    <s-button href={perksUrl} target="_blank" icon="external">
+                      View page
+                    </s-button>
+                  </s-box>
+                ) : (
+                  <s-text color="subdued">Save to publish the page at {perksUrl}</s-text>
+                )}
+              </>
+            ) : null}
           </s-stack>
         </s-section>
 
