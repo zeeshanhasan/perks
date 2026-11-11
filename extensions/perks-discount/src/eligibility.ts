@@ -16,7 +16,7 @@ export type Buyer =
   | undefined;
 
 export type Target = { all: boolean; productIds: string[]; collectionIds: string[]; vendors: string[]; types: string[] };
-export type Limit = { period: "month" | "year"; basis: "discount" | "spend"; amount: number } | null;
+export type Limit = { period: "month" | "year"; basis: "discount" | "spend"; amount: number; overflow: "partial" | "whole" } | null;
 export type Business = {
   id: string;
   domains: string[];
@@ -59,7 +59,7 @@ function parseLimit(v: unknown): Limit {
   if (!o) return null;
   const amount = Number(o.amount);
   if ((o.period !== "month" && o.period !== "year") || !(amount > 0)) return null;
-  return { period: o.period, basis: o.basis === "spend" ? "spend" : "discount", amount };
+  return { period: o.period, basis: o.basis === "spend" ? "spend" : "discount", amount, overflow: o.overflow === "whole" ? "whole" : "partial" };
 }
 
 /** Parses the v2 config. Returns null on anything malformed (callers fail closed). */

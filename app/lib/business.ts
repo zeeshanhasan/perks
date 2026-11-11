@@ -5,6 +5,8 @@ import { isEmptyTarget, parseTargeting } from "./targeting";
 export type DiscountType = "percentage" | "fixed";
 export type LimitPeriod = "none" | "month" | "year";
 export type LimitBasis = "discount" | "spend";
+/** An order that goes past the limit: the crossing item gets what's left ("partial"), or only items that fit in full ("whole"). */
+export type LimitOverflow = "partial" | "whole";
 
 export type BusinessInput = {
   name: string;
@@ -16,6 +18,7 @@ export type BusinessInput = {
   limitPeriod: LimitPeriod;
   limitBasis: LimitBasis;
   limitAmount: number | null;
+  limitOverflow: LimitOverflow;
   billingEmail: string;
   billingAddress: string;
   active: boolean;
@@ -56,6 +59,7 @@ export function parseBusinessForm(form: FormData): BusinessResult {
   const period = String(form.get("limitPeriod") ?? "none");
   const limitPeriod: LimitPeriod = period === "month" || period === "year" ? period : "none";
   const limitBasis: LimitBasis = form.get("limitBasis") === "spend" ? "spend" : "discount";
+  const limitOverflow: LimitOverflow = form.get("limitOverflow") === "whole" ? "whole" : "partial";
   let limitAmount: number | null = null;
   if (limitPeriod !== "none") {
     const a = Number(form.get("limitAmount"));
@@ -81,6 +85,7 @@ export function parseBusinessForm(form: FormData): BusinessResult {
       limitPeriod,
       limitBasis,
       limitAmount,
+      limitOverflow,
       billingEmail,
       billingAddress,
       active: v !== null && v !== "false",

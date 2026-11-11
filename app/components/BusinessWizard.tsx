@@ -23,6 +23,7 @@ export type WizardValues = {
   limitPeriod: string;
   limitBasis: string;
   limitAmount: string;
+  limitOverflow: string;
   billingEmail: string;
 };
 
@@ -103,6 +104,7 @@ export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, 
       limitPeriod,
       limitBasis,
       limitAmount: limitPeriod === "none" ? "" : limitAmount,
+      limitOverflow: "partial",
       billingEmail: billingEmail.trim(),
     });
   };
@@ -215,7 +217,7 @@ export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, 
             <s-text color="subdued">
               {limitPeriod === "none"
                 ? "Optional. Cap how much each employee can get per month or year."
-                : `Once an employee reaches it, they pay full price until next ${limitPeriod}.`}
+                : `An order that goes past it gets only what's left; after that, full price until next ${limitPeriod}.`}
             </s-text>
           </s-stack>
         </s-section>

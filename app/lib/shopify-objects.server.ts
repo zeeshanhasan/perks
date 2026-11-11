@@ -51,7 +51,7 @@ export function functionConfig(policy: Pick<BenefitPolicy, "autoDomain" | "exclu
         employeeOnly: { ...toFunctionTarget(b.employeeOnlyTarget), all: false },
         limit:
           b.limitPeriod !== "none" && b.limitAmount
-            ? { period: b.limitPeriod, basis: b.limitBasis, amount: b.limitAmount }
+            ? { period: b.limitPeriod, basis: b.limitBasis, amount: b.limitAmount, overflow: b.limitOverflow === "whole" ? "whole" : "partial" }
             : null,
       })),
   };

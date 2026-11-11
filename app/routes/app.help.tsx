@@ -68,7 +68,7 @@ export default function Help() {
         <s-unordered-list>
           <s-list-item>
             <strong>Limits:</strong> cap each employee&apos;s discount or spend per month or per year. After the limit
-            they pay full price until the next period. The order that crosses the limit still gets the discount.
+            they pay full price until the next period. An order that goes past the limit gets only what&apos;s left of it, or you can choose to discount only items that fit in full.
           </s-list-item>
           <s-list-item>
             <strong>Reports:</strong> every employee order is recorded against their business. See orders, spend
