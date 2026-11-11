@@ -14,11 +14,11 @@ Read this first in a new session or in Claude Code on the Mac. Then `CLAUDE.md`,
 
 ## State
 
-- `main` = v4 (PR #3 merged: rename, Part 0 fixes, easy setup, storefront employee price, Storefront page). Not yet released to production, see `TASKS.md` → Release.
-- Branch `feat/home-redesign` = Home redesign, public perks page (`/apps/perks`), Employee perks block on the Shopify customer page. One PR.
+- `main` = v4 + Home redesign (PRs #3 and #4): rename, easy setup, storefront employee price, Storefront page, public perks page (`/apps/perks`), Employee perks block on the Shopify customer page. Deployed on Railway and released as employee-perks-5; store steps still open (`TASKS.md` → Release).
 - 2026-11-10: acceptance tests G–J3 run on the dev store. Results and the bugs found are in `TASKS.md` → Verified / Bugs found. J4, I5, K still to run.
 - Dev store state: test-data theme has the **dev** embed on and the **production** embed off; production program paused; perks page on; the Employee perks block is pinned on customer pages.
 - Credits for cloud sessions are used up: work continues locally.
+- 2026-11-11: branch `feat/page-fixes` (from `main`) has Home fixes, Edit business (domains, Discount card) and the limit cap (decision 014). See `TASKS.md` → Page fixes for what's left. Work continues one page at a time: propose, get Zeeshan's OK, fix, check on the dev store.
 
 ## Daily dev (Mac)
 
@@ -48,9 +48,15 @@ shopify app dev --tunnel-url https://dev-perks.tofoapp.com:3000
 - Scope changes: update Railway `SCOPES` before merging.
 - App Bridge save bar must be hidden before leaving a page (`useSaveBar`).
 - Shopify app discounts don't change product page prices; the theme embed shows the employee price instead.
+- `s-section` has no box of its own (display: contents): to scroll to one, put the id on a wrapping `div`.
+- App Bridge drops `#hash` links inside the app: use a query parameter (`?section=perks-page`).
+- `s-text` ignores `type="strong"` and `tone` inside some cards; use a plain styled element when it must stand out.
+- Polaris web components can't put chips inside a text field; `DomainChips` is a lookalike field.
+- After a Prisma migration, restart `shopify app dev`: the running server keeps the old client and saves fail.
+- Theme embed block types are `shopify://apps/<app-name-slug>/blocks/employee-mode/<uuid>`: dev is `perks`, production `employee-perks`. `embedEnabled` matches on the slug.
 
 ## Next
 
-1. Merge `feat/home-redesign` after Zeeshan's hand checks (`TASKS.md` → Home redesign).
-2. Fix the rest of the pages and the bugs in `TASKS.md` → Bugs found, on a new branch from `main`.
+1. 🧑 Store steps for employee-perks-5 and the hand checks in `TASKS.md`.
+2. Continue `feat/page-fixes`: next is Edit business → Discounted products, Employee-only products, More options; then the Add business wizard and the Businesses list (`TASKS.md` → Page fixes).
 3. Then `TASKS.md` → Next: Resend emails, App Store submission (launch free), billing, e2e script.

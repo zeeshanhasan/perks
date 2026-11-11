@@ -7,7 +7,7 @@ Public Shopify app by Tofo. Works on every plan (Functions in public apps run on
 | Area | Features |
 |---|---|
 | **Home** | Setup checklist (auto-detects business, program, Employee mode), this month's orders, spend, discount and active employees, links to Check a customer, Help, Activity |
-| **Businesses** | Many partner businesses, each with work email domains (chips, instant checks), % or fixed discount, discounted products (all / products / collections / vendors / types), employee-only products, limit per employee (month/year, on discount or spend), billing email and address. Add via 3-step wizard with presets (partner company, your own staff). Pause/resume switch on the list. Delete archives with an impact modal |
+| **Businesses** | Many partner businesses, each with work email domains (chips, instant checks), % or fixed discount, discounted products (all / products / collections / vendors / types), employee-only products, limit per employee (month/year, on discount or spend; stops exactly at the limit, or only discounts items that fit in full), billing email and address. Add via 3-step wizard with presets (partner company, your own staff). Pause/resume switch on the list. Delete archives with an impact modal |
 | **Employees** | Everyone who got perks (by work email or verified link), find existing employees, remove/restore perks, Check a customer |
 | **Check a customer** | Type an email: step-by-step reason why they do or don't get perks, with the fix |
 | **Reports** | Orders, employees, spend and discount per business for this week/month/year or any range; invoices on discount or spend, frozen when issued, print/PDF and CSV |

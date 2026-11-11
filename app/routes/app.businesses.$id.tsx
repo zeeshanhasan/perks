@@ -10,7 +10,7 @@ import { TargetEditor } from "../components/TargetEditor";
 import { useSaveBar } from "../components/useSaveBar";
 import { merchantActor } from "../lib/admin-actor.server";
 import { gql } from "../lib/admin-graphql.server";
-import { parseBusinessForm } from "../lib/business";
+import { formatMoney, parseBusinessForm } from "../lib/business";
 import { domainConflicts, getBusiness, takenDomains } from "../lib/business.server";
 import { catalogFacets } from "../lib/catalog.server";
 import { isPublicEmailDomain } from "../lib/domain";
@@ -83,6 +83,7 @@ type FormState = {
   limitPeriod: string;
   limitBasis: string;
   limitAmount: string;
+  limitOverflow: string;
   billingEmail: string;
   billingAddress: string;
   active: boolean;
@@ -108,6 +109,7 @@ export default function BusinessEdit() {
       limitPeriod: business?.limitPeriod ?? "none",
       limitBasis: business?.limitBasis ?? "discount",
       limitAmount: business?.limitAmount != null ? String(business.limitAmount) : "",
+      limitOverflow: business?.limitOverflow ?? "partial",
       billingEmail: business?.billingEmail ?? "",
       billingAddress: business?.billingAddress ?? "",
       active: business?.active ?? true,
@@ -154,7 +156,7 @@ export default function BusinessEdit() {
     );
 
   const hasAdvanced =
-    !isEmptyTarget(initial.employeeOnlyTarget) || initial.limitPeriod !== "none" || Boolean(initial.billingEmail || initial.billingAddress);
+    !isEmptyTarget(initial.employeeOnlyTarget) || Boolean(initial.billingEmail || initial.billingAddress);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
   useEffect(() => setShowAdvanced(hasAdvanced), [hasAdvanced]);
 
@@ -202,6 +204,7 @@ export default function BusinessEdit() {
               taken={taken}
               error={errors.domains}
             />
+            <s-divider />
             <s-checkbox
               label="Active"
               details="Paused businesses give no perks. Their employee-only products stay protected."
@@ -213,9 +216,9 @@ export default function BusinessEdit() {
 
         <s-section heading="Discount">
           <s-stack gap="base">
-            <s-stack direction="inline" gap="base">
+            <s-grid gridTemplateColumns="1fr 1fr" gap="base">
               <s-select label="Type" value={f.discountType} onChange={input("discountType")}>
-                <s-option value="percentage">Percentage</s-option>
+                <s-option value="percentage">Percentage off each item</s-option>
                 <s-option value="fixed">Fixed amount off each item</s-option>
               </s-select>
               <s-number-field
@@ -228,7 +231,69 @@ export default function BusinessEdit() {
                 suffix={f.discountType === "fixed" ? undefined : "%"}
                 error={errors.discountValue}
               />
-            </s-stack>
+            </s-grid>
+            {/* Polaris text ignores weight/tone here, so a plain box in Polaris' success colours. */}
+            <div
+              style={{
+                background: "#cdfee1",
+                color: "#0c5132",
+                fontWeight: 600,
+                fontSize: 13,
+                lineHeight: "20px",
+                padding: "6px 12px",
+                borderRadius: 8,
+              }}
+            >
+              {f.discountType === "fixed"
+                ? `Employees get ${formatMoney(Number(f.discountValue) || 0, currency)} off every unit of a discounted product, never more than its price.`
+                : `Employees get ${Number(f.discountValue) || 0}% off the price of every discounted product.`}
+            </div>
+
+            <s-divider />
+
+            <s-select label="Limit per employee" value={f.limitPeriod} onChange={input("limitPeriod")}>
+              <s-option value="none">No limit</s-option>
+              <s-option value="month">Per month</s-option>
+              <s-option value="year">Per year</s-option>
+            </s-select>
+            {f.limitPeriod !== "none" ? (
+              <>
+                <s-grid gridTemplateColumns="1fr 1fr" gap="base">
+                  <s-select label="Limit on" value={f.limitBasis} onChange={input("limitBasis")}>
+                    <s-option value="discount">Discount received</s-option>
+                    <s-option value="spend">Total spend</s-option>
+                  </s-select>
+                  <s-number-field
+                    label={`Amount (${currency})`}
+                    value={f.limitAmount}
+                    onInput={input("limitAmount")}
+                    min={0}
+                    step={0.01}
+                    error={errors.limitAmount}
+                  />
+                </s-grid>
+                <s-choice-list
+                  label="When an order goes past the limit"
+                  onChange={(e) => set({ limitOverflow: (e.currentTarget as unknown as { values: string[] }).values?.[0] ?? "partial" })}
+                >
+                  <s-choice value="partial" selected={f.limitOverflow !== "whole"}>
+                    Discount up to the limit
+                    <s-text slot="details">The item that reaches the limit gets only what&apos;s left of it.</s-text>
+                  </s-choice>
+                  <s-choice value="whole" selected={f.limitOverflow === "whole"}>
+                    Only discount items that fit in full
+                    <s-text slot="details">The item that would go past the limit, and everything after it, is full price.</s-text>
+                  </s-choice>
+                </s-choice-list>
+              </>
+            ) : null}
+            <s-text color="subdued">
+              {f.limitPeriod === "none"
+                ? "Optional. Cap how much each employee gets per month or per year."
+                : f.limitBasis === "spend"
+                  ? `The discount applies to the first ${formatMoney(Number(f.limitAmount) || 0, currency)} each employee spends per ${f.limitPeriod}. After that, full price until next ${f.limitPeriod}.`
+                  : `Each employee gets up to ${formatMoney(Number(f.limitAmount) || 0, currency)} of discount per ${f.limitPeriod}. After that, full price until next ${f.limitPeriod}.`}
+            </s-text>
           </s-stack>
         </s-section>
 
@@ -261,40 +326,6 @@ export default function BusinessEdit() {
             </s-stack>
           </s-section>
 
-          <s-section heading="Limit per employee">
-            <s-stack gap="base">
-              <s-stack direction="inline" gap="base">
-                <s-select label="Period" value={f.limitPeriod} onChange={input("limitPeriod")}>
-                  <s-option value="none">No limit</s-option>
-                  <s-option value="month">Per month</s-option>
-                  <s-option value="year">Per year</s-option>
-                </s-select>
-                {f.limitPeriod !== "none" ? (
-                  <>
-                    <s-select label="Limit on" value={f.limitBasis} onChange={input("limitBasis")}>
-                      <s-option value="discount">Discount received</s-option>
-                      <s-option value="spend">Total spend</s-option>
-                    </s-select>
-                    <s-number-field
-                      label={`Amount (${currency})`}
-                      value={f.limitAmount}
-                      onInput={input("limitAmount")}
-                      min={0}
-                      step={0.01}
-                      error={errors.limitAmount}
-                    />
-                  </>
-                ) : null}
-              </s-stack>
-              {f.limitPeriod !== "none" ? (
-                <s-text color="subdued">
-                  Once an employee reaches the limit, they pay full price until the next {f.limitPeriod}. The order that
-                  crosses the limit still gets the discount.
-                </s-text>
-              ) : null}
-            </s-stack>
-          </s-section>
-
           <s-section heading="Billing">
             <s-stack gap="base">
               <s-email-field label="Billing email" value={f.billingEmail} onInput={input("billingEmail")} error={errors.billingEmail} />
@@ -308,7 +339,7 @@ export default function BusinessEdit() {
             <s-stack direction="inline" gap="base" alignItems="center" justifyContent="space-between">
               <s-stack gap="small-300">
                 <s-text type="strong">More options</s-text>
-                <s-text color="subdued">Employee-only products, a monthly or yearly limit, and billing details for invoices.</s-text>
+                <s-text color="subdued">Employee-only products, and billing details for invoices.</s-text>
               </s-stack>
               <s-button onClick={() => setShowAdvanced(true)}>Show</s-button>
             </s-stack>

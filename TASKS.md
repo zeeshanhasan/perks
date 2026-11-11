@@ -49,7 +49,7 @@ Legend: `[ ]` todo · `[x]` done · 🧑 = needs Zeeshan. Plan: `docs/PRD-v4.md`
 
 - [ ] Employee price shows twice on product pages on first load: the card-price pass also matches the main product price (`price-template--…__main`)
 - [ ] Gift cards show an employee price, but Shopify never discounts gift cards
-- [ ] Dev and production apps on one store clash: both embeds write `window.TofoPerks` (last one wins); `embedEnabled` matches any app's `employee-mode` block (`app/lib/storefront.ts`), not our extension uid; both claim `/apps/perks`
+- [ ] Dev and production apps on one store clash: both embeds write `window.TofoPerks` (last one wins); both claim `/apps/perks`. (`embedEnabled` now matches only our app's block: fixed on `feat/page-fixes`)
 - [ ] A removed membership whose business was deleted can be restored and shows "Active · Deleted business"
 - [ ] Small: Enter doesn't run Check a customer; gmail.com hint says "Add this domain"; "Restore them on the Employees page" isn't a link; wizard summary "PKR 50000" has no comma; cards say "From Staff price…"; delete modal takes ~4 s to open
 
@@ -62,13 +62,33 @@ Legend: `[ ]` todo · `[x]` done · 🧑 = needs Zeeshan. Plan: `docs/PRD-v4.md`
 - [ ] 🧑 App icon: upload a 1200×1200 icon for "perks" and "Employee Perks" in the Dev Dashboard
 - [ ] Sidekick app extension (data tools + action intents) so Sidekick can answer about and set up this app
 
+## Page fixes on branch `feat/page-fixes` (one PR, one page at a time)
+
+Started 2026-11-10. Each page: propose fixes → Zeeshan's OK → fix → check on the dev store.
+
+- [x] Home: active-only counts, Employees arrow compares active, months in the shop's time zone, Storefront badge counts only our embed (fixes the dev/prod clash for the badge), red Businesses badge when nobody gets perks, "Needs permission"/"Couldn't check", Perks page row jumps to its section, Employee spend card, grey Discount arrows, faster load (theme check streamed, shop info cached), error page with retry (`app/components/RouteError.tsx`)
+- [x] Edit business: domain chips inside the field (bigger), separator above Active, Discount card (type + value side by side, green summary, limit inside the card: period row, then "Limit on" + amount, then "When an order goes past the limit")
+- [x] Limit gives what's left, then stops; or "only items that fit in full" (decision 014, Function change, migration `limit_overflow`)
+- [ ] 🧑 Check by hand: month picker on Home, limit dropdowns and a Bogus checkout that crosses a limit (both options), red Businesses badge
+- [ ] Edit business, next: Discounted products, Employee-only products (explain them better), More options, billing; header status badge, summary at top, Shopify sync warning banner with Retry, faster loader, delete confirm (instant, wording), "Pause instead" pauses right away
+- [ ] Add business wizard: step names, errors on the field, add typed domain on Next, placeholders as "e.g.", number formatting ("PKR 50000"), fixed amount option, honest "Perks are live" toast, Cancel, summary on every step, limit option
+- [ ] Businesses list: 5 columns, whole row clickable, Active/Paused wording + badge, red banner when nobody gets perks, cached shop info, error page, search over 10
+- [ ] Employees, Check a customer, Reports (shop time zone too), Invoice, Storefront, Settings, Help, Activity: proposals in the first message of the 2026-11-10 session; redo them page by page
+- [ ] Every page: help banners come back on each visit (make them a subtitle), readable dates, `RouteError` on each route
+- [ ] Release: `shopify app deploy --config production` is needed for the Function input change (decision 014)
+
 ## Release (🧑, see `docs/runbooks/deploy-railway.md` → Releasing an update)
 
-- [ ] Railway `SCOPES` += `read_themes` **before** merging
-- [ ] Merge the PR → Railway deploys (migrations run on start)
-- [ ] `shopify app deploy --config production`
-- [ ] Approve new permissions in each store; open Settings → Save once; open Storefront → turn on Employee mode
-- [ ] `sh scripts/smoke.sh`
+employee-perks-5 (PR #3 + PR #4), 2026-11-10:
+
+- [x] Railway `SCOPES` += `read_themes` **before** merging
+- [x] Merge the PR → Railway deploys (migrations run on start)
+- [x] `shopify app deploy --config production` (released as employee-perks-5)
+- [x] `sh scripts/smoke.sh`
+- [ ] Store steps: approve new permissions in each store
+- [ ] Store steps: open Settings → Save once
+- [ ] Store steps: open Storefront → check Employee mode is on
+- [ ] Store steps: pin the Employee perks block on the customer page
 
 ## Next (in order)
 
@@ -88,5 +108,5 @@ Legend: `[ ]` todo · `[x]` done · 🧑 = needs Zeeshan. Plan: `docs/PRD-v4.md`
 
 - Employee price and card hiding are tuned for Dawn-style themes.
 - Store credit (if used later) needs new customer accounts.
-- The order that crosses a limit still gets the discount (webhook timing).
+- Two orders placed within seconds can both use what's left of a limit (usage updates from webhooks; decision 014).
 - Validation runs at the cart stage too; some themes show the block message on add-to-cart (intended, fail closed).
