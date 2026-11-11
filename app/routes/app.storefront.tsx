@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { useFetcher, useLoaderData, useRevalidator } from "react-router";
+import { useFetcher, useLoaderData, useRevalidator, useSearchParams } from "react-router";
 import { SaveBar, useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { useSaveBar } from "../components/useSaveBar";
@@ -41,7 +41,20 @@ export default function Storefront() {
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
   const revalidator = useRevalidator();
+  const [params] = useSearchParams();
+  const section = params.get("section");
   useSaveBar(SAVE_BAR_ID);
+  // Home's "Perks page" row links to ?section=perks-page (App Bridge drops #hashes).
+  useEffect(() => {
+    if (!section) return;
+    // Polaris web components lay out after hydration, so wait a moment. s-section has no box of its
+    // own (display: contents), so the id sits on a wrapping div.
+    const t = setTimeout(() => {
+      const el = document.getElementById(section);
+      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 16 });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [section]);
   const initial = useMemo(() => options, [options]);
   const [o, setO] = useState<StorefrontOptions>(initial);
   useEffect(() => setO(initial), [initial]);
@@ -142,6 +155,7 @@ export default function Storefront() {
           </s-stack>
         </s-section>
 
+        <div id="perks-page">
         <s-section heading="Perks page">
           <s-stack gap="base">
             <s-paragraph>
@@ -172,6 +186,7 @@ export default function Storefront() {
             ) : null}
           </s-stack>
         </s-section>
+        </div>
 
         <s-section slot="aside" heading="Colours">
           <s-paragraph>
