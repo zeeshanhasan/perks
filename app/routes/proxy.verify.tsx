@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { gql } from "../lib/admin-graphql.server";
+import { emailDomain } from "../lib/domain";
 import {
   getCustomerEmail,
   getMembership,
@@ -7,16 +7,16 @@ import {
   getProgram,
   isDomainEligible,
   recordDomainCustomer,
-  requestVerification,
 } from "../lib/membership.server";
-import { REQUEST_MESSAGES, pages } from "../lib/proxy-page";
+import { pages } from "../lib/proxy-page";
 import { proxyContext } from "../lib/proxy-auth.server";
 
-// Storefront: GET/POST https://{shop}/apps/perks/verify
+// Storefront: https://{shop}/apps/perks/verify, the shopper's "my perks" status page.
+// Decision 016: employees qualify only by logging in with a work email; there's no form and no email.
 
 const RETURN = "/apps/perks/verify";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+async function statusPage(request: Request) {
   const { liquid, shop, customerId, admin } = await proxyContext(request);
   const program = await getProgram(shop);
   if (!program.enabled) return liquid(pages.disabled());
@@ -24,48 +24,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const m = await getMembership(shop, customerId);
   if (m?.status === "revoked") return liquid(pages.revoked());
-  if (m?.status === "active" && m.source === "link")
+  // Verified by email link before decision 016: still valid until its date.
+  if (m?.status === "active" && m.source === "link" && (!m.expiresAt || m.expiresAt.getTime() > Date.now()))
     return liquid(pages.verified(program.businesses.find((b) => b.id === m.businessId)?.name ?? program.employerName, m.expiresAt));
 
-  if (admin) {
-    const email = await getCustomerEmail(admin, customerId);
-    if (isDomainEligible(program, email)) {
-      await recordDomainCustomer(shop, customerId, email);
-      return liquid(pages.autoEligible(businessOf(program, email)?.name ?? program.employerName));
-    }
+  const email = admin ? await getCustomerEmail(admin, customerId) : null;
+  if (isDomainEligible(program, email)) {
+    await recordDomainCustomer(shop, customerId, email);
+    return liquid(pages.autoEligible(businessOf(program, email)?.name ?? program.employerName));
   }
-  const note =
-    m?.status === "expired" ? { kind: "info" as const, text: "Your employee perks expired. Verify again to renew." } : undefined;
-  return liquid(pages.form(program.employerName, note));
-};
+  return liquid(pages.notEligible(email ? emailDomain(email) : null));
+}
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { liquid, shop, customerId, admin } = await proxyContext(request);
-  const program = await getProgram(shop);
-  if (!program.enabled) return liquid(pages.disabled());
-  if (!customerId) return liquid(pages.loggedOut(program.employerName, RETURN));
-
-  const form = await request.formData();
-  const rawEmail = String(form.get("email") ?? "").slice(0, 320);
-
-  let shopName = shop;
-  if (admin) {
-    try {
-      shopName = (await gql(admin, `#graphql
-        query PerksShopName { shop { name } }`)).shop.name;
-    } catch {
-      /* fall back to domain */
-    }
-  }
-
-  const result = await requestVerification({
-    shop,
-    customerId,
-    rawEmail,
-    storefrontOrigin: `https://${shop}`,
-    shopName,
-  });
-  if (result.ok) return liquid(pages.sent());
-  if (result.reason === "revoked") return liquid(pages.revoked());
-  return liquid(pages.form(program.employerName, { kind: "error", text: REQUEST_MESSAGES[result.reason] }, rawEmail));
-};
+export const loader = async ({ request }: LoaderFunctionArgs) => statusPage(request);
+// Old forms posted here: show the same status page.
+export const action = async ({ request }: ActionFunctionArgs) => statusPage(request);

@@ -87,7 +87,7 @@ export function diagnose(i: DiagnoseInput): Diagnosis {
   let business: DiagnoseBusiness | null = null;
   if (byLink) {
     business = byLink;
-    checks.push({ status: "ok", title: `Verified as an employee of ${byLink.name}`, detail: "They confirmed their work email with the verification link." });
+    checks.push({ status: "ok", title: `Verified as an employee of ${byLink.name}`, detail: `They verified by email link before it was retired. Perks last${m?.expiresAt ? ` until ${m.expiresAt.toISOString().slice(0, 10)}` : ""}.` });
   } else if (byDomain && i.autoDomain) {
     business = byDomain;
     checks.push({ status: "ok", title: `Matched to ${byDomain.name}`, detail: `Their account email is at ${domain}.` });
@@ -95,7 +95,7 @@ export function diagnose(i: DiagnoseInput): Diagnosis {
     checks.push({
       status: "fail",
       title: `${domain} belongs to ${byDomain.name}, but the app hasn't updated Shopify yet`,
-      detail: "Open Settings and click Save once. Until then they can verify with the employee link.",
+      detail: "Open Settings and click Save once.",
       link: { label: "Open Settings", href: "/app/settings" },
     });
     return done(false);
@@ -106,15 +106,15 @@ export function diagnose(i: DiagnoseInput): Diagnosis {
     checks.push({
       status: "fail",
       title: expired
-        ? `Their employee verification expired${m?.expiresAt ? ` on ${on(m.expiresAt)}` : ""}`
+        ? `Their email-link verification expired${m?.expiresAt ? ` on ${on(m.expiresAt)}` : ""}`
         : personal
-          ? `${domain} is a personal email provider`
+          ? `This account uses a personal email (${domain})`
           : `${domain} isn't on any business`,
       detail: expired
-        ? "They can verify again with the employee link (/apps/perks/verify on your store)."
+        ? "Email-link verification has been retired. They can log in with their work email instead."
         : personal
-          ? "Personal addresses can't be added to a business. The employee verifies their work email with the employee link (/apps/perks/verify on your store) while logged in with this account."
-          : "Add this domain to a business, or the employee verifies a work email with the employee link (/apps/perks/verify on your store).",
+          ? "Perks need a store account with a work email. Ask them to log out and log in, or create an account, with their work email."
+          : "Add this domain to a business if their company is a partner.",
       link: expired || personal ? undefined : { label: "Open Businesses", href: "/app/businesses" },
     });
     return done(false);

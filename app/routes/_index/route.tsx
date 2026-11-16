@@ -200,11 +200,11 @@ const FAQ = [
   ],
   [
     "Can someone get the discount by typing a work email at checkout?",
-    "No. Perks only apply to customers who are logged in, and the work email is proved by Shopify's login code or a one-time verification link.",
+    "No. Perks only apply to customers who are logged in, and the work email is proved by Shopify's login code.",
   ],
   [
-    "What if an employee shops with a personal email?",
-    "They verify their work email once on your store with a link we email them. It lasts 12 months.",
+    "What if an employee's store account uses a personal email?",
+    "Perks need an account with their work email. They log out and log in, or create an account, with their work email. Your store tells them so if they try."
   ],
   [
     "Does it change my theme code?",

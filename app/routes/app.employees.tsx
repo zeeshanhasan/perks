@@ -119,7 +119,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         merchantActor(ctx),
       );
       if (r === "business_deleted")
-        return { ok: false, message: "Their business was deleted. They can verify again with the employee link." };
+        return { ok: false, message: "Their business was deleted. They can log in with their work email to join another business." };
       return { ok: true, message: "Perks restored" };
     }
     return { ok: false, message: "Unknown action" };
@@ -265,7 +265,7 @@ export default function Employees() {
             <s-empty-state heading="No employees yet">
               <s-paragraph>
                 Employees appear here after they log in to your store with a
-                work email, or verify one.
+                work email.
               </s-paragraph>
               <s-button
                 slot="primary-action"
@@ -362,8 +362,9 @@ export default function Employees() {
         )}
 
         <PageHelp title="Who shows up here">
-          Customers appear here when they log in with an approved work email, or
-          verify one by email link. &ldquo;Find existing employees&rdquo; checks
+          Customers appear here when they log in with an approved work email.
+          &ldquo;Email link&rdquo; marks employees who verified before that option was
+          retired; their perks run until their date. &ldquo;Find existing employees&rdquo; checks
           customers who signed up before you installed the app.
           <strong> Remove perks</strong> blocks a person even if their email
           still matches.

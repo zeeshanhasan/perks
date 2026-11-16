@@ -86,7 +86,7 @@ Started 2026-11-10. Each page: propose fixes → Zeeshan's OK → fix → check 
 - [ ] 🧑 Check by hand: Employees pagination with more than 50 (or test with a smaller page size)
 - [x] Businesses list (2026-11-16): no sideways scroll (first domain + bold "+N" with the rest in a tooltip; "Some products" and "Monthly/Yearly" with details in tooltips, rendered outside the table so rows don't jump); whole row opens the business; help box moved below the table; cached shop info; error page with Retry; active first, then by name. Decided no: badge instead of the switch, red banner, search
 - [ ] 🧑 Check by hand: list tooltips (+N, ⓘ), the Perks switch doesn't also open the business
-- [ ] Later (new decision record first): re-verification policy. One "re-verify every N months" setting for both link and work-email-login employees, reminder email ~14 days before (needs Resend), "expires on / verify again" notice on the storefront, "Ask to re-verify" on Employees (one, a business, everyone)
+- [ ] Later, if ever needed (new decision record first): re-verification of work-email logins. Email-link verification itself was removed in decision 016
 - [x] Storefront (2026-11-16): Employee mode status row; "What employees see" / "What other shoppers see" with live previews; plain labels; wording behind "Edit wording"; Colours box removed
 - [x] Perks page is its own page (`/app/perks-page`, in the app menu; Home row points there): switch + Live/Off badge, link with Copy/View, content, preview of listed companies, menu how-to; warning when the program is off
 - [x] Reports (2026-11-16): period picker applies straight away, readable dates ("1–30 Nov 2026"), Home-style cards with ↑/↓ vs the period before, Create invoice dialog, invoices business filter + "N orders cancelled since it was issued", help at the bottom; shared `components/Metric.tsx`
@@ -111,6 +111,8 @@ Started 2026-11-10. Each page: propose fixes → Zeeshan's OK → fix → check 
 - [ ] When the App Store listing is live: set `APP_STORE_URL` in `components/PublicLayout.tsx` (buttons switch from "Get early access" to the listing, with utm_source); add privacy + terms URLs in the Partner Dashboard listing
 - [x] Site restyled (2026-11-16): professional look in the mascot's colours used as accents (navy text and buttons, coral and sunflower highlights, teal for savings), Inter, thin borders, no cartoon styling. Hero shows a store product page with the staff price and the checkout line; line icons for features; mascot (`public/brand/employee-perks-icon.svg`) only as logo, favicon and share image
 - [ ] Later: a 1200×630 share image, Google Search Console + submit the sitemap, analytics/ad tracking only when ads start (needs a cookie banner)
+- [x] Decision 016 (2026-11-16): work-email login only. No email-link verification and no email sending (Resend not needed). /apps/perks/verify is a "my perks" status page (all set / log in with your work email / removed); /apps/perks/confirm redirects there. Older link-verified employees keep perks until their date. Texts updated in the app, Help, AI guide, landing FAQ, privacy page, App Store docs and the theme link block
+- [ ] 🧑 Check the "Log in with your work email" page with a customer logged in with a personal email
 - [ ] Reports in the shop time zone, Invoice: proposals in the first message of the 2026-11-10 session; redo them page by page
 - [ ] Every page: help banners come back on each visit (make them a subtitle), readable dates, `RouteError` on each route
 - [ ] Release: `shopify app deploy --config production` is needed for the Function input change (decision 014)
@@ -130,10 +132,9 @@ employee-perks-5 (PR #3 + PR #4), 2026-11-10:
 
 ## Next (in order)
 
-1. 🧑 Resend + `mail.tofoapp.com` DNS so verification emails send in production
-2. App Store submission: screenshots, reviewer instructions, demo store (free launch is fastest)
-3. Billing ($10 flat)
-4. e2e test script
+1. App Store submission: screenshots, reviewer instructions, demo store (free launch is fastest)
+2. Billing ($10 flat)
+3. e2e test script
 
 ## Parked
 

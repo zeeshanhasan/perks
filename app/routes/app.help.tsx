@@ -50,7 +50,7 @@ export default function Help() {
           </s-list-item>
           <s-list-item>
             <strong>Tell the company&apos;s employees</strong>: they log in to your store with their work email. Share
-            the <s-link href="/app/perks-page">Perks page</s-link> or the verify link if they shop with a personal email.
+            the <s-link href="/app/perks-page">Perks page</s-link> so they know what they get.
           </s-list-item>
           <s-list-item>
             <strong>Watch and bill</strong>: <s-link href="/app">Home</s-link> shows this month&apos;s numbers, and{" "}
@@ -67,11 +67,12 @@ export default function Help() {
               perks straight away. Shopify sends them a login code, which proves the email is theirs.
             </s-list-item>
             <s-list-item>
-              <strong>Personal email:</strong> they verify their work email once at{" "}
+              <strong>Personal email accounts don&apos;t get perks:</strong> an employee whose store account uses gmail.com
+              or similar logs out and logs in (or creates an account) with their work email instead.{" "}
               <s-link href={verifyUrl} target="_blank">
                 /apps/perks/verify
               </s-link>{" "}
-              while logged in. It lasts 12 months, then they verify again.
+              on your store tells shoppers whether they get perks.
             </s-list-item>
             <s-list-item>
               <strong>Always logged in:</strong> perks only apply to logged-in customers. Guest checkout never gets them,
@@ -175,8 +176,7 @@ export default function Help() {
       <s-section heading="Common questions">
         <s-stack gap="base">
           <Faq q="Can someone get the discount by typing a work email at checkout?">
-            No. Perks only apply to logged-in customers, and the email is proved by Shopify&apos;s login code or the
-            verification link.
+            No. Perks only apply to logged-in customers, and the email is proved by Shopify&apos;s login code.
           </Faq>
           <Faq q="Can other shoppers see employee-only products?">
             With Employee mode on, they&apos;re hidden from collections and search, and their pages show a message

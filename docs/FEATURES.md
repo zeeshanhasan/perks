@@ -9,7 +9,7 @@ Public Shopify app by Tofo. Works on every plan (Functions in public apps run on
 | **Home** | Setup checklist (auto-detects business, program, Employee mode), this month's orders, spend, discount and active employees, Manage list, Help section (How it works, Ask Sidekick with a ready prompt, Ask Claude / ChatGPT / Gemini opening a new chat pointed at the public AI guide), links to Check a customer and Activity |
 | **AI guide** | Public `/llms.txt` (plain text) and `/ai-guide` (browser): what the app does, every page, business settings, storefront, common problems. No store data |
 | **Businesses** | Many partner businesses, each with work email domains (chips, instant checks), % or fixed discount, discounted products (all / products / collections / vendors / types), employee-only products (with a how-it-works box), limit per employee (every month/year, on discount or spend; uses up what's left, or only discounts items that fit in full), Active/Paused status. Add via a 3-step wizard (Who gets perks, Discount, Products) that uses the same fields as the edit page. List: one domain + "+N" tooltip, short columns with tooltips, whole row opens the business, pause/resume switch. Delete archives with an impact modal. Billing email/address hidden for now (kept, printed on invoices if set) |
-| **Employees** | Everyone who got perks (by work email or verified link), search + business + status filters in one row, 50 per page with pagination, find existing employees, remove/restore perks, Check a customer |
+| **Employees** | Everyone who got perks (by work-email login; older ones by email link), search + business + status filters in one row, 50 per page with pagination, find existing employees, remove/restore perks, Check a customer |
 | **Check a customer** | Type an email: step-by-step reason why they do or don't get perks, with the fix |
 | **Reports** | Period picker (applies straight away, readable dates), four cards with ↑/↓ vs the period before, orders/employees/spend/discount per business; Create invoice dialog (bill discount or spend); invoices list with business filter and a note when an order was cancelled after issue; invoices frozen when issued, print/PDF and CSV |
 | **Storefront** | Employee mode status row with one-click turn on; "What employees see" and "What other shoppers see", each with a live preview and wording behind "Edit wording" |
@@ -21,7 +21,7 @@ Public Shopify app by Tofo. Works on every plan (Functions in public apps run on
 ## For employees (storefront)
 
 - Log in with a work email: perks apply automatically (Shopify's login code proves the email).
-- Shopping with a personal email: verify a work email at `/apps/perks/verify` (single-use link).
+- `/apps/perks/verify` is a "my perks" page: all set, or log in with your work email (decision 016: no email-link verification).
 - Employee price on product pages and product cards; discount applied at checkout.
 - Employee-only products visible and buyable only to their business.
 

@@ -2,18 +2,15 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import db from "../app/db.server";
 import {
-  confirmVerification,
   reactivateMembership,
   recordDomainCustomer,
   redactCustomer,
-  requestVerification,
   revokeMembership,
   sweepExpired,
 } from "../app/lib/membership.server";
 
 const SHOP = "perks-test.myshopify.com";
 const EMP = "1001";
-const NORMAL = "1002";
 
 // Fake Admin API: records metafield writes per customer.
 function fakeAdmin() {
@@ -35,19 +32,7 @@ function fakeAdmin() {
   return { admin, metafields };
 }
 
-let sentLinks: string[] = [];
-vi.mock("../app/lib/email.server", () => ({
-  sendVerificationEmail: async (m: { link: string }) => {
-    sentLinks.push(m.link);
-  },
-}));
-
-const tokenFromLastLink = () => new URL(sentLinks.at(-1)!).searchParams.get("token")!;
-const request = (customerId: string, rawEmail = "zeeshan@tofoapp.com") =>
-  requestVerification({ shop: SHOP, customerId, rawEmail, storefrontOrigin: `https://${SHOP}`, shopName: "Perks" });
-
 beforeEach(async () => {
-  sentLinks = [];
   await db.auditEvent.deleteMany();
   await db.rateLimitHit.deleteMany();
   await db.verificationChallenge.deleteMany();
@@ -64,97 +49,15 @@ beforeEach(async () => {
   });
 });
 
-describe("verification flow", () => {
-  test("A2+A4: request then confirm grants eligibility and publishes the metafield", async () => {
-    const { admin, metafields } = fakeAdmin();
-    expect(await request(EMP)).toEqual({ ok: true });
-    expect(sentLinks[0]).toMatch(/^https:\/\/perks-test\.myshopify\.com\/apps\/perks\/confirm\?token=/);
-
-    const res = await confirmVerification({ admin, shop: SHOP, customerId: EMP, token: tokenFromLastLink() });
-    expect(res.ok).toBe(true);
-    const value = JSON.parse(metafields.get(`gid://shopify/Customer/${EMP}`)!);
-    expect(value).toMatchObject({ v: 1, status: "active" });
-    expect(value.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-
-    const m = await db.employeeMembership.findFirstOrThrow({ where: { shop: SHOP, customerId: EMP } });
-    expect(m.status).toBe("active");
-  });
-
-  test("raw token and full email never land in the DB audit log", async () => {
-    const { admin } = fakeAdmin();
-    await request(EMP);
-    const token = tokenFromLastLink();
-    await confirmVerification({ admin, shop: SHOP, customerId: EMP, token });
-    const challenges = await db.verificationChallenge.findMany();
-    expect(JSON.stringify(challenges)).not.toContain(token);
-    const audit = JSON.stringify(await db.auditEvent.findMany());
-    expect(audit).not.toContain(token);
-    expect(audit).not.toContain("zeeshan@tofoapp.com");
-  });
-
-  test("A3: look-alike domain rejected, no email sent", async () => {
-    expect(await request(EMP, "zeeshan@tofoapp.com.evil.io")).toEqual({ ok: false, reason: "domain_not_allowed" });
-    expect(sentLinks).toHaveLength(0);
-  });
-
-  test("A5: link works once", async () => {
-    const { admin } = fakeAdmin();
-    await request(EMP);
-    const token = tokenFromLastLink();
-    expect((await confirmVerification({ admin, shop: SHOP, customerId: EMP, token })).ok).toBe(true);
-    expect(await confirmVerification({ admin, shop: SHOP, customerId: EMP, token })).toEqual({ ok: false, reason: "used" });
-  });
-
-  test("A6: expired link rejected", async () => {
-    const { admin } = fakeAdmin();
-    await request(EMP);
-    const later = new Date(Date.now() + 31 * 60 * 1000);
-    expect(await confirmVerification({ admin, shop: SHOP, customerId: EMP, token: tokenFromLastLink(), now: later })).toEqual({
-      ok: false,
-      reason: "expired",
-    });
-  });
-
-  test("A7: another customer cannot use the link", async () => {
-    const { admin, metafields } = fakeAdmin();
-    await request(EMP);
-    expect(await confirmVerification({ admin, shop: SHOP, customerId: NORMAL, token: tokenFromLastLink() })).toEqual({
-      ok: false,
-      reason: "wrong_customer",
-    });
-    expect(metafields.size).toBe(0);
-  });
-
-  test("A8: rate limited after 5 requests per hour", async () => {
-    for (let i = 0; i < 5; i++) await request(EMP, `user${i}@tofoapp.com`);
-    expect(await request(EMP, "user9@tofoapp.com")).toEqual({ ok: false, reason: "rate_limited" });
-  });
-
-  test("one work email cannot be shared across customer accounts", async () => {
-    const { admin } = fakeAdmin();
-    await request(EMP);
-    await confirmVerification({ admin, shop: SHOP, customerId: EMP, token: tokenFromLastLink() });
-    expect(await request(NORMAL)).toEqual({ ok: false, reason: "email_in_use" });
-  });
-
-  test("program disabled: no verification", async () => {
-    await db.benefitPolicy.update({ where: { shop: SHOP }, data: { enabled: false } });
-    expect(await request(EMP)).toEqual({ ok: false, reason: "disabled" });
-  });
-
-  test("E5: shops are isolated", async () => {
-    const { admin } = fakeAdmin();
-    await request(EMP);
-    const res = await confirmVerification({ admin, shop: "other.myshopify.com", customerId: EMP, token: tokenFromLastLink() });
-    expect(res.ok).toBe(false);
-  });
-});
-
-describe("lifecycle", () => {
+describe("lifecycle (employees who verified by email link before decision 016)", () => {
+  /** A link-verified employee as the old flow left them: membership row + active eligibility metafield. */
   async function verified() {
     const fake = fakeAdmin();
-    await request(EMP);
-    await confirmVerification({ admin: fake.admin, shop: SHOP, customerId: EMP, token: tokenFromLastLink() });
+    const expiresAt = new Date(Date.now() + 30 * 86_400_000);
+    await db.employeeMembership.create({
+      data: { shop: SHOP, customerId: EMP, workEmail: "zeeshan@tofoapp.com", source: "link", status: "active", verifiedAt: new Date(), expiresAt },
+    });
+    fake.metafields.set(`gid://shopify/Customer/${EMP}`, JSON.stringify({ v: 1, status: "active", expiresAt: expiresAt.toISOString().slice(0, 10) }));
     return fake;
   }
 
@@ -173,10 +76,9 @@ describe("lifecycle", () => {
     expect(await sweepExpired(admin, SHOP)).toEqual({ checked: 0, expired: 0 });
   });
 
-  test("D3: revoked employee cannot verify their way back; merchant can restore", async () => {
+  test("D3: merchant can restore a removed employee", async () => {
     const { admin, metafields } = await verified();
     await revokeMembership(admin, SHOP, EMP, "merchant:test");
-    expect(await request(EMP)).toEqual({ ok: false, reason: "revoked" });
     await reactivateMembership(admin, SHOP, EMP, "merchant:test");
     expect(JSON.parse(metafields.get(`gid://shopify/Customer/${EMP}`)!)).toMatchObject({ v: 1, status: "active" });
   });

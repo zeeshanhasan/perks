@@ -24,7 +24,7 @@ export default function Privacy() {
       <main className={s.legal}>
         <div className={s.legalCard}>
           <h1>Employee Perks: Privacy policy</h1>
-          <p className={s.updated}>Last updated: 3 November 2026</p>
+          <p className={s.updated}>Last updated: 16 November 2026</p>
 
           <p>
             Employee Perks (&ldquo;the App&rdquo;) is provided by Tofoapp to
@@ -44,13 +44,8 @@ export default function Privacy() {
               <ul>
                 <li>the Shopify customer ID</li>
                 <li>
-                  the work email address, if the customer verifies one through
-                  the App, or their account email if it matches an approved
-                  company domain
-                </li>
-                <li>
-                  verification records (when a link was requested or used);
-                  links are stored only as one-way hashes
+                  their account email, when it matches an approved company
+                  domain
                 </li>
                 <li>
                   an activity log of perk changes, with emails partly hidden
@@ -72,8 +67,8 @@ export default function Privacy() {
           <h2>Sharing</h2>
           <p>
             We don&apos;t sell or share personal data. It&apos;s processed only
-            by our hosting provider and our email provider, which sends
-            verification emails, to run the App.
+            by our hosting provider, to run the App. The App doesn&apos;t send
+            emails.
           </p>
 
           <h2>Retention and deletion</h2>
@@ -86,7 +81,6 @@ export default function Privacy() {
               All store data is deleted 48 hours after the app is uninstalled,
               when Shopify sends a shop redaction request.
             </li>
-            <li>Unused verification links are deleted after 7 days.</li>
           </ul>
 
           <h2>Your rights</h2>

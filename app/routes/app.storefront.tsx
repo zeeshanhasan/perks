@@ -202,7 +202,7 @@ export default function Storefront() {
                 <s-stack gap="base">
                   {text("noticeTitle", "Title")}
                   {text("noticeBody", "Text", undefined, true)}
-                  {text("noticeButton", "Button", "Opens the page where employees verify their work email.")}
+                  {text("noticeButton", "Button", "Opens a page that asks shoppers to log in with their work email.")}
                 </s-stack>
               ) : null}
             </s-stack>

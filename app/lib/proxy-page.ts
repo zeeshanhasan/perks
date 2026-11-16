@@ -48,6 +48,9 @@ const loginButton = (returnPath: string) =>
   `<a class="button button--primary" href="{{ routes.account_login_url }}?return_url=${encodeURIComponent(returnPath)}">Log in</a>`;
 const shopButton = `<a class="button button--primary" href="{{ routes.all_products_collection_url }}">Start shopping</a>`;
 
+const logoutButton = `<a class="button" href="{{ routes.account_logout_url }}">Log out</a>`;
+
+/** Storefront pages for /apps/perks/verify: a "my perks" status page (decision 016: work-email login only). */
 export const pages = {
   disabled: () =>
     shell({ eyebrow: "Employee perks", title: "Not available right now", lead: "Employee perks are currently switched off. Please check back later." }),
@@ -56,10 +59,10 @@ export const pages = {
     shell({
       eyebrow: "Employee perks",
       title: employerName ? `${employerName} employee perks` : "Employee perks",
-      lead: "Log in to your store account to get started.",
+      lead: "Log in to your store account with your work email. Your employee prices and products unlock automatically.",
       body: `<ol class="perks__steps">
-          <li>Log in with your <strong>work email</strong>: perks apply automatically.</li>
-          <li>Shopping with a personal email? Log in, then verify your work email here.</li>
+          <li>Log in (or create an account) with your <strong>work email</strong>, e.g. you@company.com.</li>
+          <li>Shop as usual: you'll see your employee price, and the discount applies at checkout.</li>
         </ol>${loginButton(returnPath)}`,
       msg,
     }),
@@ -73,30 +76,28 @@ export const pages = {
       body: shopButton,
     }),
 
-  verified: (employerName: string, expiresAt: Date | null, msg?: Msg) =>
+  /** Older employees who verified by email link before decision 016: perks run until their date. */
+  verified: (employerName: string, expiresAt: Date | null) =>
     shell({
       check: true,
       eyebrow: "Employee perks",
-      title: "You're verified",
+      title: "You're all set",
       lead: `Your ${employerName} employee perks are active${
         expiresAt ? ` until ${expiresAt.toISOString().slice(0, 10)}` : ""
       }. Employee prices apply automatically at checkout while you're logged in.`,
       body: shopButton,
-      msg,
     }),
 
-  form: (employerName: string, msg?: Msg, prefill = "") =>
+  /** Logged in, but not with an approved work email. */
+  notEligible: (emailDomain: string | null) =>
     shell({
       eyebrow: "Employee perks",
-      title: "Verify your work email",
-      lead: `Shopping with a personal email? Enter your ${employerName} work email and we'll send you a one-time link.`,
-      body: `<form class="perks__form" method="post" action="/apps/perks/verify">
-          <label for="perks-email">Work email</label>
-          <input id="perks-email" type="email" name="email" required autocomplete="email" placeholder="you@company.com" value="${escapeHtml(prefill)}" />
-          <button type="submit" class="button button--primary">Send verification link</button>
-        </form>
-        <p class="perks__note">We only use your work email to confirm employment. It won't change your account email or be shared.</p>`,
-      msg,
+      title: "Log in with your work email",
+      lead: `Employee perks are for customers whose store account uses their work email${
+        emailDomain ? `. This account uses an @${emailDomain} address` : ""
+      }. Log out, then log in or create an account with your work email (e.g. you@company.com).`,
+      body: `${logoutButton}
+        <p class="perks__note">Not sure your company is a partner? Ask your HR team, or contact the store.</p>`,
     }),
 
   revoked: () =>
@@ -105,56 +106,6 @@ export const pages = {
       title: "Perks removed",
       lead: "Employee perks were removed from this account. If you think this is a mistake, please contact the store.",
     }),
-
-  sent: () =>
-    shell({
-      eyebrow: "Employee perks",
-      title: "Check your work email",
-      lead: "We sent you a verification link. It expires in 30 minutes and can be used once.",
-      body: `<p class="perks__note">Open the link in this browser while you're logged in to the store. Can't find it? Check spam, or <a href="/apps/perks/verify">try again</a>.</p>`,
-    }),
-
-  confirm: (token: string) =>
-    shell({
-      eyebrow: "Employee perks",
-      title: "Confirm your employee perks",
-      lead: "One last click to activate your perks on this account.",
-      body: `<form class="perks__form" method="post" action="/apps/perks/confirm">
-          <input type="hidden" name="token" value="${escapeHtml(token)}" />
-          <button type="submit" class="button button--primary">Confirm</button>
-        </form>`,
-    }),
-
-  failed: (text: string, showRetry = true) =>
-    shell({
-      eyebrow: "Employee perks",
-      title: "That didn't work",
-      body: showRetry ? `<a class="button" href="/apps/perks/verify">Try again</a>` : "",
-      msg: { kind: "error", text },
-    }),
-};
-
-export const REQUEST_MESSAGES: Record<string, string> = {
-  invalid_email: "That doesn't look like a valid email address.",
-  domain_not_allowed: "That email domain isn't part of this employee program.",
-  rate_limited: "Too many attempts. Please try again in an hour.",
-  email_in_use: "That work email is already linked to another account. Contact the store if this is wrong.",
-  send_failed: "We couldn't send the email. Please try again shortly.",
-  disabled: "Employee perks aren't available right now.",
-  revoked: "Employee perks were removed from this account. Please contact the store.",
-};
-
-export const CONFIRM_MESSAGES: Record<string, string> = {
-  invalid: "This link is invalid.",
-  not_found: "This link is invalid.",
-  used: "This link has already been used.",
-  expired: "This link has expired. Request a new one.",
-  wrong_customer: "This link belongs to a different account. Log in with the account that requested it.",
-  disabled: "Employee perks aren't available right now.",
-  revoked: "Employee perks were removed from this account. Please contact the store.",
-  domain_not_allowed: "That email domain is no longer part of this employee program.",
-  email_in_use: "That work email is already linked to another account.",
-  publish_failed: "Something went wrong activating your perks. Please contact the store.",
 };
 
 // --- Public perks page (/apps/perks) -----------------------------------------------------
@@ -198,7 +149,7 @@ export function perksPage(opts: { title: string; intro: string; items: PerksPage
   const body = opts.items.length
     ? `<ul class="perks__list">${cards}</ul>
        <a class="button button--primary" href="/apps/perks/verify">${opts.loggedIn ? "Check my perks" : "Get my perks"}</a>
-       <p class="perks__note">Perks apply automatically at checkout when you're logged in with your work email, or after you verify it.</p>`
+       <p class="perks__note">Perks apply automatically at checkout when you're logged in with your work email.</p>`
     : `<p class="perks__lead">There are no employee perks to show right now.</p>`;
   return PERKS_STYLE + shell({ eyebrow: "Employee perks", title: opts.title, lead: opts.intro, body }).replace('class="perks"', 'class="perks perks--wide"');
 }

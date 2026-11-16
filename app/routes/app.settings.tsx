@@ -154,7 +154,7 @@ export default function Settings() {
         <PageHelp title="Store-wide settings">
           These apply to every business. Discounts, products and limits are set per business on the{" "}
           <s-link href="/app/businesses">Businesses</s-link> page. Employees get perks as soon as they log in with a work
-          email, or for 12 months after verifying one with the email link.
+          email.
         </PageHelp>
       </s-stack>
     </s-page>

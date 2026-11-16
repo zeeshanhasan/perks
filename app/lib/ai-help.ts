@@ -68,12 +68,14 @@ It works on every Shopify plan. The app is opened from the Shopify admin: **Apps
 - **Employee-only products**: products only that business's employees can buy (also discounted).
 - **Employee mode**: the app's theme embed. It shows employee prices and hides employee-only products in the store.
 - **Perks page**: an optional public page at /apps/perks on the store listing the partner companies and their discounts.
-- **Verify link**: the page /apps/perks/verify on the store, where an employee who shops with a personal email proves their work email.
+- **My perks page**: /apps/perks/verify on the store. It tells a shopper whether they get perks, and asks them to log in with their work email if not.
 
 ## How someone becomes an employee
 
-1. **Work email login (automatic).** A customer logged in with an email at a business's domain gets that business's perks straight away. This is always on.
-2. **Personal email + verify link.** A customer whose account uses a personal email (e.g. gmail.com) opens /apps/perks/verify while logged in, enters their work email, and clicks the link emailed to them. This lasts **12 months**, then they verify again.
+The only way: **log in with a work email.** A customer logged in to the store with an email at a business's domain gets that business's perks straight away. Shopify's login code proves the email is theirs.
+
+- A customer whose store account uses a personal email (gmail.com and so on) doesn't get perks. They log out and log in, or create an account, with their work email.
+- There's no email verification link. Older employees who verified that way before it was retired show as "Email link" and keep their perks until their date.
 
 Rules that always apply:
 - Perks only work for **logged-in** customers. Guest checkout never gets them, and an email typed at checkout is never trusted.
@@ -107,7 +109,7 @@ Rules that always apply:
 
 **Employees**: everyone who gets perks, how they joined ("Work-email login" or "Email link"), status (Active, Removed, Expired, Not eligible), since when and when it expires. Search by email or customer ID, filter by business and status, 50 per page. **Remove perks** / **Restore perks** per person. **Find existing employees** adds customers who signed up before the app was installed. Employees of a deleted business show "Business deleted" and can't be restored.
 
-**Check a customer**: type the email a customer logs in with, press Enter. It lists each check (perks on, account found, matched to a business or verified, business active, within the limit) and, if something fails, why and a button to the fix.
+**Check a customer**: type the email a customer logs in with, press Enter. It lists each check (perks on, account found, matched to a business, business active, within the limit) and, if something fails, why and a button to the fix.
 
 **Reports**: a **Period** (This week, Last week, This month, Last month, This year, Custom range), four cards compared with the period before, and **By business** (orders, employees, spend, discount). **Create invoice** opens a dialog: bill the business for **the discount their employees received** or **their employees' total spend**. The **Invoices** list can be filtered by business and notes when an order was cancelled after the invoice was issued.
 
@@ -119,7 +121,7 @@ Rules that always apply:
 
 **Settings**: three store-wide options. **Pause all perks** (stops every discount at once; employee-only products stay protected), **Never discounted** (products no business discounts), **Combining with other discounts** (whether the employee discount stacks with other product, order or shipping discounts; if not, Shopify gives the better one).
 
-**Activity**: every change and verification: when, who (Staff, a partly hidden employee email, or "Employee Perks (automatic)"), what, and details. "Blocked" means the app stopped something on purpose; "Failed" means something went wrong. 50 per page.
+**Activity**: every change: when, who (Staff, a partly hidden employee email, or "Employee Perks (automatic)"), what, and details. "Blocked" means the app stopped something on purpose; "Failed" means something went wrong. 50 per page.
 
 **Customer page block** (in Shopify, not the app): on a customer's page, **+ Block → Employee perks**, then pin it. It shows their business, discount, limit used and left, orders and savings.
 
@@ -133,7 +135,7 @@ A limit caps each employee's perks every month or every year, on the discount th
 
 ## Common questions and fixes
 
-- **An employee doesn't get the discount** → Check a customer. Usual causes: not logged in; their email's domain isn't on any business; it's a personal email and they haven't verified; their verification expired; perks were removed on Employees; the business is paused; all perks are paused in Settings; they reached their limit; the product isn't in the business's discounted products or is in Never discounted.
+- **An employee doesn't get the discount** → Check a customer. Usual causes: not logged in; their email's domain isn't on any business; their store account uses a personal email; perks were removed on Employees; the business is paused; all perks are paused in Settings; they reached their limit; the product isn't in the business's discounted products or is in Never discounted.
 - **The employee price doesn't show in the store** → Storefront: Employee mode must be On in the live theme. Prices are tuned for Dawn-style themes.
 - **Someone left the company** → Employees → Remove perks.
 - **Other shoppers can see an employee-only product** → with Employee mode on and "Hide employee-only products" ticked they're hidden from collections and search, and the product page shows a message. Someone with a direct link can still see the page, but checkout always blocks them.
@@ -143,7 +145,7 @@ A limit caps each employee's perks every month or every year, on the discount th
 
 ## Privacy and uninstalling
 
-- The app stores employees' customer IDs and work emails, verification records and an activity log. Work emails are partly hidden in the log, and verification links are stored only as one-way hashes.
+- The app stores employees' customer IDs and work emails, and an activity log in which emails are partly hidden. It never sends emails.
 - It never edits theme code. Uninstalling stops the discount and checkout rule straight away, employee-only products become normal products (unpublish them first if they must stay private), and app data is deleted 48 hours later.
 - Privacy policy: https://perks.tofoapp.com/privacy · Terms: https://perks.tofoapp.com/terms
 

@@ -41,11 +41,12 @@ describe("diagnose", () => {
     expect(last(d).title).toMatch(/removed/);
   });
 
-  it("personal email: says it can't be added, and points to the verify link", () => {
+  it("personal email: tells them to log in with their work email (decision 016)", () => {
     const d = diagnose({ ...base, email: "sara@gmail.com" });
     expect(d.eligible).toBe(false);
-    expect(last(d).title).toMatch(/gmail.com is a personal email provider/);
-    expect(last(d).detail).toMatch(/\/apps\/perks\/verify/);
+    expect(last(d).title).toMatch(/personal email \(gmail.com\)/);
+    expect(last(d).detail).toMatch(/work email/);
+    expect(last(d).detail).not.toMatch(/verif/);
     expect(last(d).link).toBeUndefined();
   });
 

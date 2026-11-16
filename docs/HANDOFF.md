@@ -60,4 +60,4 @@ shopify app dev --tunnel-url https://dev-perks.tofoapp.com:3000
 
 1. 🧑 Store steps for employee-perks-5 and the hand checks in `TASKS.md`.
 2. Continue `feat/page-fixes`: next is Edit business → Discounted products, Employee-only products, More options; then the Add business wizard and the Businesses list (`TASKS.md` → Page fixes).
-3. Then `TASKS.md` → Next: Resend emails, App Store submission (launch free), billing, e2e script.
+3. Then `TASKS.md` → Next: App Store submission (launch free), billing, e2e script. No email provider is needed (decision 016).
