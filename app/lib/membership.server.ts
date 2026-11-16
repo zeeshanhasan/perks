@@ -211,6 +211,11 @@ export async function revokeMembership(admin: AdminClient, shop: string, custome
 export async function reactivateMembership(admin: AdminClient, shop: string, customerId: string, actor: string) {
   const m = await getMembership(shop, customerId);
   if (!m) return false;
+  // Their business was deleted: there's nothing to restore them to. They can verify again (or match a domain) instead.
+  if (m.businessId) {
+    const b = await db.business.findFirst({ where: { shop, id: m.businessId }, select: { archivedAt: true } });
+    if (!b || b.archivedAt) return "business_deleted" as const;
+  }
   const program = await getProgram(shop);
   const now = new Date();
   if (m.source === "domain") {

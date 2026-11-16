@@ -3,6 +3,7 @@ import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "re
 import { redirect, useFetcher, useLoaderData } from "react-router";
 import { SaveBar, useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
+import { DISCOUNTED_PRODUCTS_NOTE, DiscountFields, EmployeeOnlyHelp, GreenNote, LimitFields } from "../components/BusinessFields";
 import { BusinessWizard } from "../components/BusinessWizard";
 import { DomainChips } from "../components/DomainChips";
 import type { WizardValues } from "../components/BusinessWizard";
@@ -10,9 +11,9 @@ import { TargetEditor } from "../components/TargetEditor";
 import { useSaveBar } from "../components/useSaveBar";
 import { merchantActor } from "../lib/admin-actor.server";
 import { gql } from "../lib/admin-graphql.server";
-import { formatMoney, parseBusinessForm } from "../lib/business";
+import { parseBusinessForm } from "../lib/business";
 import { domainConflicts, getBusiness, takenDomains } from "../lib/business.server";
-import { catalogFacets } from "../lib/catalog.server";
+import { catalogFacets, shopInfo } from "../lib/catalog.server";
 import { isPublicEmailDomain } from "../lib/domain";
 import { deleteBusiness, deleteImpact, saveBusiness } from "../lib/settings.server";
 import type { Targeting } from "../lib/targeting";
@@ -21,17 +22,35 @@ import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
-  const facets = await catalogFacets(admin);
-  const taken = await takenDomains(session.shop, params.id === "new" ? undefined : params.id);
-  if (params.id === "new") {
-    const own = await ownEmailDomain(admin);
-    return { business: null, ...facets, ...own, taken, impact: { employees: 0, orders: 0 } };
-  }
-  const business = await getBusiness(session.shop, params.id!);
-  if (!business) throw redirect("/app/businesses");
-  const impact = await deleteImpact(session.shop, business.id);
-  return { business, ...facets, taken, impact, shopName: "", ownDomain: null as string | null };
+  const shop = session.shop;
+  const isNew = params.id === "new";
+  // The store's vendor and product type lists are the slowest part: stream them in after the page shows.
+  const lists = catalogFacets(admin).then(({ vendors, types }) => ({ vendors, types }));
+  const [info, business, taken, impact, own] = await Promise.all([
+    shopInfo(admin, shop),
+    isNew ? null : getBusiness(shop, params.id!),
+    takenDomains(shop, isNew ? undefined : params.id),
+    isNew ? { employees: 0, orders: 0 } : deleteImpact(shop, params.id!),
+    isNew ? ownEmailDomain(admin) : { shopName: "", ownDomain: null as string | null },
+  ]);
+  if (!isNew && !business) throw redirect("/app/businesses");
+  return { business, currency: info.currency, lists, taken, impact, ...own };
 };
+
+const NO_LISTS = { vendors: [] as string[], types: [] as string[] };
+
+/** Value of a streamed loader promise, or the fallback until it arrives (or if it fails). */
+function useStreamed<T>(promise: Promise<T>, fallback: T): T {
+  const [value, setValue] = useState<T>(fallback);
+  useEffect(() => {
+    let live = true;
+    promise.then((v) => live && setValue(v)).catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [promise]);
+  return value;
+}
 
 /** The store's own email domain (for the "Your own staff" preset). null for public providers. */
 async function ownEmailDomain(admin: Parameters<typeof catalogFacets>[0]) {
@@ -92,7 +111,8 @@ type FormState = {
 const SAVE_BAR_ID = "business-save-bar";
 
 export default function BusinessEdit() {
-  const { business, vendors, types, currency, shopName, ownDomain, impact, taken } = useLoaderData<typeof loader>();
+  const { business, lists, currency, shopName, ownDomain, impact, taken } = useLoaderData<typeof loader>();
+  const { vendors, types } = useStreamed(lists, NO_LISTS);
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
   const { leave } = useSaveBar(SAVE_BAR_ID);
@@ -123,10 +143,12 @@ export default function BusinessEdit() {
   const saving = fetcher.state !== "idle";
   const errors: Record<string, string> = fetcher.data && !fetcher.data.ok ? fetcher.data.errors : {};
 
+  // Saved to our database but Shopify wasn't updated: a banner with Retry until a save syncs (decision 010).
+  const [syncFailed, setSyncFailed] = useState(false);
   useEffect(() => {
     if (fetcher.data?.ok) {
-      if (fetcher.data.warning)
-        shopify.toast.show("Saved, but Shopify wasn't updated yet. Save again in a minute.", { isError: true });
+      setSyncFailed(Boolean(fetcher.data.warning));
+      if (fetcher.data.warning) shopify.toast.show("Saved, but Shopify wasn't updated", { isError: true });
       else shopify.toast.show(isNew ? "Business created. Perks are live." : "Business saved");
       if (isNew && fetcher.data.id) void leave(`/app/businesses/${fetcher.data.id}`);
     }
@@ -154,11 +176,6 @@ export default function BusinessEdit() {
       },
       { method: "post" },
     );
-
-  const hasAdvanced =
-    !isEmptyTarget(initial.employeeOnlyTarget) || Boolean(initial.billingEmail || initial.billingAddress);
-  const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
-  useEffect(() => setShowAdvanced(hasAdvanced), [hasAdvanced]);
 
   if (isNew)
     return (
@@ -194,8 +211,20 @@ export default function BusinessEdit() {
 
       <s-stack gap="base">
         {errors.form ? <s-banner tone="critical" heading="Couldn't save">{errors.form}</s-banner> : null}
+        {syncFailed && !errors.form ? (
+          <s-banner tone="warning" heading="Saved, but Shopify isn't updated yet">
+            Your changes are saved here, but Shopify didn&apos;t take them, so perks may still follow the old settings.
+            <s-button slot="secondary-actions" loading={saving} onClick={save}>
+              Retry
+            </s-button>
+          </s-banner>
+        ) : null}
 
         <s-section heading="Business">
+          {/* s-page has no badge slot; the first section's header is the closest place. Shows the saved status. */}
+          <s-badge slot="accessory" tone={initial.active ? "success" : "neutral"}>
+            {initial.active ? "Active" : "Paused"}
+          </s-badge>
           <s-stack gap="base">
             <s-text-field label="Name" value={f.name} onInput={input("name")} error={errors.name} placeholder="Acme Pharma" />
             <DomainChips
@@ -205,104 +234,39 @@ export default function BusinessEdit() {
               error={errors.domains}
             />
             <s-divider />
-            <s-checkbox
-              label="Active"
-              details="Paused businesses give no perks. Their employee-only products stay protected."
-              checked={f.active}
-              onChange={(e) => set({ active: (e.currentTarget as unknown as { checked: boolean }).checked })}
-            />
+            <s-select
+              label="Status"
+              value={f.active ? "active" : "paused"}
+              onChange={(e) => set({ active: (e.currentTarget as unknown as { value: string }).value === "active" })}
+              details={
+                f.active
+                  ? "Employees get their perks."
+                  : "No perks for now. Its employee-only products stay protected. Switch back to Active any time."
+              }
+            >
+              <s-option value="active">Active</s-option>
+              <s-option value="paused">Paused</s-option>
+            </s-select>
           </s-stack>
         </s-section>
 
         <s-section heading="Discount">
           <s-stack gap="base">
-            <s-grid gridTemplateColumns="1fr 1fr" gap="base">
-              <s-select label="Type" value={f.discountType} onChange={input("discountType")}>
-                <s-option value="percentage">Percentage off each item</s-option>
-                <s-option value="fixed">Fixed amount off each item</s-option>
-              </s-select>
-              <s-number-field
-                label={f.discountType === "fixed" ? `Amount (${currency})` : "Percentage"}
-                value={f.discountValue}
-                onInput={input("discountValue")}
-                min={f.discountType === "fixed" ? 0 : 1}
-                max={f.discountType === "fixed" ? 1000000 : 90}
-                step={f.discountType === "fixed" ? 0.01 : 1}
-                suffix={f.discountType === "fixed" ? undefined : "%"}
-                error={errors.discountValue}
-              />
-            </s-grid>
-            {/* Polaris text ignores weight/tone here, so a plain box in Polaris' success colours. */}
-            <div
-              style={{
-                background: "#cdfee1",
-                color: "#0c5132",
-                fontWeight: 600,
-                fontSize: 13,
-                lineHeight: "20px",
-                padding: "6px 12px",
-                borderRadius: 8,
-              }}
-            >
-              {f.discountType === "fixed"
-                ? `Employees get ${formatMoney(Number(f.discountValue) || 0, currency)} off every unit of a discounted product, never more than its price.`
-                : `Employees get ${Number(f.discountValue) || 0}% off the price of every discounted product.`}
-            </div>
-
+            <DiscountFields
+              discountType={f.discountType}
+              discountValue={f.discountValue}
+              currency={currency}
+              error={errors.discountValue}
+              onChange={set}
+            />
             <s-divider />
-
-            <s-select label="Limit per employee" value={f.limitPeriod} onChange={input("limitPeriod")}>
-              <s-option value="none">No limit</s-option>
-              <s-option value="month">Per month</s-option>
-              <s-option value="year">Per year</s-option>
-            </s-select>
-            {f.limitPeriod !== "none" ? (
-              <>
-                <s-grid gridTemplateColumns="1fr 1fr" gap="base">
-                  <s-select label="Limit on" value={f.limitBasis} onChange={input("limitBasis")}>
-                    <s-option value="discount">Discount received</s-option>
-                    <s-option value="spend">Total spend</s-option>
-                  </s-select>
-                  <s-number-field
-                    label={`Amount (${currency})`}
-                    value={f.limitAmount}
-                    onInput={input("limitAmount")}
-                    min={0}
-                    step={0.01}
-                    error={errors.limitAmount}
-                  />
-                </s-grid>
-                <s-choice-list
-                  label="When an order goes past the limit"
-                  onChange={(e) => set({ limitOverflow: (e.currentTarget as unknown as { values: string[] }).values?.[0] ?? "partial" })}
-                >
-                  <s-choice value="partial" selected={f.limitOverflow !== "whole"}>
-                    Discount up to the limit
-                    <s-text slot="details">The item that reaches the limit gets only what&apos;s left of it.</s-text>
-                  </s-choice>
-                  <s-choice value="whole" selected={f.limitOverflow === "whole"}>
-                    Only discount items that fit in full
-                    <s-text slot="details">The item that would go past the limit, and everything after it, is full price.</s-text>
-                  </s-choice>
-                </s-choice-list>
-              </>
-            ) : null}
-            <s-text color="subdued">
-              {f.limitPeriod === "none"
-                ? "Optional. Cap how much each employee gets per month or per year."
-                : f.limitBasis === "spend"
-                  ? `The discount applies to the first ${formatMoney(Number(f.limitAmount) || 0, currency)} each employee spends per ${f.limitPeriod}. After that, full price until next ${f.limitPeriod}.`
-                  : `Each employee gets up to ${formatMoney(Number(f.limitAmount) || 0, currency)} of discount per ${f.limitPeriod}. After that, full price until next ${f.limitPeriod}.`}
-            </s-text>
+            <LimitFields value={f} currency={currency} error={errors.limitAmount} onChange={set} />
           </s-stack>
         </s-section>
 
         <s-section heading="Discounted products">
           <s-stack gap="base">
-            <s-paragraph>
-              Anyone can buy these at the normal price; this business&apos;s employees get the discount. Employee-only
-              products below are always discounted too.
-            </s-paragraph>
+            <GreenNote>{DISCOUNTED_PRODUCTS_NOTE}</GreenNote>
             <TargetEditor
               value={f.discountTarget}
               onChange={(t) => set({ discountTarget: t })}
@@ -315,36 +279,16 @@ export default function BusinessEdit() {
           </s-stack>
         </s-section>
 
-        {showAdvanced ? (
-          <>
-          <s-section heading="Employee-only products">
-            <s-stack gap="base">
-              <s-paragraph>
-                Only this business&apos;s employees can check out with these. Everyone else is blocked at checkout.
-              </s-paragraph>
-              <TargetEditor value={f.employeeOnlyTarget} onChange={(t) => set({ employeeOnlyTarget: t })} vendors={vendors} types={types} />
-            </s-stack>
-          </s-section>
-
-          <s-section heading="Billing">
-            <s-stack gap="base">
-              <s-email-field label="Billing email" value={f.billingEmail} onInput={input("billingEmail")} error={errors.billingEmail} />
-              <s-text-area label="Billing address" value={f.billingAddress} onInput={input("billingAddress")} rows={3} />
-            </s-stack>
-          </s-section>
-
-          </>
-        ) : (
-          <s-section>
-            <s-stack direction="inline" gap="base" alignItems="center" justifyContent="space-between">
-              <s-stack gap="small-300">
-                <s-text type="strong">More options</s-text>
-                <s-text color="subdued">Employee-only products, and billing details for invoices.</s-text>
-              </s-stack>
-              <s-button onClick={() => setShowAdvanced(true)}>Show</s-button>
-            </s-stack>
-          </s-section>
-        )}
+        {/* Billing email/address are hidden for now (unused so far); saved values are kept and still print on invoices. */}
+        <s-section heading="Employee-only products">
+          <s-stack gap="base">
+            <s-paragraph>
+              Optional. Products only this business&apos;s employees can buy. Leave empty if every product is for everyone.
+            </s-paragraph>
+            <TargetEditor value={f.employeeOnlyTarget} onChange={(t) => set({ employeeOnlyTarget: t })} vendors={vendors} types={types} />
+            <EmployeeOnlyHelp />
+          </s-stack>
+        </s-section>
 
         <s-section heading="Delete business">
           <s-stack gap="small">
@@ -364,10 +308,7 @@ export default function BusinessEdit() {
                 <strong>
                   {impact.employees} employee{impact.employees === 1 ? "" : "s"}
                 </strong>{" "}
-                lose their perks right away. Their customer accounts don&apos;t change, and there&apos;s nothing to clean up.
-              </s-list-item>
-              <s-list-item>
-                Orders already placed keep their discount. Anyone mid-checkout pays full price from their next update.
+                lose{impact.employees === 1 ? "s" : ""} perks right away.
               </s-list-item>
               {!isEmptyTarget(initial.employeeOnlyTarget) ? (
                 <s-list-item>
@@ -376,9 +317,9 @@ export default function BusinessEdit() {
                 </s-list-item>
               ) : null}
               <s-list-item>
-                Its {impact.orders} recorded order{impact.orders === 1 ? "" : "s"}, reports and invoices are kept.
+                Its {impact.orders} order{impact.orders === 1 ? "" : "s"} and invoices stay in Reports.
               </s-list-item>
-              <s-list-item>You can&apos;t undo this. To stop perks for a while, pause the business instead.</s-list-item>
+              <s-list-item>This can&apos;t be undone. To stop perks for a while, pause it instead.</s-list-item>
             </s-unordered-list>
           </s-stack>
           <s-button

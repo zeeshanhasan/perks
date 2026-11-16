@@ -1,12 +1,15 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { Await, useLoaderData, useNavigate, useNavigation } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
+import type { HelpRowProps } from "../components/AskHelp";
+import { HelpRows, askRows, useSidekick } from "../components/AskHelp";
+import { Metric } from "../components/Metric";
 import { RouteError } from "../components/RouteError";
+import { aiPrompt, guideUrl } from "../lib/ai-help";
 import { formatMoney } from "../lib/business";
 import { shopInfo } from "../lib/catalog.server";
-import type { Badge, Trend } from "../lib/home";
+import type { Badge } from "../lib/home";
 import { businessesBadge, countLine, monthOptions, plural, storefrontStatus, trend } from "../lib/home";
 import type { SetupStep } from "../lib/setup.server";
 import { getSetup, themeEditorEmbedUrl } from "../lib/setup.server";
@@ -24,73 +27,28 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     currency: info.currency,
     months: monthOptions(new Date(), 12, info.timezone),
     themeUrl: themeEditorEmbedUrl(session.shop, process.env.SHOPIFY_API_KEY || ""),
+    askPrompt: aiPrompt(guideUrl(process.env.SHOPIFY_APP_URL || "")),
     canReadThemes: /\b(read|write)_themes\b/.test(session.scope ?? ""),
     embed,
     ...setup,
   };
 };
 
-/** App Bridge's Sidekick Launch API. Not in our installed types yet; App Bridge itself loads from Shopify's CDN. */
-type SidekickApi = { isEnabled: () => Promise<boolean>; open: () => Promise<unknown> };
-
-function useSidekick() {
-  const shopify = useAppBridge() as unknown as { sidekick?: SidekickApi };
-  const [enabled, setEnabled] = useState(false);
-  useEffect(() => {
-    let live = true;
-    shopify.sidekick
-      ?.isEnabled()
-      .then((on) => live && setEnabled(Boolean(on)))
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [shopify]);
-  return enabled ? () => void shopify.sidekick?.open().catch(() => {}) : null;
-}
-
-function Metric({
-  id,
-  label,
-  value,
-  sub,
-  help,
-  change,
-  neutral = false,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  sub?: string;
-  help: string;
-  change: Trend;
-  /** Grey arrows: a change that isn't good or bad in itself (e.g. discount given). */
-  neutral?: boolean;
-}) {
+function HelpSection({ prompt, openSidekick }: { prompt: string; openSidekick: (() => void) | null }) {
+  const navigate = useNavigate();
+  const rows: HelpRowProps[] = [
+    {
+      logo: <s-icon type="book-open" tone="neutral" />,
+      title: "How Employee Perks works",
+      status: "Setup, products, limits and common questions",
+      onClick: () => navigate("/app/help"),
+    },
+    ...askRows(prompt, openSidekick),
+  ];
   return (
-    <s-box padding="base" background="subdued" borderRadius="base">
-      <s-stack gap="small-200">
-        <s-stack direction="inline" gap="small-200" alignItems="center">
-          <s-text color="subdued">{label}</s-text>
-          <s-icon type="info" tone="neutral" size="small" interestFor={`tip-${id}`} />
-          <s-tooltip id={`tip-${id}`}>{help}</s-tooltip>
-        </s-stack>
-        <s-stack direction="inline" gap="small-200" alignItems="baseline">
-          <s-heading>{value}</s-heading>
-          {sub ? <s-text color="subdued">{sub}</s-text> : null}
-        </s-stack>
-        <s-stack direction="inline" gap="small-300" alignItems="center">
-          {change.dir !== "flat" ? (
-            <s-icon
-              type={change.dir === "up" ? "arrow-up" : "arrow-down"}
-              tone={neutral ? "neutral" : change.dir === "up" ? "success" : "critical"}
-              size="small"
-            />
-          ) : null}
-          <s-text color="subdued">{change.text}</s-text>
-        </s-stack>
-      </s-stack>
-    </s-box>
+    <s-section heading="Help">
+      <HelpRows rows={rows} />
+    </s-section>
   );
 }
 
@@ -197,7 +155,7 @@ function SetupChecklist({ steps, embedOn, themeUrl }: { steps: Step[]; embedOn: 
 }
 
 export default function Home() {
-  const { steps, enabled, businesses, stats, month, lastMonth, months, currency, perksPage, embed, themeUrl, canReadThemes } =
+  const { steps, enabled, businesses, stats, month, lastMonth, months, currency, perksPage, embed, themeUrl, canReadThemes, askPrompt } =
     useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const navigation = useNavigation();
@@ -238,7 +196,7 @@ export default function Home() {
       title: "Perks page",
       status: "Public list of companies and discounts",
       badge: perksPage ? { label: "On", tone: "success" } : { label: "Off", tone: "neutral" },
-      href: "/app/storefront?section=perks-page",
+      href: "/app/perks-page",
     },
     {
       icon: "chart-vertical",
@@ -262,11 +220,6 @@ export default function Home() {
       <s-button slot="secondary-actions" href="/app/check">
         Check a customer
       </s-button>
-      {openSidekick ? (
-        <s-button slot="secondary-actions" onClick={openSidekick}>
-          Ask Sidekick
-        </s-button>
-      ) : null}
 
       <Suspense fallback={<SetupChecklist steps={steps} embedOn={undefined} themeUrl={themeUrl} />}>
         <Await resolve={embed} errorElement={<SetupChecklist steps={steps} embedOn={null} themeUrl={themeUrl} />}>
@@ -354,8 +307,9 @@ export default function Home() {
         </s-stack>
       </s-section>
 
+      <HelpSection prompt={askPrompt} openSidekick={openSidekick} />
+
       <s-stack direction="inline" gap="base" justifyContent="center">
-        <s-link href="/app/help">How Employee Perks works</s-link>
         <s-link href="/app/audit">Activity log</s-link>
       </s-stack>
     </s-page>

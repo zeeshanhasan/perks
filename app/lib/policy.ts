@@ -18,18 +18,12 @@ export type SettingsInput = {
 
 export type SettingsResult = { ok: true; value: SettingsInput } | { ok: false; errors: Record<string, string> };
 
+/** Fixed since decision 015: perks by work-email login are always on, link verifications last 12 months. */
+export const AUTO_DOMAIN = true;
+export const LINK_MONTHS = 12;
+
 /** Validates the admin Settings form. */
 export function parseSettingsForm(form: FormData): SettingsResult {
-  const errors: Record<string, string> = {};
-  const monthsRaw = String(form.get("eligibilityMonths") ?? "12");
-  let eligibilityMonths: number | null = null;
-  if (monthsRaw !== "none") {
-    const m = Number(monthsRaw);
-    if (!Number.isInteger(m) || m < MONTHS_MIN || m > MONTHS_MAX)
-      errors.eligibilityMonths = `Whole number of months from ${MONTHS_MIN} to ${MONTHS_MAX}, or no expiry`;
-    else eligibilityMonths = m;
-  }
-  if (Object.keys(errors).length) return { ok: false, errors };
   // Checked checkboxes submit a value; unchecked ones submit nothing.
   const bool = (k: string) => {
     const v = form.get(k);
@@ -39,8 +33,8 @@ export function parseSettingsForm(form: FormData): SettingsResult {
     ok: true,
     value: {
       enabled: bool("enabled"),
-      autoDomain: bool("autoDomain"),
-      eligibilityMonths,
+      autoDomain: AUTO_DOMAIN,
+      eligibilityMonths: LINK_MONTHS,
       combinesWithProduct: bool("combinesWithProduct"),
       combinesWithOrder: bool("combinesWithOrder"),
       combinesWithShipping: bool("combinesWithShipping"),

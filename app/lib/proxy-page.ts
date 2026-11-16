@@ -8,7 +8,7 @@ import { escapeHtml } from "./html";
 
 const STYLE = `
 <style>
-  .perks { max-width: 34rem; margin: 4rem auto; padding: 0 1.5rem; }
+  .perks { max-width: 34rem; margin: 4rem auto; }
   .perks__eyebrow { text-transform: uppercase; letter-spacing: .08em; font-size: .8rem; opacity: .65; margin: 0 0 .5rem; }
   .perks__title { margin: 0 0 1rem; }
   .perks__lead { margin: 0 0 1.5rem; opacity: .85; }
@@ -33,14 +33,15 @@ function shell(opts: { eyebrow?: string; title: string; lead?: string; body?: st
   const m = opts.msg
     ? `<div class="perks__msg perks__msg--${opts.msg.kind}" role="${opts.msg.kind === "error" ? "alert" : "status"}">${escapeHtml(opts.msg.text)}</div>`
     : "";
-  return `${STYLE}<div class="perks page-width">
+  // The theme's page-width sets the width and side padding (so it lines up with the header); .perks sits inside it.
+  return `${STYLE}<div class="page-width"><div class="perks">
     ${opts.check ? `<div class="perks__check" aria-hidden="true">✓</div>` : ""}
     ${opts.eyebrow ? `<p class="perks__eyebrow">${escapeHtml(opts.eyebrow)}</p>` : ""}
     <h1 class="perks__title h2">${escapeHtml(opts.title)}</h1>
     ${m}
     ${opts.lead ? `<p class="perks__lead">${escapeHtml(opts.lead)}</p>` : ""}
     ${opts.body ?? ""}
-  </div>`;
+  </div></div>`;
 }
 
 const loginButton = (returnPath: string) =>
@@ -162,7 +163,10 @@ export type PerksPageItem = { name: string; discount: string; appliesTo: string;
 
 const PERKS_STYLE = `
 <style>
-  .perks--wide { max-width: 52rem; }
+  /* The list page uses the theme's full content width, starting where the theme's content starts.
+     Two classes, because the base .perks rule comes later in the page and would otherwise win. */
+  .perks.perks--wide { max-width: none; margin: 3rem 0 4rem; }
+  .perks.perks--wide .button { width: auto; }
   .perks__list { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); margin: 0 0 2rem; padding: 0; list-style: none; }
   .perks__card { border: 1px solid rgba(0,0,0,.12); border-radius: 8px; padding: 1.25rem; }
   .perks__card h2 { margin: 0 0 .25rem; font-size: 1.15em; }
@@ -196,5 +200,5 @@ export function perksPage(opts: { title: string; intro: string; items: PerksPage
        <a class="button button--primary" href="/apps/perks/verify">${opts.loggedIn ? "Check my perks" : "Get my perks"}</a>
        <p class="perks__note">Perks apply automatically at checkout when you're logged in with your work email, or after you verify it.</p>`
     : `<p class="perks__lead">There are no employee perks to show right now.</p>`;
-  return PERKS_STYLE + shell({ eyebrow: "Employee perks", title: opts.title, lead: opts.intro, body }).replace('class="perks page-width"', 'class="perks perks--wide page-width"');
+  return PERKS_STYLE + shell({ eyebrow: "Employee perks", title: opts.title, lead: opts.intro, body }).replace('class="perks"', 'class="perks perks--wide"');
 }

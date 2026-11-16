@@ -179,6 +179,10 @@ model OrderUsage {
   /// Employee discount received on this order
   discount    Float
   cancelled   Boolean  @default(false)
+  /// Line items as JSON (OrderItem[] in lib/usage.ts), for itemised invoices. "[]" for orders recorded before this existed.
+  items       String   @default("[]")
+  /// The customer's email on the order (fallback for the employee email on invoices)
+  email       String   @default("")
   createdAt   DateTime @default(now())
 
   @@unique([shop, orderId])

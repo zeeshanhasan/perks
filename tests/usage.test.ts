@@ -3,6 +3,7 @@ import { beforeEach, expect, test } from "vitest";
 import db from "../app/db.server";
 import {
   createInvoice,
+  employeeRows,
   getInvoice,
   invoiceCsv,
   businessSummary,
@@ -34,11 +35,21 @@ const order = (
   ],
   line_items: [
     {
+      title: "Vitamin C",
+      variant_title: "60 tabs",
+      sku: "VC-60",
+      quantity: 2,
+      price: "500.00",
       discount_allocations: [
         { amount: "150.00", discount_application_index: 0 },
       ],
     },
     {
+      title: "Hand cream",
+      variant_title: null,
+      sku: "",
+      quantity: 1,
+      price: "50.00",
       discount_allocations: [
         { amount: "50.00", discount_application_index: 1 },
       ],
@@ -196,9 +207,15 @@ test("summary + invoice on discount or spend, frozen after issue", async () => {
   const inv = (await getInvoice(SHOP, disc.id))!;
   expect(inv.invoice.amount).toBe(300);
   expect(inv.lines).toHaveLength(2);
-  const csv = invoiceCsv(inv);
+  const csv = invoiceCsv(inv, "Test Store");
   expect(csv).toContain("INV-202612-001");
-  expect(csv).toContain("Total,,,,,300.00");
+  expect(csv).toContain("Total,,,,,,,,,,,,300.00");
+  // One row per product line, with the employee's email, never a bare customer ID.
+  expect(csv).toContain("Nov 2026,#1,2026-11-02,Vitamin C,60 tabs,VC-60,2,500.00,1000.00,150.00,850.00,150.00");
+  expect(csv).not.toMatch(/Customer ID/);
+  const rows = employeeRows(inv.lines, "discount");
+  expect(rows).toHaveLength(2);
+  expect(rows[0]).toMatchObject({ month: "Nov 2026", orders: 1, products: 3, discount: 150, billed: 150 });
   expect(await getInvoice("other.myshopify.com", disc.id)).toBeNull(); // shop isolation
 });
 

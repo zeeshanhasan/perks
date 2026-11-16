@@ -41,10 +41,18 @@ describe("diagnose", () => {
     expect(last(d).title).toMatch(/removed/);
   });
 
-  it("unknown domain", () => {
+  it("personal email: says it can't be added, and points to the verify link", () => {
     const d = diagnose({ ...base, email: "sara@gmail.com" });
     expect(d.eligible).toBe(false);
-    expect(last(d).title).toMatch(/gmail.com isn't on any business/);
+    expect(last(d).title).toMatch(/gmail.com is a personal email provider/);
+    expect(last(d).detail).toMatch(/\/apps\/perks\/verify/);
+    expect(last(d).link).toBeUndefined();
+  });
+
+  it("unknown company domain: links to Businesses", () => {
+    const d = diagnose({ ...base, email: "sara@unknown-co.com" });
+    expect(last(d).title).toMatch(/unknown-co.com isn't on any business/);
+    expect(last(d).link).toEqual({ label: "Open Businesses", href: "/app/businesses" });
   });
 
   it("verified by link with a personal email", () => {
@@ -67,10 +75,11 @@ describe("diagnose", () => {
     expect(last(d).title).toMatch(/expired/);
   });
 
-  it("auto domain off", () => {
+  it("store not synced since decision 015 (work-email perks still off in Shopify)", () => {
     const d = diagnose({ ...base, autoDomain: false });
     expect(d.eligible).toBe(false);
-    expect(last(d).title).toMatch(/automatic perks by email are off/);
+    expect(last(d).title).toMatch(/hasn't updated Shopify yet/);
+    expect(last(d).link).toEqual({ label: "Open Settings", href: "/app/settings" });
   });
 
   it("paused business", () => {

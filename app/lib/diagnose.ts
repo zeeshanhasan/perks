@@ -2,7 +2,7 @@
  * Perk debugger: explains, step by step, why a customer does or doesn't get employee perks.
  * Pure function so it's easy to test; the server wrapper gathers the inputs.
  */
-import { emailDomain } from "./domain";
+import { emailDomain, isPublicEmailDomain } from "./domain";
 
 export type DiagnoseBusiness = {
   id: string;
@@ -27,7 +27,8 @@ export type DiagnoseInput = {
   formatMoney: (n: number) => string;
 };
 
-export type Check = { status: "ok" | "fail" | "info"; title: string; detail?: string };
+/** link: a page in the app (or Settings) where the fix is made. */
+export type Check = { status: "ok" | "fail" | "info"; title: string; detail?: string; link?: { label: string; href: string } };
 
 export type Diagnosis = {
   eligible: boolean;
@@ -46,7 +47,12 @@ export function diagnose(i: DiagnoseInput): Diagnosis {
   });
 
   if (!i.programOn) {
-    checks.push({ status: "fail", title: "Employee perks are off", detail: "Turn them on in Settings, and make sure at least one business is active." });
+    checks.push({
+      status: "fail",
+      title: "Employee perks are off",
+      detail: "Turn them on in Settings, and make sure at least one business is active.",
+      link: { label: "Open Settings", href: "/app/settings" },
+    });
     return done(false);
   }
   checks.push({ status: "ok", title: "Employee perks are on" });
@@ -63,7 +69,12 @@ export function diagnose(i: DiagnoseInput): Diagnosis {
 
   const m = i.membership;
   if (m?.status === "revoked") {
-    checks.push({ status: "fail", title: "You removed this customer's perks", detail: "Restore them on the Employees page." });
+    checks.push({
+      status: "fail",
+      title: "You removed this customer's perks",
+      detail: "Restore them on the Employees page.",
+      link: { label: "Open Employees", href: `/app/employees?status=revoked&q=${encodeURIComponent(i.email)}` },
+    });
     return done(false);
   }
 
@@ -83,24 +94,39 @@ export function diagnose(i: DiagnoseInput): Diagnosis {
   } else if (byDomain && !i.autoDomain) {
     checks.push({
       status: "fail",
-      title: `${domain} belongs to ${byDomain.name}, but automatic perks by email are off`,
-      detail: "Turn on automatic perks in Settings, or ask them to verify with the employee link.",
+      title: `${domain} belongs to ${byDomain.name}, but the app hasn't updated Shopify yet`,
+      detail: "Open Settings and click Save once. Until then they can verify with the employee link.",
+      link: { label: "Open Settings", href: "/app/settings" },
     });
     return done(false);
   } else {
     const expired = m?.source === "link" && !linkActive;
+    const personal = isPublicEmailDomain(domain);
+    const on = (d: Date) => d.toISOString().slice(0, 10);
     checks.push({
       status: "fail",
-      title: expired ? "Their employee verification expired" : `${domain} isn't on any business`,
+      title: expired
+        ? `Their employee verification expired${m?.expiresAt ? ` on ${on(m.expiresAt)}` : ""}`
+        : personal
+          ? `${domain} is a personal email provider`
+          : `${domain} isn't on any business`,
       detail: expired
-        ? "They can verify again with the employee link."
-        : "Add this domain to a business, or the employee verifies a work email with the employee link.",
+        ? "They can verify again with the employee link (/apps/perks/verify on your store)."
+        : personal
+          ? "Personal addresses can't be added to a business. The employee verifies their work email with the employee link (/apps/perks/verify on your store) while logged in with this account."
+          : "Add this domain to a business, or the employee verifies a work email with the employee link (/apps/perks/verify on your store).",
+      link: expired || personal ? undefined : { label: "Open Businesses", href: "/app/businesses" },
     });
     return done(false);
   }
 
   if (!business.active) {
-    checks.push({ status: "fail", title: `${business.name} is paused`, detail: "Set it to active on the Businesses page." });
+    checks.push({
+      status: "fail",
+      title: `${business.name} is paused`,
+      detail: "Set it back to Active on the business page.",
+      link: { label: `Open ${business.name}`, href: `/app/businesses/${business.id}` },
+    });
     return done(false, business.name);
   }
 

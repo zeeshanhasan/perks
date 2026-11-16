@@ -176,16 +176,17 @@
    if (!h || h === (P.product.handle || "").toLowerCase() && P.product.isProductPage && !a.closest(CARD)) return;
    if (!cardEligible(h)) return;
    var card = a.closest(CARD);
-   if (!card || card.querySelector(".tofo-perks-card-price") || card.dataset.tofoPriced) return;
+   // The product's own info area can match CARD (e.g. Dawn's .grid__item): its price is handled by renderProductPrice.
+   if (!card || card.querySelector(".tofo-perks-card-price, #tofo-perks-price, " + BUY) || card.dataset.tofoPriced) return;
    card.dataset.tofoPriced = "1";
    fetchProduct(h).then(function (p) {
-    if (!p || P.price.excluded.indexOf(String(p.id)) !== -1) return;
+    if (!p || p.gift_card || P.price.excluded.indexOf(String(p.id)) !== -1) return;
     var priceEl = card.querySelector(".price, [class*='price']");
     if (!priceEl) return;
     var l = label(p.price_min != null ? p.price_min : p.price);
     var el = document.createElement("span");
     el.className = "tofo-perks-card-price";
-    el.textContent = (p.price_varies ? "From " : "") + P.price.text + " " + l.price;
+    el.textContent = P.price.text + (p.price_varies ? " from " : " ") + l.price;
     priceEl.insertAdjacentElement("afterend", el);
    });
   });

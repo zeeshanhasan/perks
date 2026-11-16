@@ -16,7 +16,8 @@ Read this first in a new session or in Claude Code on the Mac. Then `CLAUDE.md`,
 
 - `main` = v4 + Home redesign (PRs #3 and #4): rename, easy setup, storefront employee price, Storefront page, public perks page (`/apps/perks`), Employee perks block on the Shopify customer page. Deployed on Railway and released as employee-perks-5; store steps still open (`TASKS.md` → Release).
 - 2026-11-10: acceptance tests G–J3 run on the dev store. Results and the bugs found are in `TASKS.md` → Verified / Bugs found. J4, I5, K still to run.
-- Dev store state: test-data theme has the **dev** embed on and the **production** embed off; production program paused; perks page on; the Employee perks block is pinned on customer pages.
+- Dev store state (2026-11-13): only the **dev** app ("perks") is installed; the production app was uninstalled there. Dev embed on in the test-data theme; perks page on; the Employee perks block is pinned on customer pages. The dev app's proxy URL was customised from `/apps/perks-1` back to `/apps/perks` (Settings → Apps → perks → App Proxy URL).
+- Dev app in the admin: `https://admin.shopify.com/store/perks-frtekwck/apps/perks-5/app` (`/apps/perks` there is a 404).
 - Credits for cloud sessions are used up: work continues locally.
 - 2026-11-11: branch `feat/page-fixes` (from `main`) has Home fixes, Edit business (domains, Discount card) and the limit cap (decision 014). See `TASKS.md` → Page fixes for what's left. Work continues one page at a time: propose, get Zeeshan's OK, fix, check on the dev store.
 
@@ -37,7 +38,7 @@ shopify app dev --tunnel-url https://dev-perks.tofoapp.com:3000
 ## Gotchas learned
 
 - **Never run `shopify app dev --verbose` for long:** Babel debug logging fills the heap and the CLI crashes after ~12 min ("JavaScript heap out of memory"); the app then looks broken (no save bar, spinners). Use it only to read one error, then restart without it.
-- **The production app is also installed on the dev store.** Its discount, checkout rule, theme embed and `/apps/perks` proxy clash with the dev app's. Keep its program paused and its embed off while testing, or uninstall it there.
+- **Don't install the production app on the dev store.** Its discount, checkout rule, theme embed and `/apps/perks` proxy clash with the dev app's. If an app is installed while another holds `/apps/perks`, Shopify gives it `/apps/perks-1`; the code links to `/apps/perks`, so fix it in Settings → Apps → <app> → App Proxy URL → Customize URL.
 - `s-clickable href` reloads the app iframe without the embedded params (404). Navigate with `useNavigate()` in `onClick`.
 - Native `s-select` dropdowns and tooltips inside the app iframe can't be driven by browser automation; test those by hand.
 - Admin blocks: merchants add them with "+ Block" on the resource page and must pin them, or they disappear on reload. Keep them short; the admin warns when a block is too tall.

@@ -15,8 +15,63 @@ type OrderPayload = {
   customer?: { id?: number | string; email?: string | null } | null;
   email?: string | null;
   discount_applications?: Array<{ type?: string; title?: string; description?: string | null }>;
-  line_items?: Array<{ discount_allocations?: Array<{ amount?: Money; discount_application_index?: number }> }>;
+  line_items?: Array<{
+    title?: string | null;
+    variant_title?: string | null;
+    sku?: string | null;
+    quantity?: number | null;
+    price?: Money;
+    discount_allocations?: Array<{ amount?: Money; discount_application_index?: number }>;
+  }>;
 };
+
+/** One product line of an employee order, kept for itemised invoices. Money in the order's currency. */
+export type OrderItem = {
+  title: string;
+  variant: string;
+  sku: string;
+  quantity: number;
+  /** Price of one unit before any discount */
+  unitPrice: number;
+  /** Employee discount on this line (all units) */
+  discount: number;
+  /** What the employee paid for this line, after all discounts */
+  paid: number;
+};
+
+/** Line items from the orders/create REST payload. */
+export function orderItems(order: OrderPayload): OrderItem[] {
+  const apps = order.discount_applications ?? [];
+  return (order.line_items ?? []).map((li) => {
+    const quantity = Math.max(0, Math.floor(num(li.quantity ?? 0)));
+    const unitPrice = round2(num(li.price));
+    let perks = 0;
+    let all = 0;
+    for (const a of li.discount_allocations ?? []) {
+      all += num(a.amount);
+      if (isPerks(apps[a.discount_application_index ?? -1])) perks += num(a.amount);
+    }
+    return {
+      title: (li.title ?? "").slice(0, 255),
+      variant: (li.variant_title ?? "").slice(0, 255),
+      sku: (li.sku ?? "").slice(0, 100),
+      quantity,
+      unitPrice,
+      discount: round2(perks),
+      paid: round2(unitPrice * quantity - all),
+    };
+  });
+}
+
+/** Parses stored items JSON; [] when missing or broken. */
+export function parseItems(raw: string | null | undefined): OrderItem[] {
+  try {
+    const v = JSON.parse(raw ?? "[]");
+    return Array.isArray(v) ? (v as OrderItem[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 const num = (m: Money) => {
   const n = Number(m ?? 0);

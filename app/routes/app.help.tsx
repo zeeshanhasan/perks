@@ -1,14 +1,21 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
+import { HelpRows, askRows, useSidekick } from "../components/AskHelp";
+import { RouteError } from "../components/RouteError";
+import { aiPrompt, guideUrl } from "../lib/ai-help";
 import { themeEditorEmbedUrl } from "../lib/setup.server";
 import { authenticate } from "../shopify.server";
+
+const SUPPORT_EMAIL = "hello@tofoapp.com";
+const WEBSITE = "https://perks.tofoapp.com";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   return {
     shop: session.shop,
     themeUrl: themeEditorEmbedUrl(session.shop, process.env.SHOPIFY_API_KEY || ""),
+    askPrompt: aiPrompt(guideUrl(process.env.SHOPIFY_APP_URL || "")),
   };
 };
 
@@ -21,78 +28,119 @@ function Faq({ q, children }: { q: string; children: React.ReactNode }) {
   );
 }
 
+const mail = (subject: string) => `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`;
+
 export default function Help() {
-  const { shop, themeUrl } = useLoaderData<typeof loader>();
+  const { shop, themeUrl, askPrompt } = useLoaderData<typeof loader>();
+  const openSidekick = useSidekick();
+  const verifyUrl = `https://${shop}/apps/perks/verify`;
+
   return (
     <s-page heading="Help">
-      <s-section heading="How it works">
+      {/* ---------- Main column: how the app works, in the order of its pages ---------- */}
+      <s-section heading="Get started in 4 steps">
         <s-ordered-list>
           <s-list-item>
-            You add partner businesses on the Businesses page: each with its work email domains (for example{" "}
-            <code>company.com</code>), its discount, its products and optional limits.
+            <strong>Add a business</strong> on <s-link href="/app/businesses">Businesses</s-link>: the company name, its
+            work email domains (e.g. acme.com) and the discount its employees get.
           </s-list-item>
           <s-list-item>
-            An employee logs in to your store with their work email. Shopify sends them a login code, which proves the
-            email is theirs.
+            <strong>Turn on Employee mode</strong> in your theme from the <s-link href="/app/storefront">Storefront</s-link>{" "}
+            page, so employees see their price and other shoppers don&apos;t see employee-only products.
           </s-list-item>
           <s-list-item>
-            They automatically get the employee discount, and can buy employee-only products. No extra steps.
+            <strong>Tell the company&apos;s employees</strong>: they log in to your store with their work email. Share
+            the <s-link href="/app/perks-page">Perks page</s-link> or the verify link if they shop with a personal email.
           </s-list-item>
           <s-list-item>
-            Employees who shop with a personal email can verify their work email at{" "}
-            <s-link href={`https://${shop}/apps/perks/verify`} target="_blank">
-              /apps/perks/verify
-            </s-link>
-            . Add that link to your menu or use the &ldquo;Employee perks link&rdquo; theme block.
+            <strong>Watch and bill</strong>: <s-link href="/app">Home</s-link> shows this month&apos;s numbers, and{" "}
+            <s-link href="/app/reports">Reports</s-link> creates invoices for each company.
           </s-list-item>
         </s-ordered-list>
       </s-section>
 
-      <s-section heading="Choosing products for a business">
-        <s-unordered-list>
-          <s-list-item>
-            <strong>Discounted products:</strong> anyone can buy them; that business&apos;s employees get the discount.
-            Pick all products, or any mix of products, collections, vendors and product types.
-          </s-list-item>
-          <s-list-item>
-            <strong>Employee-only products:</strong> only that business&apos;s employees can buy them (also discounted).
-            Everyone else is stopped at checkout.
-          </s-list-item>
-          <s-list-item>
-            <strong>Never discounted</strong> (Settings): no employee discount on these, for any business.
-          </s-list-item>
-        </s-unordered-list>
-      </s-section>
-
-      <s-section heading="Limits, reports and invoices">
-        <s-unordered-list>
-          <s-list-item>
-            <strong>Limits:</strong> cap each employee&apos;s discount or spend per month or per year. After the limit
-            they pay full price until the next period. An order that goes past the limit gets only what&apos;s left of it, or you can choose to discount only items that fit in full.
-          </s-list-item>
-          <s-list-item>
-            <strong>Reports:</strong> every employee order is recorded against their business. See orders, spend
-            and discount for any week, month or date range.
-          </s-list-item>
-          <s-list-item>
-            <strong>Invoices:</strong> bill a business for the discount its employees received, or for their total
-            spend. Print or save as PDF, or download CSV. Issued invoices don&apos;t change afterwards.
-          </s-list-item>
-        </s-unordered-list>
-      </s-section>
-
-      <s-section heading="Turn on Employee mode in your theme">
+      <s-section heading="How employees get perks">
         <s-stack gap="base">
-          <s-paragraph>
-            Employee mode shows employees their price on product pages and in collections, hides employee-only
-            products from other shoppers, and replaces the buy button with a message on those products. Change its
-            texts on the <s-link href="/app/storefront">Storefront</s-link> page.
-          </s-paragraph>
-          <s-ordered-list>
-            <s-list-item>Open the theme editor with the button below.</s-list-item>
-            <s-list-item>Make sure &ldquo;Employee mode&rdquo; is switched on under App embeds.</s-list-item>
-            <s-list-item>Click Save.</s-list-item>
-          </s-ordered-list>
+          <s-unordered-list>
+            <s-list-item>
+              <strong>Work email login:</strong> a customer who logs in with an email at a business&apos;s domain gets its
+              perks straight away. Shopify sends them a login code, which proves the email is theirs.
+            </s-list-item>
+            <s-list-item>
+              <strong>Personal email:</strong> they verify their work email once at{" "}
+              <s-link href={verifyUrl} target="_blank">
+                /apps/perks/verify
+              </s-link>{" "}
+              while logged in. It lasts 12 months, then they verify again.
+            </s-list-item>
+            <s-list-item>
+              <strong>Always logged in:</strong> perks only apply to logged-in customers. Guest checkout never gets them,
+              whatever email is typed.
+            </s-list-item>
+          </s-unordered-list>
+          <s-text color="subdued">
+            Someone says they don&apos;t get the discount? <s-link href="/app/check">Check a customer</s-link> shows exactly
+            why, with the fix.
+          </s-text>
+        </s-stack>
+      </s-section>
+
+      <s-section heading="Businesses">
+        <s-unordered-list>
+          <s-list-item>
+            <strong>Domains:</strong> each business has its own work email domains. A domain can belong to only one
+            business, and personal ones like gmail.com can&apos;t be added.
+          </s-list-item>
+          <s-list-item>
+            <strong>Discount:</strong> a percentage off, or a fixed amount off each item (never more than its price).
+          </s-list-item>
+          <s-list-item>
+            <strong>Limit per employee</strong> (optional): every month or every year, on the discount they get or on what
+            they spend. It starts again on the 1st (or 1 January). By default the order that reaches the limit uses up
+            what&apos;s left of it; untick that to make the item that goes past it full price.
+          </s-list-item>
+          <s-list-item>
+            <strong>Discounted products:</strong> all products, or only some (products, collections, vendors, product
+            types). Anyone can buy them; this business&apos;s employees pay less.
+          </s-list-item>
+          <s-list-item>
+            <strong>Employee-only products</strong> (optional): only this business&apos;s employees can buy them. Everyone
+            else is stopped at checkout, and with Employee mode on they&apos;re hidden from collections and search.
+          </s-list-item>
+          <s-list-item>
+            <strong>Paused or deleted:</strong> pause a business to stop its perks for a while. Deleting it stops them for
+            good; its orders and invoices stay in Reports.
+          </s-list-item>
+        </s-unordered-list>
+      </s-section>
+
+      <s-section heading="Employees">
+        <s-unordered-list>
+          <s-list-item>
+            Everyone who gets perks appears on <s-link href="/app/employees">Employees</s-link>, with how they joined.
+            &ldquo;Find existing employees&rdquo; adds customers who signed up before you installed the app.
+          </s-list-item>
+          <s-list-item>
+            <strong>Remove perks</strong> when someone leaves the company. It works straight away, even if their email
+            still matches the domain. You can restore them later.
+          </s-list-item>
+        </s-unordered-list>
+      </s-section>
+
+      <s-section heading="Storefront and the Perks page">
+        <s-stack gap="base">
+          <s-unordered-list>
+            <s-list-item>
+              <strong>Employee mode</strong> shows employees their price on product pages and product cards, hides
+              employee-only products from everyone else, and shows a message instead of the buy button on them. Change
+              its wording on <s-link href="/app/storefront">Storefront</s-link>.
+            </s-list-item>
+            <s-list-item>
+              <strong>Perks page</strong>: a public page at /apps/perks listing your partner companies and their
+              discounts. Switch it on, then add it to your store menu, on the{" "}
+              <s-link href="/app/perks-page">Perks page</s-link> page.
+            </s-list-item>
+          </s-unordered-list>
           <s-box>
             <s-button href={themeUrl} target="_blank" icon="theme-edit">
               Open theme editor
@@ -101,48 +149,94 @@ export default function Help() {
         </s-stack>
       </s-section>
 
-      <s-section heading="Questions">
+      <s-section heading="Reports and invoices">
+        <s-unordered-list>
+          <s-list-item>
+            Every employee order is recorded against its business. <s-link href="/app/reports">Reports</s-link> shows
+            orders, employees, spend and discount for any period, compared with the period before.
+          </s-list-item>
+          <s-list-item>
+            <strong>Create invoice</strong> bills a company for the discount its employees received, or for their total
+            spend. Print it or save it as a PDF, and download the Excel file with every item.
+          </s-list-item>
+          <s-list-item>
+            Issued invoices never change. If an order is cancelled later, the invoice list says so.
+          </s-list-item>
+        </s-unordered-list>
+      </s-section>
+
+      <s-section heading="Settings">
+        <s-paragraph>
+          Three store-wide options on <s-link href="/app/settings">Settings</s-link>: pause all perks at once, products
+          that are never discounted, and whether the employee discount combines with your other discounts.
+        </s-paragraph>
+      </s-section>
+
+      <s-section heading="Common questions">
         <s-stack gap="base">
           <Faq q="Can someone get the discount by typing a work email at checkout?">
-            No. Perks only apply to customers who are logged in. Guest checkout never gets perks, whatever email is
-            typed.
+            No. Perks only apply to logged-in customers, and the email is proved by Shopify&apos;s login code or the
+            verification link.
           </Faq>
-          <Faq q="Can non-employees see employee-only products?">
-            With Employee mode on, they&apos;re hidden from collections and search, and their product pages show a
-            message instead of a buy button. Someone with a direct link can still view the page, but checkout always
-            blocks them. Shopify only offers true per-customer catalogs on Shopify Plus.
+          <Faq q="Can other shoppers see employee-only products?">
+            With Employee mode on, they&apos;re hidden from collections and search, and their pages show a message
+            instead of a buy button. Someone with a direct link can still see the page, but checkout always blocks them.
           </Faq>
-          <Faq q="Someone left the company. How do I remove their perks?">
-            Go to Employees and click &ldquo;Remove perks&rdquo;. It works immediately, even if their email still
-            matches your domain.
+          <Faq q="Does the discount stack with my sales?">
+            Only if you allow it under Settings, &ldquo;Combining with other discounts&rdquo;. Otherwise Shopify gives the
+            better discount.
           </Faq>
-          <Faq q="An employee says they don't get the discount.">
-            Use <s-link href="/app/check">Check a customer</s-link>: type their email and you&apos;ll see exactly why,
-            with the fix. Also check that the product is in that business&apos;s products.
-          </Faq>
-          <Faq q="Does the discount stack with other discounts?">
-            Only if you allow it under Settings, &ldquo;Combining with other discounts&rdquo;. Otherwise Shopify applies
-            the better discount.
-          </Faq>
+          <Faq q="Why don't gift cards get an employee price?">Shopify never discounts gift cards.</Faq>
           <Faq q="Is it safe to uninstall?">
-            Yes. Employee Perks never edits your theme code, so nothing is left behind. The storefront parts are theme
-            app blocks that Shopify removes for you. Employee-only products become normal products again, so unpublish
-            them first if they must stay private.
-          </Faq>
-          <Faq q="What happens if I uninstall?">
-            The discount and checkout rule stop working straight away. Your app data is deleted 48 hours later, as
-            Shopify requires.
+            Yes. The app never edits your theme code, so nothing is left behind. The discount and checkout rule stop
+            straight away, employee-only products become normal products (unpublish them first if they must stay private),
+            and your app data is deleted 48 hours later.
           </Faq>
         </s-stack>
       </s-section>
 
-      <s-section slot="aside" heading="Contact">
-        <s-paragraph>
-          Stuck? Email <s-link href="mailto:support@tofoapp.com">support@tofoapp.com</s-link> and we&apos;ll help.
-        </s-paragraph>
-      </s-section>
+      {/* ---------- Right column: help, feedback, contact ---------- */}
+      <s-box slot="aside">
+        <s-stack gap="base">
+          <s-section heading="Get help">
+            <s-stack gap="small">
+              <s-text color="subdued">Ask an assistant. Each one opens a chat that already knows this app.</s-text>
+              <HelpRows rows={askRows(askPrompt, openSidekick, true)} />
+            </s-stack>
+          </s-section>
+
+          <s-section heading="Feedback & feature requests">
+            <s-stack gap="small">
+              <s-paragraph>Something missing, confusing or broken? Tell us. We read every message.</s-paragraph>
+              <s-stack direction="inline" gap="small">
+                <s-button href={mail("Feature request: Employee Perks")} target="_blank" icon="lightbulb">
+                  Request a feature
+                </s-button>
+                <s-button href={mail("Feedback: Employee Perks")} target="_blank" variant="tertiary">
+                  Send feedback
+                </s-button>
+              </s-stack>
+            </s-stack>
+          </s-section>
+
+          <s-section heading="Contact">
+            <s-stack gap="small-200">
+              <s-link href={mail("Help with Employee Perks")} target="_blank">
+                {SUPPORT_EMAIL}
+              </s-link>
+              <s-link href={WEBSITE} target="_blank">
+                perks.tofoapp.com
+              </s-link>
+            </s-stack>
+          </s-section>
+        </s-stack>
+      </s-box>
     </s-page>
   );
+}
+
+export function ErrorBoundary() {
+  return <RouteError heading="Help" />;
 }
 
 export const headers: HeadersFunction = (headersArgs) => boundary.headers(headersArgs);

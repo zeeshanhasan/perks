@@ -4,14 +4,23 @@ import { EMPTY_TARGET, isEmptyTarget } from "../lib/targeting";
 import type { TakenDomain } from "./DomainChips";
 import { DomainChips } from "./DomainChips";
 import { TargetEditor } from "./TargetEditor";
+import type { LimitValues } from "./BusinessFields";
+import {
+  DISCOUNTED_PRODUCTS_NOTE,
+  DiscountFields,
+  EmployeeOnlyHelp,
+  GreenNote,
+  LimitFields,
+  limitSentence,
+} from "./BusinessFields";
+import { formatMoney } from "../lib/business";
 
 /**
- * "Add business" in three short steps with presets. Everything else (limits, billing, extra
- * product lists) lives on the business page afterwards.
+ * "Add business" in three short steps. Uses the same fields as the Edit business page
+ * (BusinessFields, TargetEditor) so both read the same.
  */
 
 type Preset = "partner" | "staff";
-type Scope = "all" | "selected" | "employeeOnly";
 
 export type WizardValues = {
   name: string;
@@ -42,25 +51,23 @@ type Props = {
 const value = (e: Event) => (e.currentTarget as unknown as { value: string }).value;
 const values = (e: Event) => (e.currentTarget as unknown as { values: string[] }).values ?? [];
 
+const STEPS = ["Who gets perks", "Discount", "Products"];
+
 export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, taken, saving, errors, onSubmit }: Props) {
   const [step, setStep] = useState(1);
   const [preset, setPreset] = useState<Preset>("partner");
   const [name, setName] = useState("");
   const [domains, setDomains] = useState<string[]>([]);
-  const [billingEmail, setBillingEmail] = useState("");
-  const [limitPeriod, setLimitPeriod] = useState("none");
-  const [limitBasis, setLimitBasis] = useState("discount");
-  const [limitAmount, setLimitAmount] = useState("");
-  const [amount, setAmount] = useState("10");
-  const [custom, setCustom] = useState(false);
-  const [discountType, setDiscountType] = useState("percentage");
-  const [scope, setScope] = useState<Scope>("all");
-  const [target, setTarget] = useState<Targeting>(EMPTY_TARGET);
+  const [discount, setDiscount] = useState({ discountType: "percentage", discountValue: "10" });
+  const [limit, setLimit] = useState<LimitValues>({ limitPeriod: "none", limitBasis: "discount", limitAmount: "", limitOverflow: "partial" });
+  const [discountTarget, setDiscountTarget] = useState<Targeting>({ ...EMPTY_TARGET, all: true });
+  const [employeeOnly, setEmployeeOnly] = useState(false);
+  const [employeeOnlyTarget, setEmployeeOnlyTarget] = useState<Targeting>(EMPTY_TARGET);
   const [stepError, setStepError] = useState("");
 
   // Server errors: jump back to the step that has the problem.
   useEffect(() => {
-    if (errors.name || errors.domains || errors.billingEmail) setStep(1);
+    if (errors.name || errors.domains) setStep(1);
     else if (errors.discountValue || errors.limitAmount) setStep(2);
     else if (errors.discountTarget) setStep(3);
   }, [errors]);
@@ -77,41 +84,49 @@ export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, 
     setStepError("");
     if (step === 1 && (!name.trim() || !domains.length))
       return setStepError("Add a name and at least one email domain (type it and press Enter).");
-    if (step === 2 && !(Number(amount) > 0)) return setStepError("Enter a discount.");
-    if (step === 2 && limitPeriod !== "none" && !(Number(limitAmount) > 0)) return setStepError("Enter the limit amount.");
+    if (step === 2 && !(Number(discount.discountValue) > 0)) return setStepError("Enter a discount.");
+    if (step === 2 && limit.limitPeriod !== "none" && !(Number(limit.limitAmount) > 0)) return setStepError("Enter the limit amount.");
     setStep(step + 1);
   };
 
-  const pct = discountType !== "fixed";
-  const discountText = pct ? `${amount}% off` : `${currency} ${amount} off each item`;
   const firstDomain = domains.length > 1 ? `${domains[0]} (or ${domains.length - 1} more)` : (domains[0] ?? "their domain");
-  const scopeText =
-    scope === "all" ? "everything in your store" : scope === "selected" ? "the products you picked" : "products only they can buy";
-  const limitText =
-    limitPeriod === "none" ? "" : ` Up to ${currency} ${limitAmount || "0"} ${limitBasis === "spend" ? "of spend" : "of discount"} per employee per ${limitPeriod}.`;
-  const summary = `Anyone who logs in with an @${firstDomain} email gets ${discountText} ${scopeText}.${limitText}`;
+  const products = discountTarget.all ? "every product" : isEmptyTarget(discountTarget) ? "no products" : "the products you picked";
+  const summary = [
+    `Anyone who logs in with an @${firstDomain} email gets ${
+      discount.discountType === "fixed"
+        ? `${formatMoney(Number(discount.discountValue) || 0, currency)} off each item of`
+        : `${Number(discount.discountValue) || 0}% off`
+    } ${products}.`,
+    employeeOnly && !isEmptyTarget(employeeOnlyTarget) ? "Some products are for them only." : "",
+    limitSentence(limit, currency),
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   const create = () => {
-    if (scope !== "all" && isEmptyTarget(target)) return setStepError("Pick at least one product, collection, vendor or type.");
+    const onlyChosen = employeeOnly && !isEmptyTarget(employeeOnlyTarget);
+    if (!discountTarget.all && isEmptyTarget(discountTarget) && !onlyChosen)
+      return setStepError("Pick at least one product, collection, vendor or type.");
+    if (employeeOnly && isEmptyTarget(employeeOnlyTarget))
+      return setStepError("Pick the employee-only products, or untick that option.");
     setStepError("");
     onSubmit({
       name: name.trim(),
       domains: domains.join(", "),
-      discountType,
-      discountValue: amount,
-      discountTarget: scope === "all" ? { ...EMPTY_TARGET, all: true } : scope === "selected" ? { ...target, all: false } : EMPTY_TARGET,
-      employeeOnlyTarget: scope === "employeeOnly" ? { ...target, all: false } : EMPTY_TARGET,
-      limitPeriod,
-      limitBasis,
-      limitAmount: limitPeriod === "none" ? "" : limitAmount,
-      limitOverflow: "partial",
-      billingEmail: billingEmail.trim(),
+      ...discount,
+      discountTarget,
+      employeeOnlyTarget: onlyChosen ? { ...employeeOnlyTarget, all: false } : EMPTY_TARGET,
+      ...limit,
+      limitAmount: limit.limitPeriod === "none" ? "" : limit.limitAmount,
+      billingEmail: "",
     });
   };
 
   return (
     <s-stack gap="base">
-      <s-text color="subdued">Step {step} of 3</s-text>
+      <s-text color="subdued">
+        Step {step} of 3 · {STEPS[step - 1]}
+      </s-text>
       {errors.form ? <s-banner tone="critical" heading="Couldn't create the business">{errors.form}</s-banner> : null}
 
       {step === 1 ? (
@@ -135,117 +150,62 @@ export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, 
               placeholder="Acme Pharma"
             />
             <DomainChips value={domains} onChange={setDomains} taken={taken} error={errors.domains} />
-            {preset === "partner" ? (
-              <s-email-field
-                label="HR or billing email (optional)"
-                details="Where invoices for this company go. You can add it later."
-                value={billingEmail}
-                onInput={(e) => setBillingEmail(value(e))}
-                error={errors.billingEmail}
-                placeholder="hr@acme.com"
-              />
-            ) : null}
           </s-stack>
         </s-section>
       ) : null}
 
       {step === 2 ? (
-        <s-section heading="What do they get?">
+        <s-section heading="Discount">
           <s-stack gap="base">
-            <s-choice-list
-              label="Discount"
-              labelAccessibilityVisibility="exclusive"
-              onChange={(e) => {
-                const v = values(e)[0];
-                if (v === "custom") setCustom(true);
-                else {
-                  setCustom(false);
-                  setDiscountType("percentage");
-                  setAmount(v);
-                }
-              }}
-            >
-              {["10", "15", "20"].map((v) => (
-                <s-choice key={v} value={v} selected={!custom && pct && amount === v}>
-                  {v}% off
-                </s-choice>
-              ))}
-              <s-choice value="custom" selected={custom}>
-                Something else
-              </s-choice>
-            </s-choice-list>
-            {custom ? (
-              <s-stack direction="inline" gap="base">
-                <s-select label="Type" value={discountType} onChange={(e) => setDiscountType(value(e))}>
-                  <s-option value="percentage">Percentage</s-option>
-                  <s-option value="fixed">Fixed amount off each item</s-option>
-                </s-select>
-                <s-number-field
-                  label={pct ? "Percentage" : `Amount (${currency})`}
-                  value={amount}
-                  onInput={(e) => setAmount(value(e))}
-                  min={pct ? 1 : 0}
-                  max={pct ? 90 : 1000000}
-                  step={pct ? 1 : 0.01}
-                  suffix={pct ? "%" : undefined}
-                  error={errors.discountValue}
-                />
-              </s-stack>
-            ) : null}
+            <DiscountFields
+              discountType={discount.discountType}
+              discountValue={discount.discountValue}
+              currency={currency}
+              error={errors.discountValue}
+              onChange={(p) => setDiscount((d) => ({ ...d, ...p }))}
+            />
             <s-divider />
-            <s-select label="Limit per employee" value={limitPeriod} onChange={(e) => setLimitPeriod(value(e))}>
-              <s-option value="none">No limit</s-option>
-              <s-option value="month">Per month</s-option>
-              <s-option value="year">Per year</s-option>
-            </s-select>
-            {limitPeriod !== "none" ? (
-              <s-stack direction="inline" gap="base">
-                <s-select label="Limit on" value={limitBasis} onChange={(e) => setLimitBasis(value(e))}>
-                  <s-option value="discount">Discount received</s-option>
-                  <s-option value="spend">Total spend</s-option>
-                </s-select>
-                <s-number-field
-                  label={`Amount (${currency})`}
-                  value={limitAmount}
-                  onInput={(e) => setLimitAmount(value(e))}
-                  min={0}
-                  step={0.01}
-                  error={errors.limitAmount}
-                />
-              </s-stack>
-            ) : null}
-            <s-text color="subdued">
-              {limitPeriod === "none"
-                ? "Optional. Cap how much each employee can get per month or year."
-                : `An order that goes past it gets only what's left; after that, full price until next ${limitPeriod}.`}
-            </s-text>
+            <LimitFields value={limit} currency={currency} error={errors.limitAmount} onChange={(p) => setLimit((l) => ({ ...l, ...p }))} />
           </s-stack>
         </s-section>
       ) : null}
 
       {step === 3 ? (
-        <s-section heading="On which products?">
-          <s-stack gap="base">
-            <s-choice-list label="Products" labelAccessibilityVisibility="exclusive" onChange={(e) => setScope((values(e)[0] as Scope) ?? "all")}>
-              <s-choice value="all" selected={scope === "all"}>
-                All products
-                <s-text slot="details">The simplest option. You can exclude products in Settings.</s-text>
-              </s-choice>
-              <s-choice value="selected" selected={scope === "selected"}>
-                Some products
-                <s-text slot="details">Pick products, collections, vendors or product types. Everyone can still buy them.</s-text>
-              </s-choice>
-              <s-choice value="employeeOnly" selected={scope === "employeeOnly"}>
-                Products only their employees can buy
-                <s-text slot="details">Hidden from other shoppers and blocked at checkout for them. Also discounted.</s-text>
-              </s-choice>
-            </s-choice-list>
-            {scope !== "all" ? (
-              <TargetEditor value={target} onChange={setTarget} vendors={vendors} types={types} error={errors.discountTarget} />
-            ) : null}
-            <s-banner tone="info">{summary}</s-banner>
-          </s-stack>
-        </s-section>
+        <>
+          <s-section heading="Discounted products">
+            <s-stack gap="base">
+              <GreenNote>{DISCOUNTED_PRODUCTS_NOTE}</GreenNote>
+              <TargetEditor
+                value={discountTarget}
+                onChange={setDiscountTarget}
+                allowAll
+                allLabel="All products in the store"
+                vendors={vendors}
+                types={types}
+                error={errors.discountTarget}
+              />
+            </s-stack>
+          </s-section>
+          <s-section heading="Employee-only products">
+            <s-stack gap="base">
+              <s-checkbox
+                label="Make some products employee-only"
+                details="Optional. Products only this business's employees can buy."
+                checked={employeeOnly}
+                onChange={(e) => setEmployeeOnly((e.currentTarget as unknown as { checked: boolean }).checked)}
+              />
+              {employeeOnly ? (
+                <>
+                  <TargetEditor value={employeeOnlyTarget} onChange={setEmployeeOnlyTarget} vendors={vendors} types={types} />
+                  <EmployeeOnlyHelp />
+                </>
+              ) : null}
+            </s-stack>
+          </s-section>
+          <s-banner tone="info" heading="Summary">
+            {summary}
+          </s-banner>
+        </>
       ) : null}
 
       {stepError ? <s-text tone="critical">{stepError}</s-text> : null}

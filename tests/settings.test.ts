@@ -85,6 +85,8 @@ test("store-wide settings: exclusions reach the Functions", async () => {
     excludedProducts: ["gid://shopify/Product/9"],
   });
   expect(mf(DISCOUNT, "perks_config")).toMatchObject({ autoDomain: false, excluded: ["gid://shopify/Product/9"] });
+  // The theme also skips gift cards (Shopify never discounts them), so it never shows them an employee price.
+  expect((mf(INSTALL, "storefront") as { excluded: string[] }).excluded).toEqual(["9", "999"]);
 });
 
 test("legacy single-employer data migrates into one business", async () => {

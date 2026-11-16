@@ -233,15 +233,20 @@ export async function publishStorefrontConfig(
   index: EmployeeOnlyIndex,
   discounted: DiscountedIndex = [],
 ) {
-  const data = await gql(admin, `#graphql
-    query PerksInstallation { currentAppInstallation { id } }`);
+  // Gift cards: Shopify never discounts them, so the theme must not show them an employee price.
+  const data = await gql<{ currentAppInstallation: { id: string }; products: { nodes: { id: string }[] } }>(admin, `#graphql
+    query PerksInstallation {
+      currentAppInstallation { id }
+      products(first: 100, query: "gift_card:true") { nodes { id } }
+    }`);
   const active = businesses.filter((b) => b.active);
+  const excluded = [...new Set([...parseJsonList(policy.excludedProducts), ...(data.products?.nodes ?? []).map((n) => n.id)])];
   const value = {
     v: 2,
     enabled: policy.enabled,
     ui: themeOptions(parseStorefront(policy.storefront)),
     autoDomain: policy.autoDomain,
-    excluded: parseJsonList(policy.excludedProducts).map((g) => g.split("/").pop()),
+    excluded: excluded.map((g) => g.split("/").pop()),
     businesses: active.map((b) => {
       const t = toFunctionTarget(b.discountTarget);
       return {
