@@ -31,8 +31,8 @@ We don't sell or share personal data. Data is processed by our hosting provider 
 
 ## Your rights
 
-Customers can ask the merchant for access to, or deletion of, their data. Merchants can contact us at support@tofoapp.com.
+Customers can ask the merchant for access to, or deletion of, their data. Merchants can contact us at hello@tofoapp.com.
 
 ## Contact
 
-Tofoapp, support@tofoapp.com
+Tofoapp, hello@tofoapp.com

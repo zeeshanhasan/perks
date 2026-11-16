@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="512" height="512" role="img" aria-label="Employee Perks">
+<defs><clipPath id="ep-body"><rect x="50" y="52" width="100" height="116" rx="34"/></clipPath></defs>
+<rect width="200" height="200" rx="44" fill="#FFC94D"/>
+<ellipse cx="80" cy="170" rx="13" ry="5.5" fill="#1B2A4A"/>
+<ellipse cx="120" cy="170" rx="13" ry="5.5" fill="#1B2A4A"/>
+<ellipse cx="46" cy="128" rx="9" ry="14" transform="rotate(25 46 128)" fill="#1B2A4A"/>
+<circle cx="41" cy="139" r="6.5" fill="#FF6F5E"/>
+<ellipse cx="155" cy="112" rx="9" ry="14" transform="rotate(-145 155 112)" fill="#1B2A4A"/>
+<g transform="rotate(8 163 76)">
+<rect x="147" y="59" width="32" height="34" rx="5" fill="#FFFFFF"/>
+<path d="M152 59 H174 A5 5 0 0 1 179 64 V67 H147 V64 A5 5 0 0 1 152 59 Z" fill="#1B2A4A"/>
+<rect x="159" y="61.5" width="8" height="2.5" rx="1.25" fill="#FFFFFF"/>
+<path d="M169 72 L157 88" stroke="#E5523F" stroke-width="3" stroke-linecap="round" fill="none"/>
+<circle cx="158" cy="74.5" r="3" stroke="#E5523F" stroke-width="2.4" fill="none"/>
+<circle cx="168" cy="85.5" r="3" stroke="#E5523F" stroke-width="2.4" fill="none"/>
+</g>
+<circle cx="163" cy="98" r="6.5" fill="#FF6F5E"/>
+<rect x="50" y="52" width="100" height="116" rx="34" fill="#FF6F5E"/>
+<g transform="translate(100 84)">
+<ellipse cx="-17" cy="0" rx="9.5" ry="10.5" fill="#FFFFFF"/>
+<ellipse cx="17" cy="0" rx="9.5" ry="10.5" fill="#FFFFFF"/>
+<circle cx="-15" cy="2" r="5.5" fill="#1B2A4A"/>
+<circle cx="19" cy="2" r="5.5" fill="#1B2A4A"/>
+<circle cx="-13" cy="-0.5" r="1.8" fill="#FFFFFF"/>
+<circle cx="21" cy="-0.5" r="1.8" fill="#FFFFFF"/>
+<ellipse cx="-32" cy="13" rx="6" ry="3.5" fill="#1B2A4A" opacity="0.18"/>
+<ellipse cx="32" cy="13" rx="6" ry="3.5" fill="#1B2A4A" opacity="0.18"/>
+<path d="M-9 11 Q0 23 9 11 Z" fill="#1B2A4A"/>
+</g>
+<g clip-path="url(#ep-body)">
+<rect x="50" y="110" width="100" height="62" fill="#8A93A8"/>
+<path d="M82 110 L118 110 L100 138 Z" fill="#FFFFFF"/>
+<path d="M95 112 L105 112 L103 119 L97 119 Z" fill="#177A71"/>
+<path d="M97 119 L103 119 L106 140 L100 147 L94 140 Z" fill="#1F9187"/>
+<circle cx="100" cy="153" r="2" fill="#1B2A4A"/>
+<circle cx="100" cy="162" r="2" fill="#1B2A4A"/>
+<path d="M102 154 Q108 162 113 155" stroke="#FFC94D" stroke-width="2" stroke-dasharray="2.5 1.5" stroke-linecap="round" fill="none"/>
+<path d="M50 104 L80 108 L90 172 L50 172 Z" fill="#1B2A4A"/>
+<path d="M150 104 L120 108 L110 172 L150 172 Z" fill="#1B2A4A"/>
+<path d="M72 107 L84 110 L92 140 L78 124 Z" fill="#2F4273"/>
+<path d="M128 107 L116 110 L108 140 L122 124 Z" fill="#2F4273"/>
+<path d="M124 138 L135 138 L133 132 L129.5 135.5 L126 132 Z" fill="#FFC94D"/>
+</g>
+</svg>

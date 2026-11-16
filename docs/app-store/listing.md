@@ -46,5 +46,5 @@ Offer corporate perks without codes or spreadsheets. Add a partner company's ema
 
 ## Support
 
-- Email: support@tofoapp.com
+- Email: hello@tofoapp.com
 - Privacy policy: https://tofoapp.com/perks/privacy
