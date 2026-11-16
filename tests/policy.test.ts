@@ -10,13 +10,15 @@ function form(o: Record<string, string>) {
   return f;
 }
 
-test("settings form", () => {
-  const r = parseSettingsForm(form({ enabled: "on", autoDomain: "on", eligibilityMonths: "none", excludedProducts: '["gid://shopify/Product/1","x"]' }));
+test("settings form: work-email perks always on, links last 12 months (decision 015)", () => {
+  const r = parseSettingsForm(form({ enabled: "on", excludedProducts: '["gid://shopify/Product/1","x"]' }));
   expect(r.ok && r.value).toEqual({
-    enabled: true, autoDomain: true, eligibilityMonths: null, combinesWithProduct: false, combinesWithOrder: false, combinesWithShipping: false,
+    enabled: true, autoDomain: true, eligibilityMonths: 12, combinesWithProduct: false, combinesWithOrder: false, combinesWithShipping: false,
     excludedProducts: ["gid://shopify/Product/1"],
   });
-  expect(parseSettingsForm(form({ eligibilityMonths: "25" })).ok).toBe(false);
+  // Old form fields can't switch them back.
+  const old = parseSettingsForm(form({ autoDomain: "false", eligibilityMonths: "none" }));
+  expect(old.ok && [old.value.autoDomain, old.value.eligibilityMonths]).toEqual([true, 12]);
 });
 
 const target = (o: Record<string, unknown>) => JSON.stringify({ all: false, products: [], collections: [], vendors: [], types: [], ...o });

@@ -5,13 +5,8 @@ import { migrateLegacy } from "./business.server";
 import { audit } from "./audit.server";
 import { emailDomain, isApprovedEmail, maskEmail, normalizeEmail } from "./domain";
 import { REVOKED_VALUE, buildEligibilityValue, computeExpiry, isExpired } from "./eligibility";
-import { sendVerificationEmail } from "./email.server";
 import { clearEligibility, publishEligibility } from "./metafields.server";
 import { parseJsonList } from "./policy";
-import { LIMITS, consumeRateLimits } from "./rate-limit.server";
-import { TOKEN_TTL_MS, checkChallenge, generateToken, hashToken, isWellFormedToken } from "./tokens";
-
-const customerActor = (id: string) => `customer:${id}`;
 
 export async function getProgram(shop: string) {
   await migrateLegacy(shop);
@@ -64,137 +59,6 @@ export async function getMembership(shop: string, customerId: string) {
 }
 
 /** Another customer already holds an active membership with this work email. */
-async function emailInUseByOther(shop: string, workEmail: string, customerId: string) {
-  const other = await db.employeeMembership.findFirst({
-    where: { shop, workEmail, status: "active", NOT: { customerId } },
-  });
-  return Boolean(other);
-}
-
-export type RequestResult =
-  | { ok: true }
-  | { ok: false; reason: "disabled" | "revoked" | "invalid_email" | "domain_not_allowed" | "rate_limited" | "email_in_use" | "send_failed" };
-
-export async function requestVerification(args: {
-  shop: string;
-  customerId: string;
-  rawEmail: string;
-  storefrontOrigin: string;
-  shopName: string;
-}): Promise<RequestResult> {
-  const { shop, customerId } = args;
-  const actor = customerActor(customerId);
-  const program = await getProgram(shop);
-  if (!program.enabled) return { ok: false, reason: "disabled" };
-  // A merchant revocation sticks: the customer can't verify their way back in.
-  if ((await getMembership(shop, customerId))?.status === "revoked") return { ok: false, reason: "revoked" };
-
-  const email = normalizeEmail(args.rawEmail);
-  const emailKey = hashToken(email ?? args.rawEmail.trim().toLowerCase());
-  const allowed = await consumeRateLimits(shop, [
-    LIMITS.perCustomer(customerId),
-    LIMITS.perEmail(emailKey),
-    LIMITS.perShop(),
-  ]);
-  if (!allowed) {
-    await audit({ shop, actor, action: "verify.request", result: "rejected", detail: "rate_limited" });
-    return { ok: false, reason: "rate_limited" };
-  }
-  if (!email) return { ok: false, reason: "invalid_email" };
-  if (!isApprovedEmail(email, program.domains)) {
-    await audit({ shop, actor, action: "verify.request", result: "rejected", detail: `domain_not_allowed ${maskEmail(email)}` });
-    return { ok: false, reason: "domain_not_allowed" };
-  }
-  if (await emailInUseByOther(shop, email, customerId)) {
-    await audit({ shop, actor, action: "verify.request", result: "rejected", detail: `email_in_use ${maskEmail(email)}` });
-    return { ok: false, reason: "email_in_use" };
-  }
-
-  const token = generateToken();
-  await db.verificationChallenge.create({
-    data: {
-      shop,
-      customerId,
-      workEmail: email,
-      tokenHash: hashToken(token),
-      expiresAt: new Date(Date.now() + TOKEN_TTL_MS),
-    },
-  });
-  const link = `${args.storefrontOrigin}/apps/perks/confirm?token=${encodeURIComponent(token)}`;
-  try {
-    await sendVerificationEmail({ to: email, employerName: businessOf(program, email)?.name ?? program.employerName, shopName: args.shopName, link });
-  } catch (err) {
-    console.error("[perks] email send failed", err);
-    await audit({ shop, actor, action: "verify.request", result: "error", detail: `send_failed ${maskEmail(email)}` });
-    return { ok: false, reason: "send_failed" };
-  }
-  await audit({ shop, actor, action: "verify.request", result: "ok", detail: maskEmail(email) });
-  return { ok: true };
-}
-
-export type ConfirmResult =
-  | { ok: true; expiresAt: Date | null; businessName: string }
-  | { ok: false; reason: "invalid" | "not_found" | "used" | "expired" | "wrong_customer" | "disabled" | "revoked" | "domain_not_allowed" | "email_in_use" | "publish_failed" };
-
-export async function confirmVerification(args: {
-  admin: AdminClient;
-  shop: string;
-  customerId: string;
-  token: unknown;
-  now?: Date;
-}): Promise<ConfirmResult> {
-  const { admin, shop, customerId } = args;
-  const now = args.now ?? new Date();
-  const actor = customerActor(customerId);
-  if (!isWellFormedToken(args.token)) return { ok: false, reason: "invalid" };
-
-  const challenge = await db.verificationChallenge.findFirst({
-    where: { shop, tokenHash: hashToken(args.token) },
-  });
-  const state = checkChallenge(challenge, customerId, now);
-  if (!state.ok) {
-    await audit({ shop, actor, action: "verify.confirm", result: "rejected", detail: state.reason });
-    return { ok: false, reason: state.reason };
-  }
-
-  // Single use, race-safe: only one request can flip consumedAt from null.
-  const claimed = await db.verificationChallenge.updateMany({
-    where: { id: challenge!.id, consumedAt: null },
-    data: { consumedAt: now },
-  });
-  if (claimed.count !== 1) return { ok: false, reason: "used" };
-
-  const program = await getProgram(shop);
-  if (!program.enabled) return { ok: false, reason: "disabled" };
-  if ((await getMembership(shop, customerId))?.status === "revoked") return { ok: false, reason: "revoked" };
-  const email = challenge!.workEmail;
-  if (!isApprovedEmail(email, program.domains)) {
-    await audit({ shop, actor, action: "verify.confirm", result: "rejected", detail: "domain_not_allowed" });
-    return { ok: false, reason: "domain_not_allowed" };
-  }
-  if (await emailInUseByOther(shop, email, customerId)) {
-    await audit({ shop, actor, action: "verify.confirm", result: "rejected", detail: "email_in_use" });
-    return { ok: false, reason: "email_in_use" };
-  }
-
-  const business = businessOf(program, email)!;
-  const expiresAt = computeExpiry(now, program.eligibilityMonths);
-  await db.employeeMembership.upsert({
-    where: { shop_customerId: { shop, customerId } },
-    create: { shop, customerId, workEmail: email, businessId: business.id, source: "link", status: "active", verifiedAt: now, expiresAt },
-    update: { workEmail: email, businessId: business.id, source: "link", status: "active", verifiedAt: now, expiresAt, revokedAt: null },
-  });
-  try {
-    await publishEligibility(admin, customerId, buildEligibilityValue(expiresAt, business.id));
-  } catch (err) {
-    console.error("[perks] publish eligibility failed", err);
-    await audit({ shop, actor, action: "verify.confirm", subject: customerId, result: "error", detail: "publish_failed" });
-    return { ok: false, reason: "publish_failed" };
-  }
-  await audit({ shop, actor, action: "verify.confirm", subject: customerId, result: "ok", detail: maskEmail(email) });
-  return { ok: true, expiresAt, businessName: business.name };
-}
-
 export async function revokeMembership(admin: AdminClient, shop: string, customerId: string, actor: string) {
   const m = await getMembership(shop, customerId);
   if (!m) return false;
@@ -211,6 +75,11 @@ export async function revokeMembership(admin: AdminClient, shop: string, custome
 export async function reactivateMembership(admin: AdminClient, shop: string, customerId: string, actor: string) {
   const m = await getMembership(shop, customerId);
   if (!m) return false;
+  // Their business was deleted: there's nothing to restore them to. They can verify again (or match a domain) instead.
+  if (m.businessId) {
+    const b = await db.business.findFirst({ where: { shop, id: m.businessId }, select: { archivedAt: true } });
+    if (!b || b.archivedAt) return "business_deleted" as const;
+  }
   const program = await getProgram(shop);
   const now = new Date();
   if (m.source === "domain") {

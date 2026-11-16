@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countLine, monthOptions, monthRange, plural, previousMonth, trend } from "../app/lib/home";
+import { businessesBadge, countLine, monthOptions, monthRange, plural, previousMonth, safeTimeZone, storefrontStatus, trend } from "../app/lib/home";
 
 const NOW = new Date("2026-11-10T08:00:00Z");
 
@@ -59,5 +59,48 @@ describe("plural", () => {
     expect(plural(1, "order")).toBe("1 order");
     expect(plural(2, "order")).toBe("2 orders");
     expect(plural(0, "business", "businesses")).toBe("0 businesses");
+  });
+});
+
+describe("months in the shop's time zone", () => {
+  it("starts the month at local midnight", () => {
+    const r = monthRange("2026-11", NOW, "Asia/Karachi");
+    expect(r.from.toISOString()).toBe("2026-10-31T19:00:00.000Z");
+    expect(r.to.toISOString()).toBe("2026-11-30T19:00:00.000Z");
+  });
+  it("handles daylight saving (New York: EDT in October, EST in November)", () => {
+    const r = monthRange("2026-11", NOW, "America/New_York");
+    expect(r.from.toISOString()).toBe("2026-11-01T04:00:00.000Z");
+    expect(r.to.toISOString()).toBe("2026-12-01T05:00:00.000Z");
+  });
+  it("uses the shop's today, not UTC's, for the current month", () => {
+    const lateNightUtc = new Date("2026-11-30T20:00:00Z"); // already 1 December in Karachi
+    expect(monthRange(null, lateNightUtc, "Asia/Karachi").key).toBe("2026-12");
+    expect(monthRange(null, lateNightUtc, "UTC").key).toBe("2026-11");
+    expect(monthOptions(lateNightUtc, 1, "Asia/Karachi")[0].key).toBe("2026-12");
+  });
+  it("goes back a month in the zone", () => {
+    const prev = previousMonth(monthRange("2026-01", NOW, "Asia/Karachi"), "Asia/Karachi");
+    expect(prev.key).toBe("2025-12");
+    expect(prev.from.toISOString()).toBe("2025-11-30T19:00:00.000Z");
+  });
+  it("falls back to UTC for unknown zones", () => {
+    expect(safeTimeZone("Not/AZone")).toBe("UTC");
+    expect(safeTimeZone(null)).toBe("UTC");
+    expect(monthRange("2026-11", NOW, "Not/AZone").from.toISOString()).toBe("2026-11-01T00:00:00.000Z");
+  });
+});
+
+describe("badges", () => {
+  it("shows Businesses in red when nobody gets perks", () => {
+    expect(businessesBadge(false, 3)).toEqual({ label: "Perks off", tone: "critical" });
+    expect(businessesBadge(true, 0)).toEqual({ label: "No active business", tone: "critical" });
+    expect(businessesBadge(true, 1)).toEqual({ label: "Active", tone: "success" });
+  });
+  it("explains why the theme couldn't be checked", () => {
+    expect(storefrontStatus(true, true).badge.label).toBe("On");
+    expect(storefrontStatus(false, true).badge.label).toBe("Off");
+    expect(storefrontStatus(null, false).badge.label).toBe("Needs permission");
+    expect(storefrontStatus(null, true).badge.label).toBe("Couldn't check");
   });
 });

@@ -23,6 +23,7 @@ export default function App() {
         <s-link href="/app/employees">Employees</s-link>
         <s-link href="/app/reports">Reports</s-link>
         <s-link href="/app/storefront">Storefront</s-link>
+        <s-link href="/app/perks-page">Perks page</s-link>
         <s-link href="/app/settings">Settings</s-link>
       </s-app-nav>
       <Outlet />

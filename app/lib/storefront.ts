@@ -87,16 +87,32 @@ export function storefrontFromForm(form: FormData): StorefrontOptions {
   return parseStorefront(v);
 }
 
+/** Shopify's app segment in a theme block type, e.g. "Employee Perks" → "employee-perks". */
+export const appSlug = (title: string) =>
+  title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+/** Earlier names of this app; themes keep the slug from when the embed was added. */
+const LEGACY_SLUGS = ["tofo-perks"];
+
 /**
- * Whether the Employee mode embed is switched on in the live theme, from its settings_data.json.
+ * Whether this app's Employee mode embed is switched on in the live theme, from its settings_data.json.
+ * Block types look like shopify://apps/<app-slug>/blocks/employee-mode/<uuid>. When the dev and production
+ * apps are both installed, each has its own block, so only blocks whose slug is this app's count.
  * null when it can't be told (file missing or unreadable).
  */
-export function embedEnabled(settingsData: string | null): boolean | null {
+export function embedEnabled(settingsData: string | null, app?: { title?: string | null; handle?: string | null }): boolean | null {
   if (!settingsData) return null;
   try {
     const json = JSON.parse(settingsData.replace(/^\s*\/\*[\s\S]*?\*\/\s*/, ""));
     const blocks = (json?.current?.blocks ?? {}) as Record<string, { type?: string; disabled?: boolean }>;
-    const ours = Object.values(blocks).filter((b) => typeof b?.type === "string" && /\/blocks\/employee-mode\//.test(b.type));
+    const mine = new Set([...(app?.title ? [appSlug(app.title)] : []), ...(app?.handle ? [app.handle] : []), ...LEGACY_SLUGS]);
+    const ours = Object.values(blocks).filter((b) => {
+      const m = typeof b?.type === "string" ? /^shopify:\/\/apps\/([^/]+)\/blocks\/employee-mode\//.exec(b.type) : null;
+      return Boolean(m && (!app || mine.has(m[1])));
+    });
     if (!ours.length) return false;
     return ours.some((b) => b.disabled !== true);
   } catch {

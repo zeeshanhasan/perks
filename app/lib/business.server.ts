@@ -70,6 +70,7 @@ export function businessData(i: BusinessInput) {
     limitPeriod: i.limitPeriod,
     limitBasis: i.limitBasis,
     limitAmount: i.limitAmount,
+    limitOverflow: i.limitOverflow,
     billingEmail: i.billingEmail,
     billingAddress: i.billingAddress,
     active: i.active,

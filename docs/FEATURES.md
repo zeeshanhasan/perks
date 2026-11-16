@@ -6,20 +6,22 @@ Public Shopify app by Tofo. Works on every plan (Functions in public apps run on
 
 | Area | Features |
 |---|---|
-| **Home** | Setup checklist (auto-detects business, program, Employee mode), this month's orders, spend, discount and active employees, links to Check a customer, Help, Activity |
-| **Businesses** | Many partner businesses, each with work email domains (chips, instant checks), % or fixed discount, discounted products (all / products / collections / vendors / types), employee-only products, limit per employee (month/year, on discount or spend), billing email and address. Add via 3-step wizard with presets (partner company, your own staff). Pause/resume switch on the list. Delete archives with an impact modal |
-| **Employees** | Everyone who got perks (by work email or verified link), find existing employees, remove/restore perks, Check a customer |
+| **Home** | Setup checklist (auto-detects business, program, Employee mode), this month's orders, spend, discount and active employees, Manage list, Help section (How it works, Ask Sidekick with a ready prompt, Ask Claude / ChatGPT / Gemini opening a new chat pointed at the public AI guide), links to Check a customer and Activity |
+| **AI guide** | Public `/llms.txt` (plain text) and `/ai-guide` (browser): what the app does, every page, business settings, storefront, common problems. No store data |
+| **Businesses** | Many partner businesses, each with work email domains (chips, instant checks), % or fixed discount, discounted products (all / products / collections / vendors / types), employee-only products (with a how-it-works box), limit per employee (every month/year, on discount or spend; uses up what's left, or only discounts items that fit in full), Active/Paused status. Add via a 3-step wizard (Who gets perks, Discount, Products) that uses the same fields as the edit page. List: one domain + "+N" tooltip, short columns with tooltips, whole row opens the business, pause/resume switch. Delete archives with an impact modal. Billing email/address hidden for now (kept, printed on invoices if set) |
+| **Employees** | Everyone who got perks (by work-email login; older ones by email link), search + business + status filters in one row, 50 per page with pagination, find existing employees, remove/restore perks, Check a customer |
 | **Check a customer** | Type an email: step-by-step reason why they do or don't get perks, with the fix |
-| **Reports** | Orders, employees, spend and discount per business for this week/month/year or any range; invoices on discount or spend, frozen when issued, print/PDF and CSV |
-| **Storefront** | Employee mode status in the live theme, one-click turn on, employee price options and label, employee-only product hiding and its message |
-| **Settings** | Program on/off, automatic perks by work email, verification link validity, products never discounted, combining with other discounts, links to Activity and Help |
+| **Reports** | Period picker (applies straight away, readable dates), four cards with ↑/↓ vs the period before, orders/employees/spend/discount per business; Create invoice dialog (bill discount or spend); invoices list with business filter and a note when an order was cancelled after issue; invoices frozen when issued, print/PDF and CSV |
+| **Storefront** | Employee mode status row with one-click turn on; "What employees see" and "What other shoppers see", each with a live preview and wording behind "Edit wording" |
+| **Perks page** | Own page: switch with Live/Off badge, page link (copy/view), title, intro, show domains, preview of the companies listed, how to add it to the store menu |
+| **Settings** | Three store-wide settings (decision 015): pause all perks, products never discounted, combining with other discounts (with examples). Work-email logins always get perks; link verifications last 12 months |
 | **Activity** | Audit log of every change and verification |
 | **Help** | How it works, product lists, limits/reports/invoices, Employee mode, FAQ (incl. uninstall) |
 
 ## For employees (storefront)
 
 - Log in with a work email: perks apply automatically (Shopify's login code proves the email).
-- Shopping with a personal email: verify a work email at `/apps/perks/verify` (single-use link).
+- `/apps/perks/verify` is a "my perks" page: all set, or log in with your work email (decision 016: no email-link verification).
 - Employee price on product pages and product cards; discount applied at checkout.
 - Employee-only products visible and buyable only to their business.
 

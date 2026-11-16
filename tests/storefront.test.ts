@@ -30,4 +30,18 @@ describe("embedEnabled", () => {
     expect(embedEnabled(null)).toBeNull();
     expect(embedEnabled("{bad")).toBeNull();
   });
+  it("only counts this app's embed when the dev and production apps share a store", () => {
+    const both = data({
+      dev: { type: "shopify://apps/perks/blocks/employee-mode/01a1", disabled: false },
+      prod: { type: "shopify://apps/employee-perks/blocks/employee-mode/01a2", disabled: true },
+    });
+    expect(embedEnabled(both, { title: "perks", handle: "perks-5" })).toBe(true);
+    expect(embedEnabled(both, { title: "Employee Perks", handle: "tofo-perks" })).toBe(false);
+    const onlyProd = data({ prod: { type: "shopify://apps/employee-perks/blocks/employee-mode/01a2", disabled: false } });
+    expect(embedEnabled(onlyProd, { title: "perks", handle: "perks-5" })).toBe(false);
+  });
+  it("still finds an embed added under the old name", () => {
+    const old = data({ a: { type: "shopify://apps/tofo-perks/blocks/employee-mode/9", disabled: false } });
+    expect(embedEnabled(old, { title: "Employee Perks", handle: "tofo-perks" })).toBe(true);
+  });
 });

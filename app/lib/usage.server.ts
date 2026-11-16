@@ -3,7 +3,7 @@ import type { AdminClient } from "./admin-graphql.server";
 import { ELIGIBILITY_NAMESPACE, USAGE_KEY } from "./eligibility";
 import { businessOf, getMembership, getProgram, isDomainEligible } from "./membership.server";
 import { customerGid, setMetafields } from "./metafields.server";
-import { buildUsage, orderSummary, periodKeys } from "./usage";
+import { buildUsage, orderItems, orderSummary, periodKeys } from "./usage";
 
 /** Which business (if any) an order's customer belonged to at order time. */
 async function businessForOrderCustomer(shop: string, customerId: string, email: string | null) {
@@ -21,6 +21,7 @@ export async function recordOrder(shop: string, payload: unknown, admin?: AdminC
   if (!o.orderId || !o.customerId) return "skipped" as const;
   const businessId = await businessForOrderCustomer(shop, o.customerId, o.email);
   if (!businessId) return "skipped" as const;
+  const items = JSON.stringify(orderItems(payload as Parameters<typeof orderItems>[0]));
   await db.orderUsage.upsert({
     where: { shop_orderId: { shop, orderId: o.orderId } },
     create: {
@@ -34,8 +35,10 @@ export async function recordOrder(shop: string, payload: unknown, admin?: AdminC
       spend: o.spend,
       total: o.total,
       discount: o.discount,
+      items,
+      email: (o.email ?? "").slice(0, 255),
     },
-    update: { spend: o.spend, total: o.total, discount: o.discount },
+    update: { spend: o.spend, total: o.total, discount: o.discount, items },
   });
   if (admin) await publishUsage(admin, shop, o.customerId);
   return "recorded" as const;

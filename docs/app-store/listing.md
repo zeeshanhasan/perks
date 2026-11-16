@@ -13,7 +13,6 @@
 Offer corporate perks without codes or spreadsheets. Add a partner company's email domain. Its employees get your discount the moment they log in with their work email, and can buy products you reserve just for them.
 
 - **Automatic eligibility:** customers logged in with an approved work email get perks instantly. Shopify's login code proves the email.
-- **Personal-email employees:** they verify their work email once with a secure one-time link.
 - **Employee-only products:** only employees can check out. Everyone else is stopped at checkout.
 - **Flexible discounts:** choose the percentage, which products, exclusions and how it stacks.
 - **Employee mode:** hides employee-only products from other shoppers in your theme.
@@ -28,7 +27,7 @@ Offer corporate perks without codes or spreadsheets. Add a partner company's ema
 ## Requirements / notes for review
 
 - Uses Shopify Functions (discount + cart and checkout validation).
-- Uses the app proxy at `/apps/perks/verify`.
+- Uses the app proxy at `/apps/perks` (public perks page) and `/apps/perks/verify` (a shopper's "my perks" status page).
 - Protected customer data:
   - Level 1
   - Email (Level 2): read the customer's account email to check the employer domain
@@ -46,5 +45,5 @@ Offer corporate perks without codes or spreadsheets. Add a partner company's ema
 
 ## Support
 
-- Email: support@tofoapp.com
+- Email: hello@tofoapp.com
 - Privacy policy: https://tofoapp.com/perks/privacy

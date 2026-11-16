@@ -52,7 +52,7 @@
   {%- if product -%}
     {%- assign on_product = true -%}
     {%- assign pid = product.id | append: '' -%}
-    {%- if my_biz and cfg.excluded contains pid -%}{%- else -%}{%- if my_biz -%}
+    {%- if my_biz and cfg.excluded contains pid or product.gift_card? -%}{%- else -%}{%- if my_biz -%}
       {%- assign t = my_biz.target -%}
       {%- assign pv = product.vendor | downcase -%}
       {%- assign pt = product.type | downcase -%}

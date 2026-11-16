@@ -44,6 +44,33 @@ export function rangeFor(preset: string, now = new Date(), fromStr?: string | nu
 /** Inclusive last day for display. */
 export const lastDay = (r: { to: Date }) => ymd(new Date(r.to.getTime() - DAY));
 
+const isMonthStart = (d: Date) => d.getUTCDate() === 1;
+
+/** The period before: the previous calendar month/year when the range is whole months/years, else the same length earlier. */
+export function previousRange(r: Range): Range {
+  const months = (r.to.getUTCFullYear() - r.from.getUTCFullYear()) * 12 + r.to.getUTCMonth() - r.from.getUTCMonth();
+  if (isMonthStart(r.from) && isMonthStart(r.to) && months > 0) {
+    const from = new Date(Date.UTC(r.from.getUTCFullYear(), r.from.getUTCMonth() - months, 1));
+    return { from, to: r.from, label: "previous period" };
+  }
+  const len = r.to.getTime() - r.from.getTime();
+  return { from: new Date(r.from.getTime() - len), to: r.from, label: "previous period" };
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Readable range, end exclusive: "1–30 Nov 2026", "28 Oct – 3 Nov 2026", "1 Jan – 31 Dec 2026", "30 Dec 2025 – 5 Jan 2026". */
+export function prettyRange(from: Date, toExclusive: Date): string {
+  const to = new Date(toExclusive.getTime() - DAY);
+  const d = (x: Date) => x.getUTCDate();
+  const m = (x: Date) => MONTHS[x.getUTCMonth()];
+  const y = (x: Date) => x.getUTCFullYear();
+  if (y(from) !== y(to)) return `${d(from)} ${m(from)} ${y(from)} – ${d(to)} ${m(to)} ${y(to)}`;
+  if (from.getUTCMonth() !== to.getUTCMonth()) return `${d(from)} ${m(from)} – ${d(to)} ${m(to)} ${y(to)}`;
+  if (d(from) === d(to)) return `${d(from)} ${m(from)} ${y(from)}`;
+  return `${d(from)}–${d(to)} ${m(to)} ${y(to)}`;
+}
+
 export function csvEscape(v: unknown) {
   const s = String(v ?? "");
   // Neutralise spreadsheet formulas, then quote.

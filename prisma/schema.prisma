@@ -149,6 +149,8 @@ model Business {
   /// "discount" (cap on discount received) | "spend" (cap on employee spend)
   limitBasis         String   @default("discount")
   limitAmount        Float?
+  /// What an order that goes past the limit gets: "partial" (what's left of the limit) | "whole" (only items that fit in full)
+  limitOverflow      String   @default("partial")
   billingEmail       String   @default("")
   billingAddress     String   @default("")
   active             Boolean  @default(true)
@@ -177,6 +179,10 @@ model OrderUsage {
   /// Employee discount received on this order
   discount    Float
   cancelled   Boolean  @default(false)
+  /// Line items as JSON (OrderItem[] in lib/usage.ts), for itemised invoices. "[]" for orders recorded before this existed.
+  items       String   @default("[]")
+  /// The customer's email on the order (fallback for the employee email on invoices)
+  email       String   @default("")
   createdAt   DateTime @default(now())
 
   @@unique([shop, orderId])

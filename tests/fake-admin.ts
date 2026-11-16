@@ -30,7 +30,7 @@ export function fakeAdmin(overrides: Record<string, (vars: any) => any> = {}) {
         case "PerksValidationUpdate":
           return ok({ validationUpdate: { validation: { id: v.id }, userErrors: [] } });
         case "PerksInstallation":
-          return ok({ currentAppInstallation: { id: "gid://shopify/AppInstallation/7" } });
+          return ok({ currentAppInstallation: { id: "gid://shopify/AppInstallation/7" }, products: { nodes: [{ id: "gid://shopify/Product/999" }] } });
         case "PerksMetafieldsSet":
           for (const m of v.metafields) metafields.set(`${m.ownerId}|${m.key}`, m.value);
           return ok({ metafieldsSet: { metafields: [], userErrors: [] } });

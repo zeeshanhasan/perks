@@ -28,6 +28,29 @@ export async function catalogFacets(admin: AdminClient): Promise<{ vendors: stri
   }
 }
 
+export type ShopInfo = { currency: string; name: string; timezone: string };
+
+const SHOP_TTL = 10 * 60_000;
+const shopCache = new Map<string, { at: number; info: ShopInfo }>();
+
+/**
+ * Currency, name and time zone, cached per shop for 10 minutes (one replica, decision 007) so pages
+ * don't wait on this call every time. Failures aren't cached.
+ */
+export async function shopInfo(admin: AdminClient, shop: string): Promise<ShopInfo> {
+  const hit = shopCache.get(shop);
+  if (hit && Date.now() - hit.at < SHOP_TTL) return hit.info;
+  try {
+    const data = await gql<{ shop: { currencyCode: string; name: string; ianaTimezone: string } }>(admin, `#graphql
+      query PerksShopZone { shop { currencyCode name ianaTimezone } }`);
+    const info = { currency: data.shop.currencyCode, name: data.shop.name, timezone: data.shop.ianaTimezone || "UTC" };
+    shopCache.set(shop, { at: Date.now(), info });
+    return info;
+  } catch {
+    return { currency: "PKR", name: "", timezone: "UTC" };
+  }
+}
+
 export async function shopCurrency(admin: AdminClient) {
   try {
     const data = await gql<{ shop: { currencyCode: string; name: string } }>(admin, `#graphql

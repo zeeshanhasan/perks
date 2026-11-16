@@ -22,6 +22,7 @@ const tofo: BusinessInput = {
   limitPeriod: "month",
   limitBasis: "discount",
   limitAmount: 5000,
+  limitOverflow: "partial",
   billingEmail: "hr@tofoapp.com",
   billingAddress: "",
   active: true,
@@ -45,7 +46,7 @@ test("saving businesses pushes one v2 config with every business to both Functio
     [["google.com"], "fixed", 200],
   ]);
   expect(cfg.businesses[0].target).toMatchObject({ vendors: ["solgar"], collectionIds: ["gid://shopify/Collection/77"] });
-  expect(cfg.businesses[0].limit).toEqual({ period: "month", basis: "discount", amount: 5000 });
+  expect(cfg.businesses[0].limit).toEqual({ period: "month", basis: "discount", amount: 5000, overflow: "partial" });
   expect(mf(DISCOUNT, "perks_vars")).toEqual({ collectionIds: ["gid://shopify/Collection/77", "gid://shopify/Collection/5"] });
   expect(mf(VALIDATION, "perks_config").businesses[0].employeeOnly.types).toEqual(["rx"]);
   expect(mf(VALIDATION, "perks_vars").collectionIds).toContain("gid://shopify/Collection/5");
@@ -84,6 +85,8 @@ test("store-wide settings: exclusions reach the Functions", async () => {
     excludedProducts: ["gid://shopify/Product/9"],
   });
   expect(mf(DISCOUNT, "perks_config")).toMatchObject({ autoDomain: false, excluded: ["gid://shopify/Product/9"] });
+  // The theme also skips gift cards (Shopify never discounts them), so it never shows them an employee price.
+  expect((mf(INSTALL, "storefront") as { excluded: string[] }).excluded).toEqual(["9", "999"]);
 });
 
 test("legacy single-employer data migrates into one business", async () => {

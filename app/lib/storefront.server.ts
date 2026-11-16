@@ -22,6 +22,7 @@ export async function saveStorefront(admin: AdminClient, shop: string, actor: st
 }
 
 type ThemeFiles = {
+  currentAppInstallation: { app: { title: string; handle: string | null } } | null;
   themes: { nodes: { name: string; files: { nodes: { body: { content?: string } }[] } }[] };
 };
 
@@ -30,12 +31,14 @@ export async function embedStatus(admin: AdminClient): Promise<{ on: boolean | n
   try {
     const data = await gql<ThemeFiles>(admin, `#graphql
       query PerksThemeEmbed {
+        currentAppInstallation { app { title handle } }
         themes(first: 1, roles: [MAIN]) {
           nodes { name files(first: 1, filenames: ["config/settings_data.json"]) { nodes { body { ... on OnlineStoreThemeFileBodyText { content } } } } }
         }
       }`);
     const theme = data.themes.nodes[0];
-    return { on: embedEnabled(theme?.files.nodes[0]?.body.content ?? null), theme: theme?.name ?? null };
+    const app = data.currentAppInstallation?.app;
+    return { on: embedEnabled(theme?.files.nodes[0]?.body.content ?? null, app ?? undefined), theme: theme?.name ?? null };
   } catch (err) {
     console.warn("[perks] could not read theme settings", err);
     return { on: null, theme: null };
