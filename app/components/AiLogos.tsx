@@ -38,10 +38,10 @@ export function SidekickLogo({ size = 20 }: { size?: number }) {
   );
 }
 
-export function AiLogo({ assistant, size = 20 }: { assistant: AiAssistant; size?: number }) {
+export function AiLogo({ assistant, size = 20, color: override }: { assistant: AiAssistant; size?: number; color?: string }) {
   const { d, color } = PATHS[assistant];
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} aria-hidden="true" style={{ display: "block" }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={override ?? color} aria-hidden="true" style={{ display: "block" }}>
       <path d={d} />
     </svg>
   );

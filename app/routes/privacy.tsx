@@ -24,7 +24,7 @@ export default function Privacy() {
       <main className={s.legal}>
         <div className={s.legalCard}>
           <h1>Employee Perks: Privacy policy</h1>
-          <p className={s.updated}>Last updated: 16 November 2026</p>
+          <p className={s.updated}>Last updated: 17 November 2026</p>
 
           <p>
             Employee Perks (&ldquo;the App&rdquo;) is provided by Tofoapp to
@@ -40,12 +40,24 @@ export default function Privacy() {
               selections), and an access token issued by Shopify.
             </li>
             <li>
+              <strong>Plan and billing:</strong> your store&apos;s Shopify plan
+              and your Employee Perks subscription (plan, trial end, billing
+              period), read from Shopify to apply the right price. Shopify bills
+              the App on your Shopify invoice; we never see card or bank
+              details.
+            </li>
+            <li>
               <strong>Customer data, processed for the merchant:</strong>
               <ul>
                 <li>the Shopify customer ID</li>
                 <li>
                   their account email, when it matches an approved company
                   domain
+                </li>
+                <li>
+                  orders that used the employee discount: order number, date,
+                  items, amounts and the employee&apos;s email, for limits,
+                  reports and invoices to the employee&apos;s company
                 </li>
                 <li>
                   an activity log of perk changes, with emails partly hidden
@@ -55,13 +67,15 @@ export default function Privacy() {
           </ul>
           <p>
             We don&apos;t collect payment details, addresses or phone numbers.
+            Orders are only kept when they used the employee discount.
           </p>
 
           <h2>How we use it</h2>
           <p>
-            Only to decide whether a customer gets the merchant&apos;s employee
-            perks, and to show the merchant who has access. We never use it for
-            marketing.
+            To decide whether a customer gets the merchant&apos;s employee perks,
+            to apply limits, to show the merchant who has access and what each
+            company&apos;s employees bought, and to apply the right app price.
+            We never use it for marketing.
           </p>
 
           <h2>Sharing</h2>

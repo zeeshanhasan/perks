@@ -2,6 +2,7 @@ import db from "../db.server";
 import { sweepExpired } from "./membership.server";
 import { pruneRateLimits } from "./rate-limit.server";
 import { unauthenticated } from "../shopify.server";
+import { sweepBilling } from "./billing.server";
 
 /** Expires link-verified memberships past their date, across all shops. Idempotent. */
 export async function runExpirySweep() {
@@ -33,7 +34,11 @@ export function startScheduler() {
   const tick = () =>
     runExpirySweep()
       .then((r) => Object.keys(r).length && console.log("[perks] expiry sweep", JSON.stringify(r)))
-      .catch((err) => console.error("[perks] expiry sweep error", err));
+      .catch((err) => console.error("[perks] expiry sweep error", err))
+      // Plans that ended pause the discount; plans that came back resume it (decision 017).
+      .then(() => sweepBilling(async (shop) => (await unauthenticated.admin(shop)).admin))
+      .then((r) => r && Object.keys(r).length && console.log("[perks] billing sweep", JSON.stringify(r)))
+      .catch((err) => console.error("[perks] billing sweep error", err));
   g.__perksScheduler = setInterval(tick, HOUR);
   setTimeout(tick, 60_000);
 }

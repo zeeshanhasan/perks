@@ -1,6 +1,6 @@
 # 009: Rename to Employee Perks; $10 flat pricing
 
-**Status:** Accepted (pricing not built yet) · **Date:** 2026-11-04
+**Status:** Accepted; the pricing part is replaced by decision 017 · **Date:** 2026-11-04
 
 ## Decision
 
