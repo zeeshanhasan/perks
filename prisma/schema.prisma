@@ -67,6 +67,11 @@ model BenefitPolicy {
   enabled              Boolean  @default(false)
   /// Storefront (Employee mode) options and texts, JSON. See app/lib/storefront.ts.
   storefront           String   @default("{}")
+  /// Billing (decision 017): plan handle last seen, the Shopify plan when the store first subscribed
+  /// (Basic stores that upgrade keep the Basic price), and when perks were paused for having no plan.
+  planHandle           String?
+  planShopifyAtStart   String?
+  billingPausedAt      DateTime?
   updatedAt            DateTime @updatedAt
 }
 

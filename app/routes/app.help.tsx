@@ -168,8 +168,9 @@ export default function Help() {
 
       <s-section heading="Settings">
         <s-paragraph>
-          Three store-wide options on <s-link href="/app/settings">Settings</s-link>: pause all perks at once, products
-          that are never discounted, and whether the employee discount combines with your other discounts.
+          <s-link href="/app/settings">Settings</s-link> shows your plan (with <s-text type="strong">Manage plan</s-text> to
+          change or cancel it), then three store-wide options: pause all perks at once, products that are never
+          discounted, and whether the employee discount combines with your other discounts.
         </s-paragraph>
       </s-section>
 
@@ -185,6 +186,11 @@ export default function Help() {
           <Faq q="Does the discount stack with my sales?">
             Only if you allow it under Settings, &ldquo;Combining with other discounts&rdquo;. Otherwise Shopify gives the
             better discount.
+          </Faq>
+          <Faq q="How much does it cost?">
+            $9 a month on Shopify&apos;s Basic or Starter plan, $19 a month on any other plan, after a 30-day free
+            trial. Every feature is included in both, and Shopify bills it on your Shopify invoice. If your plan ends,
+            employee discounts pause until you choose a plan again.
           </Faq>
           <Faq q="Why don't gift cards get an employee price?">Shopify never discounts gift cards.</Faq>
           <Faq q="Is it safe to uninstall?">

@@ -14,6 +14,11 @@ export function aiPrompt(guideUrl: string): string {
   return `I use the Employee Perks app on my Shopify store. Read ${guideUrl} first, then ask me what I need help with.`;
 }
 
+/** For people deciding whether to install (the public site): same guide, different question. */
+export function aboutPrompt(guideUrl: string): string {
+  return `I'm looking at the Employee Perks app for Shopify. Read ${guideUrl} first, then tell me what it does and answer my questions.`;
+}
+
 /** Opens the assistant in a new chat with the prompt filled in. Gemini's ?q= isn't documented by Google. */
 export function aiChatUrl(assistant: AiAssistant, prompt: string): string {
   const q = encodeURIComponent(prompt);
@@ -119,7 +124,7 @@ Rules that always apply:
 
 **Perks page**: switch **Show the perks page on my store** (badge Live/Off), the page address with **Copy link** and **View page**, Title, Intro, **Show each company's work email domains**, and a preview of the companies listed (active businesses only).
 
-**Settings**: three store-wide options. **Pause all perks** (stops every discount at once; employee-only products stay protected), **Never discounted** (products no business discounts), **Combining with other discounts** (whether the employee discount stacks with other product, order or shipping discounts; if not, Shopify gives the better one).
+**Settings**: **Plan** (the store's plan, trial end date and **Manage plan**), then three store-wide options. **Pause all perks** (stops every discount at once; employee-only products stay protected), **Never discounted** (products no business discounts), **Combining with other discounts** (whether the employee discount stacks with other product, order or shipping discounts; if not, Shopify gives the better one).
 
 **Activity**: every change: when, who (Staff, a partly hidden employee email, or "Employee Perks (automatic)"), what, and details. "Blocked" means the app stopped something on purpose; "Failed" means something went wrong. 50 per page.
 
@@ -143,9 +148,17 @@ A limit caps each employee's perks every month or every year, on the discount th
 - **Gift cards** → Shopify never discounts gift cards, so they never show an employee price.
 - **Invoice amount differs from Reports** → issued invoices are fixed; if an order was cancelled later, the Invoices list says so.
 
+## Pricing
+
+- **Basic: $9/month** ($90/year) for stores on Shopify's Basic or Starter plan. **Standard: $19/month** ($190/year) for Grow, Advanced and Plus.
+- Every feature in both, unlimited companies and employees, 30-day free trial. Free on development stores.
+- Billed by Shopify on the Shopify invoice. The plan is shown, changed or cancelled under **Settings → Plan → Manage plan**.
+- Upgrading the Shopify plan keeps the price the store started on. The first 50 stores keep their price for life.
+- If the plan ends, employee discounts and employee prices pause until a plan is chosen again; employee-only products stay protected at checkout.
+
 ## Privacy and uninstalling
 
-- The app stores employees' customer IDs and work emails, and an activity log in which emails are partly hidden. It never sends emails.
+- The app stores employees' customer IDs and work emails, the orders that used the employee discount (for limits, reports and invoices), and an activity log in which emails are partly hidden. It never sends emails.
 - It never edits theme code. Uninstalling stops the discount and checkout rule straight away, employee-only products become normal products (unpublish them first if they must stay private), and app data is deleted 48 hours later.
 - Privacy policy: https://perks.tofoapp.com/privacy · Terms: https://perks.tofoapp.com/terms
 

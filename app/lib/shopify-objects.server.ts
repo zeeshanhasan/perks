@@ -171,7 +171,8 @@ export async function ensureDiscount(admin: AdminClient, policy: BenefitPolicy, 
 
   await setMetafields(admin, ownerMetafields(id, functionConfig(policy, businesses), functionVars(businesses)));
 
-  const on = policy.enabled && businesses.some((b) => b.active);
+  // Paused for having no plan (decision 017): the discount stops; the checkout rule below stays on.
+  const on = policy.enabled && !policy.billingPausedAt && businesses.some((b) => b.active);
   const toggle = on ? "discountAutomaticActivate" : "discountAutomaticDeactivate";
   const t = await gql(admin, `#graphql
     mutation PerksDiscountToggle($id: ID!) {
@@ -243,7 +244,7 @@ export async function publishStorefrontConfig(
   const excluded = [...new Set([...parseJsonList(policy.excludedProducts), ...(data.products?.nodes ?? []).map((n) => n.id)])];
   const value = {
     v: 2,
-    enabled: policy.enabled,
+    enabled: policy.enabled && !policy.billingPausedAt,
     ui: themeOptions(parseStorefront(policy.storefront)),
     autoDomain: policy.autoDomain,
     excluded: excluded.map((g) => g.split("/").pop()),

@@ -4,16 +4,56 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 
 import { authenticate } from "../shopify.server";
+import { checkBilling } from "../lib/billing.server";
+import { PRICES } from "../lib/billing";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
+  const { admin, session, redirect } = await authenticate.admin(request);
+
+  // Billing (decision 017): stores without a plan go to Shopify's plan page. Off until the Partner API is set up.
+  const billing = await checkBilling(admin, session.shop);
+  if (billing.billing && billing.state.kind === "needs_plan") {
+    throw redirect(billing.planUrl, { target: "_top" });
+  }
+  const wrongPlan =
+    billing.billing && billing.state.kind === "wrong_plan"
+      ? { planUrl: billing.planUrl, shopifyPlan: billing.shopifyPlan ?? "" }
+      : null;
 
   // eslint-disable-next-line no-undef
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  return { apiKey: process.env.SHOPIFY_API_KEY || "", wrongPlan };
 };
 
+/** A store on Grow or above that picked the $9 plan: explain, and send it to choose Standard. */
+function WrongPlan({ planUrl, shopifyPlan }: { planUrl: string; shopifyPlan: string }) {
+  return (
+    <s-page heading="Choose the Standard plan">
+      <s-section>
+        <s-stack gap="base">
+          <s-paragraph>
+            The Basic plan (${PRICES.basic.monthly}/month) is for stores on Shopify&apos;s Basic plan. Your store is on{" "}
+            {shopifyPlan || "a larger Shopify plan"}, so the Standard plan (${PRICES.standard.monthly}/month) applies. Every
+            feature is the same.
+          </s-paragraph>
+          <s-paragraph>Your perks keep working while you switch.</s-paragraph>
+          <s-button variant="primary" onClick={() => window.open(planUrl, "_top")}>
+            Choose Standard
+          </s-button>
+        </s-stack>
+      </s-section>
+    </s-page>
+  );
+}
+
 export default function App() {
-  const { apiKey } = useLoaderData<typeof loader>();
+  const { apiKey, wrongPlan } = useLoaderData<typeof loader>();
+
+  if (wrongPlan)
+    return (
+      <AppProvider apiKey={apiKey}>
+        <WrongPlan {...wrongPlan} />
+      </AppProvider>
+    );
 
   return (
     <AppProvider apiKey={apiKey}>

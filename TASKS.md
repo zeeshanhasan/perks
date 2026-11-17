@@ -14,7 +14,8 @@ Legend: `[ ]` todo · `[x]` done · 🧑 = needs Zeeshan. Plan: `docs/PRD-v4.md`
 
 - [x] 0.1 Renamed to **Employee Perks** in config and copy (handle stays `tofo-perks`)
 - [ ] 🧑 0.1 Partner dashboard: confirm the name is free
-- [ ] 0.2 Billing ($10 flat, Managed Pricing, comped stores): not started (decision 009)
+- [x] 0.2 Billing (decision 017, 2026-11-17): Basic $9 / Standard $19 by Shopify plan, 30-day trial, Shopify App Pricing. Plan check in the app root (Partner API), wrong-plan page, Settings → Plan, hourly pause/resume of perks, exempt list. Off until the Partner API env vars are set
+- [ ] 🧑 0.2b Billing setup: plans in the Partner Dashboard, Partner API client, Railway env vars (see `docs/app-store/listing.md` → Billing setup)
 - [x] 0.3 Ghost save bar, 404 after updates, login page inside the admin, stray "$" (Cloudflare beacon + stream markers), `include_config_on_deploy`
 - [x] 0.4 CI (lint, typecheck, tests, build) and `scripts/smoke.sh`
 - [ ] 0.4 Automated e2e script on the dev store
@@ -132,7 +133,7 @@ employee-perks-5 (PR #3 + PR #4), 2026-11-10:
 
 ## Next (in order)
 
-1. App Store submission: screenshots, reviewer instructions, demo store (free launch is fastest)
+1. App Store submission (free launch): follow `docs/app-store/listing.md` (protected customer data, screenshots, screencast, reviewer instructions). Store address box removed from the landing page (rule 2.3.1)
 2. Billing ($10 flat)
 3. e2e test script
 

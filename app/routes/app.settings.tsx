@@ -13,6 +13,8 @@ import { parseJsonList, parseSettingsForm } from "../lib/policy";
 import { getSettings, saveSettings } from "../lib/settings.server";
 import type { Ref } from "../lib/targeting";
 import { authenticate } from "../shopify.server";
+import { checkBilling } from "../lib/billing.server";
+import { PRICES, type Tier } from "../lib/billing";
 
 async function titles(admin: AdminClient, ids: string[]): Promise<Ref[]> {
   if (!ids.length) return [];
@@ -25,7 +27,20 @@ async function titles(admin: AdminClient, ids: string[]): Promise<Ref[]> {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const { policy } = await getSettings(session.shop);
+  const billing = await checkBilling(admin, session.shop);
+  const plan =
+    billing.billing && billing.subscription
+      ? {
+          tier: billing.state.kind === "ok" ? billing.state.tier : null,
+          trialEndsAt: billing.subscription.trialEndsAt,
+          yearly: billing.subscription.billingPeriod === "ANNUAL",
+          amount: billing.subscription.amount,
+          cancelling: billing.subscription.cancelAtEndOfCycle,
+          url: billing.planUrl,
+        }
+      : null;
   return {
+    plan,
     enabled: policy.enabled,
     combinesWithProduct: policy.combinesWithProduct,
     combinesWithOrder: policy.combinesWithOrder,
@@ -46,6 +61,36 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return { ok: false as const, error: err instanceof Error ? err.message : "Couldn't save" };
   }
 };
+
+type Plan = { tier: Tier | null; trialEndsAt: string | null; yearly: boolean; cancelling: boolean; url: string; amount: number | null };
+
+/** The store's plan (decision 017). Shopify hosts the page where it's changed or cancelled. */
+function PlanSection({ plan }: { plan: Plan }) {
+  const p = plan.tier ? PRICES[plan.tier] : null;
+  const trial = plan.trialEndsAt && new Date(plan.trialEndsAt) > new Date() ? new Date(plan.trialEndsAt) : null;
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  const per = plan.yearly ? "year" : "month";
+  // Private plans show what Shopify charges; Basic/Standard show the list price (dev stores are $0 but still "Basic").
+  const price = p
+    ? plan.yearly ? `$${p.yearly}/year` : `$${p.monthly}/month`
+    : plan.amount === 0 ? "Free" : plan.amount ? `$${plan.amount}/${per}` : null;
+  return (
+    <s-section heading="Plan">
+      <s-stack gap="small-200">
+        <s-stack direction="inline" gap="small-200" alignItems="center">
+          <s-text type="strong">{p ? p.name : "Private plan"}</s-text>
+          {price ? <s-text color="subdued">{price}</s-text> : null}
+          {trial ? <s-badge tone="info">Free trial until {fmt(trial)}</s-badge> : null}
+          {plan.cancelling ? <s-badge tone="warning">Ends at the end of this billing cycle</s-badge> : null}
+        </s-stack>
+        <s-text color="subdued">Every feature is included. Billed by Shopify on your Shopify invoice.</s-text>
+        <s-box>
+          <s-button onClick={() => window.open(plan.url, "_top")}>Manage plan</s-button>
+        </s-box>
+      </s-stack>
+    </s-section>
+  );
+}
 
 export default function Settings() {
   const data = useLoaderData<typeof loader>();
@@ -90,6 +135,7 @@ export default function Settings() {
         <button onClick={() => setS(initial)}></button>
       </SaveBar>
       <s-stack gap="base">
+        {data.plan ? <PlanSection plan={data.plan} /> : null}
         <s-section heading="Pause all perks">
           <s-switch
             label="Employee perks are on"

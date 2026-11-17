@@ -49,10 +49,16 @@ export default function Terms() {
 
           <h2>Fees</h2>
           <p>
-            The App is free while we launch. If we introduce fees, we&apos;ll
-            tell you in advance, and any charge goes through Shopify&apos;s
-            billing, which you approve in your Shopify admin. You can uninstall
-            at any time.
+            The App costs $9 a month for stores on Shopify&apos;s Basic or
+            Starter plan, and $19 a month for every other plan ($90 or $190 a
+            year), after a 30-day free trial. Shopify bills it on your Shopify
+            invoice, and you approve the plan in your Shopify admin. Your price
+            is set by the Shopify plan you have when you first subscribe;
+            upgrading Shopify later doesn&apos;t change it. Development stores
+            are free. If your plan ends, employee discounts pause until you
+            choose a plan again; employee-only products stay protected. We&apos;ll
+            tell you at least 30 days before any price change, and you can
+            cancel or uninstall at any time.
           </p>
 
           <h2>Your responsibilities</h2>
