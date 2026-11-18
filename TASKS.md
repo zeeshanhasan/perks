@@ -15,7 +15,11 @@ Legend: `[ ]` todo · `[x]` done · 🧑 = needs Zeeshan. Plan: `docs/PRD-v4.md`
 - [x] 0.1 Renamed to **Employee Perks** in config and copy (handle stays `tofo-perks`)
 - [ ] 🧑 0.1 Partner dashboard: confirm the name is free
 - [x] 0.2 Billing (decision 017, 2026-11-17): Basic $9 / Standard $19 by Shopify plan, 30-day trial, Shopify App Pricing. Plan check in the app root (Partner API), wrong-plan page, Settings → Plan, hourly pause/resume of perks, exempt list. Off until the Partner API env vars are set
-- [ ] 🧑 0.2b Billing setup: plans in the Partner Dashboard, Partner API client, Railway env vars (see `docs/app-store/listing.md` → Billing setup)
+- [x] 0.2b Billing setup (2026-11-18): plans, `comped` private plan for the two PK stores, Partner API client, Railway vars. App handle is `tofo-perks` (Railway `SHOPIFY_APP_HANDLE` must be `tofo-perks` or unset)
+- [x] 0.2c Fix: back from the plan page (`?plan_handle=`) the app re-checks the plan instead of using its 5-minute cache; hourly sweep skips uninstalled stores
+- [ ] 0.2d Redesign the "Choose the Standard plan" page and Settings → Plan (plan cards, trial countdown, features); add a dev-only preview of both
+- [ ] 🧑 0.2e Plan feature lines are cut at ~40 characters ("…and employee", "no cod"): shorten them in the listing's Pricing content (texts in `docs/app-store/listing.md`)
+- [ ] 0.2f Set up `employee-perks-demo` as the public demo store (products, "Acme (demo)" on `gmail.com`, employee-only products, perks page, Employee mode) and link it from the site (`DEMO_STORE_URL`) and the listing
 - [x] 0.3 Ghost save bar, 404 after updates, login page inside the admin, stray "$" (Cloudflare beacon + stream markers), `include_config_on_deploy`
 - [x] 0.4 CI (lint, typecheck, tests, build) and `scripts/smoke.sh`
 - [ ] 0.4 Automated e2e script on the dev store
