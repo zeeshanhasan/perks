@@ -124,7 +124,7 @@ Rules that always apply:
 
 **Perks page**: switch **Show the perks page on my store** (badge Live/Off), the page address with **Copy link** and **View page**, Title, Intro, **Show each company's work email domains**, and a preview of the companies listed (active businesses only).
 
-**Settings**: **Plan** (the store's plan, trial end date and **Manage plan**), then three store-wide options. **Pause all perks** (stops every discount at once; employee-only products stay protected), **Never discounted** (products no business discounts), **Combining with other discounts** (whether the employee discount stacks with other product, order or shipping discounts; if not, Shopify gives the better one).
+**Settings**: **Plan** (the store's plan, trial end date and **Manage plan**), then three store-wide options. **Employee perks** on/off switch (new stores start with it off; switching it off stops every discount at once; employee-only products stay protected), **Never discounted** (products no business discounts), **Combining with other discounts** (whether the employee discount stacks with other product, order or shipping discounts; if not, Shopify gives the better one).
 
 **Activity**: every change: when, who (Staff, a partly hidden employee email, or "Employee Perks (automatic)"), what, and details. "Blocked" means the app stopped something on purpose; "Failed" means something went wrong. 50 per page.
 

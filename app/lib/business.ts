@@ -28,6 +28,14 @@ export type BusinessResult = { ok: true; value: BusinessInput } | { ok: false; e
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** The discount value's error, or null when it's valid. Shared by the form (as you type) and the server. */
+export function discountValueError(discountType: string, raw: string): string | null {
+  const value = raw.trim() === "" ? NaN : Number(raw);
+  if (discountType === "fixed")
+    return Number.isFinite(value) && value > 0 && value <= 1_000_000 ? null : "Enter an amount greater than 0";
+  return Number.isInteger(value) && value >= 1 && value <= 90 ? null : "Whole number from 1 to 90";
+}
+
 export function parseBusinessForm(form: FormData): BusinessResult {
   const errors: Record<string, string> = {};
   const name = String(form.get("name") ?? "").trim().slice(0, 120);
@@ -44,12 +52,8 @@ export function parseBusinessForm(form: FormData): BusinessResult {
 
   const discountType: DiscountType = form.get("discountType") === "fixed" ? "fixed" : "percentage";
   const discountValue = Number(form.get("discountValue"));
-  if (discountType === "percentage") {
-    if (!Number.isFinite(discountValue) || discountValue < 1 || discountValue > 90 || !Number.isInteger(discountValue))
-      errors.discountValue = "Whole number from 1 to 90";
-  } else if (!Number.isFinite(discountValue) || discountValue <= 0 || discountValue > 1_000_000) {
-    errors.discountValue = "Enter an amount greater than 0";
-  }
+  const discountError = discountValueError(discountType, String(form.get("discountValue") ?? ""));
+  if (discountError) errors.discountValue = discountError;
 
   const discountTarget = parseTargeting(form.get("discountTarget"));
   const employeeOnlyTarget = { ...parseTargeting(form.get("employeeOnlyTarget")), all: false };

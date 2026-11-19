@@ -137,13 +137,82 @@ employee-perks-5 (PR #3 + PR #4), 2026-11-10:
 
 ## Next (in order, from 2026-11-19)
 
-1. 🧑 Fresh install walkthrough: new dev store + the production app (plan page included), Zeeshan gives UX feedback on onboarding and plan choice
-2. Test the app from 0 to 100 (`docs/acceptance-tests.md`), reading the `[perks] timing` logs for slow pages
+1. Fresh install walkthrough: done in admin 2026-11-19 on `perks-fresh-install-1g` (Grow, production app, Standard monthly). Findings below, storefront included
+2. Test the app from 0 to 100 (`docs/acceptance-tests.md`), reading the `[perks] timing` logs for slow pages: done 2026-11-19 (results below); only E3–E4 (privacy webhooks) and the 48-hour redact check left
 3. Fix the batch from 1–2 in one PR, including 0.2d (plan pages redesign)
 4. Set up the demo store (0.2f), then record the screencast and take the 6 screenshots (1600×900, `docs/app-store/listing.md` §4); use them in the listing, on the website gallery and in the app setup
 5. Website update: screenshots, SEO, the rest of the content
 6. Finish the submission (`docs/app-store/listing.md` §9) and submit
 7. MVS demo store: new dev store, CPL products from myvitaminstore-pk via CSV export/import (products only, no customers or orders)
+
+### Fresh install walkthrough findings (2026-11-19, for step 3)
+
+Store `perks-fresh-install-1g` (Grow dev store, test data, Pakistan/PKR): production app installed, Basic chosen first (wrong-plan page), then Standard monthly. Business "Acme Pharma" (`acmepharma.com`, 15%, no limit), perks on, Employee mode on, test customer `sara@acmepharma.com`.
+
+Submission blocker:
+- [ ] Reviewer instructions (`listing.md` §7) and the demo store (0.2f) use `gmail.com` as the work domain, but the app rejects public email domains (`app/lib/domain.ts`). Decided 2026-11-19: keep rejecting them everywhere (Shopify doesn't allow it either). Rewrite the reviewer instructions and the demo store setup around another domain
+
+Bugs:
+- [x] (fixed on `fix/fresh-install-findings`) Settings switch label is always "Employee perks are on", even when off (`app.settings.tsx`); section heading "Pause all perks" reads opposite to the on-switch
+- [ ] New stores start with perks off (`enabled` default false), so setup has an extra "Turn on in Settings" step; meanwhile the business page shows "Active" while Home shows red "Perks off". Decided 2026-11-19: new installs keep starting with perks off; fix the mixed signals instead
+- [x] (fixed on `fix/fresh-install-findings`) Wrong-plan page says "Your perks keep working while you switch" to a new store with no perks
+- [ ] Employees: "Joined by: Work-email login" for a customer created by staff in admin (never logged in)
+- [x] (fixed on `fix/fresh-install-findings`) Request log prints full `id_token`, `hmac` and `session` on embedded GETs (hard rule: no raw tokens in logs)
+- [x] (fixed on `fix/fresh-install-findings`) Hourly billing sweep logs an error (Partner API 500) for `perks-frtekwck`, where the production app is uninstalled; skip quietly
+
+UX:
+- [ ] 🧑 Install screen lists "Geolocation, IP address, browser and OS": untick them in the Partner Dashboard protected customer data form
+- [ ] 🧑 Plan page opens on yearly: make monthly the default in the Partner Dashboard (Shopify fixes the page's size and layout)
+- [ ] Home: setup card duplicates the Manage list (Zeeshan); four zero cards with "Same as October" on day one; setup card disappears with no "you're live" / next step; title "Employee perks" in lowercase
+- [ ] Add business: "Acme Pharma" placeholder looks filled in; stray grey square in the Percentage field; step 3 summary promises perks before the program is on; two coloured boxes say similar things; after Create, no pointer to the next step
+- [ ] Storefront: theme editor's embed panel still shows "Colours" and an "Employee collection" setting the app never mentions
+- [x] (fixed on `fix/fresh-install-findings`) Employees and Activity help text still describe the retired email-link verification
+- [ ] Activity: settings row is raw (`enabled=true autoDomain=true months=12 excluded=0`)
+- [ ] Check a customer: only shows the problem; also say which business matches the domain
+- [ ] Reports "By business": "Employees" column means employees who bought, header doesn't say so
+- [ ] Help "Get started in 4 steps" leaves out "Turn on employee perks in Settings" (Home has it)
+- [ ] Customer page: Employee perks block isn't there until the merchant adds it with "+ Block"; setup never mentions it
+- [ ] Speed: first open 1.4 s (Partner API ~0.5 s); each return from the plan page re-checks the Partner API (0.35–0.86 s); later pages 5–25 ms server time. Create business took ~8 s on screen (not timed in the logs)
+
+Storefront (2026-11-19, `tofoapp.com` added to Acme Pharma, "The 3p Fulfilled Snowboard" employee-only). Works: employee price on cards and product page, cart and checkout "Employee price (15% off)", Bogus order → Reports → INV-202611-001, guest prices normal, employee-only product hidden from the collection.
+- [x] (fixed on `fix/fresh-install-findings`, needs `shopify app deploy` to reach stores) **Employee-only product page is blank for guests** (likely reviewers too, Dawn has the same markup): `hideCards` hides the product's own info column because `CARD` includes `.grid__item` and the column links to its own product; the "Only for partner employees" note is inside it. Skip the current product's own link, as the price code does (`employee-mode.js` line ~176)
+- [ ] Product cards don't cross out the normal price though "Cross out the normal price" is on (the product page does)
+- [ ] Strike-through also hits the "Sold out" badge on the product page
+- [ ] Collection count still says "13 products" with the employee-only one hidden
+- [ ] `listing.md` reviewer steps and screencast say checkout shows "Employee perks"; it says "Employee price (15% off)"
+- [ ] Check: subscription (selling plan) price next to our badge; do the two discounts stack?
+- [ ] Reports cards: on narrow cards the ↑ arrow wraps onto its own line
+- [ ] 🧑 Check the invoice's Excel download and Print / PDF (INV-202611-001)
+
+Acceptance tests (step 2, 2026-11-19, same store). Passed: A1 (zeeshan@tofoapp.com, earlier), A3 (`x@tofoapp.co`, `x@tofoapp.com.evil.io`, `x@sub.tofoapp.com` not added), B1/B4 (15% everywhere with "All products"), C2/C3 (guest add-to-cart of an employee-only product refused with the employee-only message), D1/D3 (remove, restore), D6, E1, F1, G1 (gmail.com, duplicate domain, `hr@` → chip), G3, G4, G5, G6 (one "Employee perks"), H1–H3, I1, I3–I4, J2, J3 (invoice on screen).
+- [ ] Every save is slow on the server: create business 3.1–3.9 s, edit business 2.6–3.7 s, pause from the list 2.8 s, delete 2.7 s, Settings 2.6 s (page loads are 5–25 ms). It's the Shopify sync after the DB write; add `[perks] timing` to the save actions to see which call, then make the sync faster or run it after the response (decision 010 already allows "DB first, then sync")
+- [x] (fixed on `fix/fresh-install-findings`) Employee-only message at checkout still says "(or verify it)" (retired email-link wording)
+- [ ] Check a customer with a Gmail address and no account says only "No customer account"; also say personal addresses never qualify
+- [x] (fixed on `fix/fresh-install-findings`) Wizard: "Only some products" with nothing chosen says "gets 10% off no products" and still lets you create; ask for at least one product
+- [ ] Create business toast says "Business saved"; should say it's created and whether perks are live
+- [ ] Businesses list: switches look grey (disabled) on first load though on; a paused switch is so faint it looks disabled
+- [ ] Business page: Vendor / Product type sometimes show as text boxes with Add (fallback) instead of the dropdowns, on the same store
+- [ ] Employees: a removed employee shows "Expires: While email matches"
+- [ ] `docs/acceptance-tests.md` is out of date: retired email-link tests (A4–A6, A8), old dev store, old settings (scope, "Automatically give perks", link months). Rewrite for v4
+- Employee run (logged in as zeeshan@tofoapp.com; Acme = Hydrogen collection only, Hydrogen snowboard Never discounted). Passed: A7, B2, B3 (Never discounted wins over the collection), B4, B6 (20% in cart and storefront label), D1 (discount gone on the next cart change, employee-only add blocked), D2 ("Perks removed"), D3, F3, J1, J4 (Rs 200/month discount limit: 2× Liquid got Rs 196.26 = 200 − 3.74 already used, line "Employee price (rest of your limit)")
+- [x] (fixed on `fix/fresh-install-findings`) My-perks page says "a Acme Pharma work email" (a/an)
+- [ ] A removed employee trying an employee-only product is told to "log in with your work email (or verify it)" though they are; give removed employees their own message
+- [ ] Phone layout: Employees table scrolls sideways, Remove/Restore cut off
+- [x] (fixed on `fix/fresh-install-findings`) Percentage field accepts "20E" and the summary then says "0% off"; validate the number
+- [ ] A save that stalls (network blip, 2026-11-19 ~1 min: requests never reached the app) spins forever with no message; the "Still loading" banner only watches page loads. Add a timeout + "Couldn't save, try again" to every save
+- Also passed: I2 (label "Staff price" in preview and store), B7 (test code PERKSTEST 10% on Hydrogen, Combining off: Shopify kept the better total, Rs 209.98 code vs Rs 196.26 employee), F4 (employee collection Hydrogen: links visible to the employee, hidden for guests), F5 (embed off: no app markup, employee discount still at checkout, employee-only still refused for guests; Shopify takes 10–20 s to drop the embed)
+- Also passed: C1 (logged in with a personal Gmail account: no staff prices, employee-only hidden, add-to-cart refused, not on Employees; `/apps/perks/verify` explains "This account uses an @gmail.com address" with Log out)
+- Also passed: D5 (Sara's email changed to Gmail in Shopify → "Not eligible" via webhook)
+- [ ] Employees: a "Not eligible" row still shows the business, "Expires: While email matches" and Remove; say why (email no longer matches) and drop the action. Table scrolls sideways even at ~800 px
+- Also passed: E2 (uninstall: "Employee perks" discount gone from Shopify, `app/uninstalled` webhook 200, sessions deleted), K (no app markup in the store, employee-only product addable to the cart, `/apps/perks` 404). The store `perks-fresh-install-1g` now has the app uninstalled
+- [ ] Check after 48 h: `shop/redact` purged `perks-fresh-install-1g`'s data (E2 second half); and that the hourly billing sweep doesn't start erroring for it like `perks-frtekwck`
+- [ ] 🧑 Still to run: E3–E4 (`customers/data_request`, `customers/redact`: Shopify sends them on its own schedule; or trigger with `shopify app webhook trigger`)
+
+Errors and outages (2026-11-19). The admin app is covered: offline banner, "Still loading" after 8 s, per-page error with retry, unknown links go Home. Checkout discounts, employee prices and webhooks keep working while our server is down. Gaps:
+- [ ] Error screen on the root and on public pages (`/`, `/privacy`, `/terms`, not-found) and the storefront pages (`/apps/perks`, `/apps/perks/verify`), styled like the site or the store; today a crash shows React Router's bare default page
+- [ ] Server down: admin shows Cloudflare's 502/521 page inside the Shopify admin, `/apps/perks` shows Shopify's proxy error. Show a branded "Employee Perks is briefly unavailable; employee discounts still work at checkout" page instead (small Worker on the `perks` route, within decision 004)
+- [ ] Uptime check on `/healthz` with an email alert (none today)
+- [ ] Railway: second replica or restart policy (with the planned US region move)
 
 Later: move Railway to a US region; Built for Shopify after launch; e2e test script.
 

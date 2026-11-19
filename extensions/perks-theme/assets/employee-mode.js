@@ -59,6 +59,8 @@
    sha256(h).then(function (d) {
     if (P.hiddenHashes.indexOf(d) === -1) return;
     var card = a.closest(CARD) || a;
+    // Own info column can match CARD; it holds the notice
+    if (P.product.isProductPage && h === (P.product.handle || "").toLowerCase() && card.querySelector(BUY + ", .tofo-perks-note")) return;
     card.classList.add("tofo-perks-hidden");
    });
   });

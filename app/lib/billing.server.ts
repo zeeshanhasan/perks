@@ -179,8 +179,23 @@ export async function sweepBilling(
     if (cfg.exempt.has(p.shop.toLowerCase())) continue;
     // Uninstalled stores keep their settings for 48 hours but have no session: nothing to check.
     if (!(await db.session.findFirst({ where: { shop: p.shop, isOnline: false }, select: { id: true } }))) continue;
+    let admin: AdminClient;
     try {
-      const admin = await adminFor(p.shop);
+      admin = await adminFor(p.shop);
+    } catch (err) {
+      // The library throws a Response when the store's token can't be used or refreshed: the app was uninstalled
+      // and the uninstall webhook never cleared the session. Clear it as the webhook would, so later sweeps skip it.
+      if (err instanceof Response) {
+        await db.session.deleteMany({ where: { shop: p.shop } });
+        console.log("[perks] billing sweep: no access to", p.shop, "(uninstalled), session cleared");
+        out[p.shop] = "no access";
+      } else {
+        console.error("[perks] billing sweep failed", p.shop, err);
+        out[p.shop] = "error";
+      }
+      continue;
+    }
+    try {
       const details = await shopDetails(admin, p.shop);
       const sub = await fetchActiveSubscription(cfg, details.gid, fetchImpl);
       await saveSubscription(p.shop, sub, Date.now());

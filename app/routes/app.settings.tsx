@@ -136,10 +136,14 @@ export default function Settings() {
       </SaveBar>
       <s-stack gap="base">
         {data.plan ? <PlanSection plan={data.plan} /> : null}
-        <s-section heading="Pause all perks">
+        <s-section heading="Employee perks">
           <s-switch
-            label="Employee perks are on"
-            details="Switch off to stop every employee discount at once, for example during a store-wide sale. Each business keeps its settings, and employee-only products stay protected."
+            label={s.enabled ? "Employee perks are on" : "Employee perks are off"}
+            details={
+              s.enabled
+                ? "Switch off to stop every employee discount at once, for example during a store-wide sale. Each business keeps its settings, and employee-only products stay protected."
+                : "No employee gets a discount until you switch this on. Employee-only products stay protected either way."
+            }
             checked={s.enabled}
             onChange={checked("enabled")}
           />

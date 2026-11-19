@@ -13,7 +13,7 @@ import {
   LimitFields,
   limitSentence,
 } from "./BusinessFields";
-import { formatMoney } from "../lib/business";
+import { discountValueError, formatMoney } from "../lib/business";
 
 /**
  * "Add business" in three short steps. Uses the same fields as the Edit business page
@@ -84,14 +84,21 @@ export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, 
     setStepError("");
     if (step === 1 && (!name.trim() || !domains.length))
       return setStepError("Add a name and at least one email domain (type it and press Enter).");
-    if (step === 2 && !(Number(discount.discountValue) > 0)) return setStepError("Enter a discount.");
+    const discountError = discountValueError(discount.discountType, discount.discountValue);
+    if (step === 2 && discountError) return setStepError(discountError);
     if (step === 2 && limit.limitPeriod !== "none" && !(Number(limit.limitAmount) > 0)) return setStepError("Enter the limit amount.");
     setStep(step + 1);
   };
 
   const firstDomain = domains.length > 1 ? `${domains[0]} (or ${domains.length - 1} more)` : (domains[0] ?? "their domain");
-  const products = discountTarget.all ? "every product" : isEmptyTarget(discountTarget) ? "no products" : "the products you picked";
-  const summary = [
+  const onlyEmployeeOnly = employeeOnly && !isEmptyTarget(employeeOnlyTarget);
+  const nothingPicked = !discountTarget.all && isEmptyTarget(discountTarget);
+  const products = discountTarget.all
+    ? "every product"
+    : nothingPicked
+      ? "their employee-only products"
+      : "the products you picked";
+  const summary = nothingPicked && !onlyEmployeeOnly ? "Pick the products that get the discount to see the summary." : [
     `Anyone who logs in with an @${firstDomain} email gets ${
       discount.discountType === "fixed"
         ? `${formatMoney(Number(discount.discountValue) || 0, currency)} off each item of`

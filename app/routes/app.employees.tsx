@@ -364,8 +364,10 @@ export default function Employees() {
 
         <PageHelp title="Who shows up here">
           Customers appear here when they log in with an approved work email.
-          &ldquo;Email link&rdquo; marks employees who verified before that option was
-          retired; their perks run until their date. &ldquo;Find existing employees&rdquo; checks
+          {members.some((m) => m.source !== "domain")
+            ? " “Email link” marks employees who verified by an email link in an earlier version; their perks run until their date."
+            : null}{" "}
+          &ldquo;Find existing employees&rdquo; checks
           customers who signed up before you installed the app.
           <strong> Remove perks</strong> blocks a person even if their email
           still matches.

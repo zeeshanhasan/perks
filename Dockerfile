@@ -13,6 +13,7 @@ COPY --from=build /app/package.json /app/package-lock.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
 COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/server.mjs ./server.mjs
 EXPOSE 3000
-# Apply migrations, then serve. react-router-serve honours $PORT.
+# Apply migrations, then serve (server.mjs honours $PORT and keeps query strings out of the request log).
 CMD ["sh", "-c", "npx prisma migrate deploy && npm run start"]

@@ -169,7 +169,7 @@ export default function Help() {
       <s-section heading="Settings">
         <s-paragraph>
           <s-link href="/app/settings">Settings</s-link> shows your plan (with <s-text type="strong">Manage plan</s-text> to
-          change or cancel it), then three store-wide options: pause all perks at once, products that are never
+          change or cancel it), then three store-wide options: switch employee perks on or off for the whole store, products that are never
           discounted, and whether the employee discount combines with your other discounts.
         </s-paragraph>
       </s-section>
