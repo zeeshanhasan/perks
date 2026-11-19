@@ -10,6 +10,7 @@ import type { SettingsInput } from "./policy";
 import { parseJsonList } from "./policy";
 import { type DiscountedIndex, type EmployeeOnlyIndex, ensureDiscount, ensureValidation, publishStorefrontConfig } from "./shopify-objects.server";
 import { productSearchQuery } from "./targeting";
+import { startTiming } from "./timing.server";
 import type { Targeting } from "./targeting";
 
 export async function getSettings(shop: string) {
@@ -203,24 +204,30 @@ export async function resolveDiscounted(admin: AdminClient, businesses: Business
 
 /** Pushes everything to Shopify: discount, checkout rule, product flags, storefront config. */
 export async function syncShopifyObjects(admin: AdminClient, shop: string) {
-  const { policy } = await getSettings(shop);
-  const businesses = await listBusinesses(shop);
-  const { allIds, index } = await resolveEmployeeOnly(admin, businesses);
-  await syncEmployeeOnly(admin, parseJsonList(policy.employeeOnlyProducts), allIds);
-  const discountId = await ensureDiscount(admin, policy, businesses);
-  // Save the id right away, so a later failure can't make the next save create a duplicate.
-  if (discountId !== policy.discountId) await db.benefitPolicy.update({ where: { shop }, data: { discountId } });
-  const validationId = await ensureValidation(admin, { ...policy, discountId }, businesses);
-  const updated = await db.benefitPolicy.update({
-    where: { shop },
-    data: {
-      discountId,
-      validationId,
-      employeeOnlyProducts: JSON.stringify(allIds),
-      employeeOnlyHandles: JSON.stringify([...new Set(index.flatMap((x) => x.handles))]),
-    },
-  });
-  const discounted = await resolveDiscounted(admin, businesses);
-  await publishStorefrontConfig(admin, updated, businesses, index, discounted);
-  return updated;
+  // One timing line per sync (step names and ms only), to see which Shopify call makes saves slow.
+  const t = startTiming("sync", shop);
+  try {
+    const { policy } = await t.step("db", () => getSettings(shop));
+    const businesses = await listBusinesses(shop);
+    const { allIds, index } = await t.step("employeeOnly", () => resolveEmployeeOnly(admin, businesses));
+    await t.step("metafields", () => syncEmployeeOnly(admin, parseJsonList(policy.employeeOnlyProducts), allIds));
+    const discountId = await t.step("discount", () => ensureDiscount(admin, policy, businesses));
+    // Save the id right away, so a later failure can't make the next save create a duplicate.
+    if (discountId !== policy.discountId) await db.benefitPolicy.update({ where: { shop }, data: { discountId } });
+    const validationId = await t.step("validation", () => ensureValidation(admin, { ...policy, discountId }, businesses));
+    const updated = await db.benefitPolicy.update({
+      where: { shop },
+      data: {
+        discountId,
+        validationId,
+        employeeOnlyProducts: JSON.stringify(allIds),
+        employeeOnlyHandles: JSON.stringify([...new Set(index.flatMap((x) => x.handles))]),
+      },
+    });
+    const discounted = await t.step("discounted", () => resolveDiscounted(admin, businesses));
+    await t.step("storefront", () => publishStorefrontConfig(admin, updated, businesses, index, discounted));
+    return updated;
+  } finally {
+    t.done();
+  }
 }
