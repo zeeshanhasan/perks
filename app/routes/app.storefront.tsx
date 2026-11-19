@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { useFetcher, useLoaderData, useRevalidator } from "react-router";
+import { Await, useFetcher, useLoaderData, useRevalidator } from "react-router";
 import { SaveBar, useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { RouteError } from "../components/RouteError";
@@ -16,7 +16,9 @@ import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
-  const [options, embed, info] = await Promise.all([getStorefront(session.shop), embedStatus(admin), shopInfo(admin, session.shop)]);
+  // The theme check takes ~0.7 s: start it, show the page, and stream the result into the status row.
+  const embed = embedStatus(admin);
+  const [options, info] = await Promise.all([getStorefront(session.shop), shopInfo(admin, session.shop)]);
   return {
     options,
     embed,
@@ -35,6 +37,48 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return { ok: false as const, error: "Couldn't save. Try again." };
   }
 };
+
+/** Employee mode status. embed undefined = still checking the theme. Stacks on narrow screens. */
+function EmployeeModeStatus({ embed, themeUrl }: { embed: { on: boolean | null; theme: string | null } | undefined; themeUrl: string }) {
+  const revalidator = useRevalidator();
+  const checking = embed === undefined;
+  const on = embed?.on;
+  return (
+    <s-query-container>
+    <s-grid gridTemplateColumns="@container (inline-size > 560px) 1fr auto, 1fr" gap="base" alignItems="center">
+      <s-stack gap="small-300">
+        <s-stack direction="inline" gap="small-200" alignItems="center">
+          <s-text type="strong">Employee mode</s-text>
+          {checking ? (
+            <s-spinner size="base" accessibilityLabel="Checking your theme" />
+          ) : (
+            <s-badge tone={on === true ? "success" : on === false ? "warning" : "neutral"}>
+              {on === true ? "On" : on === false ? "Off" : "Unknown"}
+            </s-badge>
+          )}
+        </s-stack>
+        <s-text color="subdued">
+          {checking
+            ? "Checking your live theme…"
+            : on === true
+              ? `Switched on in ${embed?.theme ?? "your live theme"}. Badge colours follow your theme (theme editor → App embeds → Employee mode).`
+              : on === false
+                ? "Needed for everything below. Click Turn on: it's already switched on in the theme editor, you just click Save there."
+                : "Couldn't check your theme just now. Click Check again, or open the theme editor."}
+        </s-text>
+      </s-stack>
+      <s-stack direction="inline" gap="small">
+        <s-button variant="tertiary" onClick={() => revalidator.revalidate()} loading={revalidator.state !== "idle"}>
+          Check again
+        </s-button>
+        <s-button variant={on === true ? "secondary" : "primary"} href={themeUrl} target="_blank">
+          {on === true ? "Open theme editor" : "Turn on"}
+        </s-button>
+      </s-stack>
+    </s-grid>
+    </s-query-container>
+  );
+}
 
 const SAVE_BAR_ID = "storefront-save-bar";
 type TextKey = "priceLabel" | "noticeTitle" | "noticeBody" | "noticeButton" | "badgeText";
@@ -60,7 +104,6 @@ export default function Storefront() {
   const { options, embed, themeUrl, currency } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
-  const revalidator = useRevalidator();
   useSaveBar(SAVE_BAR_ID);
   const initial = useMemo(() => options, [options]);
   const [o, setO] = useState<StorefrontOptions>(initial);
@@ -107,29 +150,11 @@ export default function Storefront() {
 
       <s-stack gap="base">
         <s-section>
-          <s-grid gridTemplateColumns="1fr auto" gap="base" alignItems="center">
-            <s-stack gap="small-300">
-              <s-stack direction="inline" gap="small-200" alignItems="center">
-                <s-text type="strong">Employee mode</s-text>
-                <s-badge tone={embed.on === true ? "success" : embed.on === false ? "warning" : "neutral"}>
-                  {embed.on === true ? "On" : embed.on === false ? "Off" : "Unknown"}
-                </s-badge>
-              </s-stack>
-              <s-text color="subdued">
-                {embed.on === true
-                  ? `Switched on in ${embed.theme ?? "your live theme"}. Badge colours follow your theme (theme editor → App embeds → Employee mode).`
-                  : "Needed for everything below. Click Turn on: it's already switched on in the theme editor, you just click Save there."}
-              </s-text>
-            </s-stack>
-            <s-stack direction="inline" gap="small">
-              <s-button variant="tertiary" onClick={() => revalidator.revalidate()} loading={revalidator.state !== "idle"}>
-                Check again
-              </s-button>
-              <s-button variant={embed.on === true ? "secondary" : "primary"} href={themeUrl} target="_blank">
-                {embed.on === true ? "Open theme editor" : "Turn on"}
-              </s-button>
-            </s-stack>
-          </s-grid>
+          <Suspense fallback={<EmployeeModeStatus embed={undefined} themeUrl={themeUrl} />}>
+            <Await resolve={embed} errorElement={<EmployeeModeStatus embed={{ on: null, theme: null }} themeUrl={themeUrl} />}>
+              {(e) => <EmployeeModeStatus embed={e} themeUrl={themeUrl} />}
+            </Await>
+          </Suspense>
         </s-section>
 
         <s-section heading="What employees see">

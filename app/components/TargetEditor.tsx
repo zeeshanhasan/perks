@@ -18,7 +18,7 @@ type Item = { key: string; label: string };
 function Group({ label, items, onRemove }: { label: string; items: Item[]; onRemove: (key: string) => void }) {
   if (!items.length) return null;
   return (
-    <s-grid gridTemplateColumns="120px 1fr" gap="small" alignItems="start">
+    <s-grid gridTemplateColumns="@container (inline-size > 600px) 120px 1fr, 1fr" gap="small" alignItems="start">
       <s-box paddingBlockStart="small-300">
         <s-text color="subdued">{label}</s-text>
       </s-box>

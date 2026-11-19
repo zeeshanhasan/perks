@@ -217,3 +217,18 @@ model Invoice {
   @@index([shop, businessId])
 }
 
+
+/// Shopify facts we'd otherwise ask Shopify for on every page (decision 017 follow-up, speed):
+/// store details (refreshed every 6 h) and the app subscription (refreshed every hour).
+model ShopCache {
+  shop        String    @id
+  shopGid     String
+  name        String    @default("")
+  currency    String    @default("")
+  timezone    String    @default("UTC")
+  shopifyPlan String    @default("")
+  infoAt      DateTime
+  /// JSON of the live subscription (see billing.server.ts); null = not checked yet.
+  billing     String?
+  billingAt   DateTime?
+}

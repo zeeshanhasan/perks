@@ -1,9 +1,10 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { Outlet, useLoaderData, useRouteError } from "react-router";
+import { isRouteErrorResponse, Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 
 import { authenticate } from "../shopify.server";
+import { AppStatus } from "../components/AppStatus";
 import { checkBilling } from "../lib/billing.server";
 import { PRICES } from "../lib/billing";
 import { startTiming } from "../lib/timing.server";
@@ -70,14 +71,37 @@ export default function App() {
         <s-link href="/app/perks-page">Perks page</s-link>
         <s-link href="/app/settings">Settings</s-link>
       </s-app-nav>
-      <Outlet />
+      <AppStatus />
+      {/* Lets layouts react to the page width (phone vs desktop) with @container rules. */}
+      <s-query-container>
+        <Outlet />
+      </s-query-container>
     </AppProvider>
   );
 }
 
 // Shopify needs React Router to catch some thrown responses, so that their headers are included in the response.
 export function ErrorBoundary() {
-  return boundary.error(useRouteError());
+  const error = useRouteError();
+  // Auth and redirects must go to Shopify's boundary; anything else (offline, a timeout) gets a friendly page.
+  if (isRouteErrorResponse(error) || error instanceof Response) return boundary.error(error);
+  return (
+    <div style={{ font: "14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", padding: "48px 16px", textAlign: "center", color: "#303030" }}>
+      <p style={{ fontWeight: 600, fontSize: 16, margin: "0 0 6px" }}>Employee Perks couldn&apos;t load</p>
+      <p style={{ color: "#616161", margin: "0 0 16px" }}>
+        {typeof navigator !== "undefined" && !navigator.onLine
+          ? "You seem to be offline. Check your connection, then try again."
+          : "It's usually a short hiccup with your connection or Shopify. Your settings are safe."}
+      </p>
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        style={{ font: "inherit", fontWeight: 600, padding: "8px 16px", borderRadius: 8, border: 0, background: "#303030", color: "#fff", cursor: "pointer" }}
+      >
+        Try again
+      </button>
+    </div>
+  );
 }
 
 export const headers: HeadersFunction = (headersArgs) => {
