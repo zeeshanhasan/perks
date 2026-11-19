@@ -112,7 +112,7 @@ Rules that always apply:
 - **Delete business**: stops its perks for good. Its orders and invoices stay in Reports. To stop perks for a while, set Status to Paused instead.
 - After **Save**, if Shopify wasn't updated, a yellow banner appears with **Retry**.
 
-**Employees**: everyone who gets perks, how they joined ("Work-email login" or "Email link"), status (Active, Removed, Expired, Not eligible), since when and when it expires. Search by email or customer ID, filter by business and status, 50 per page. **Remove perks** / **Restore perks** per person. **Find existing employees** adds customers who signed up before the app was installed. Employees of a deleted business show "Business deleted" and can't be restored.
+**Employees**: everyone who gets perks, how they joined ("Work email" or "Email link"), status (Active, Removed, Expired, Not eligible), since when and until when they get perks (removed and not-eligible rows say why). Search by email or customer ID, filter by business and status, 50 per page. **Remove perks** / **Restore perks** per person. **Find existing employees** adds customers who signed up before the app was installed. Employees of a deleted business show "Business deleted" and can't be restored.
 
 **Check a customer**: type the email a customer logs in with, press Enter. It lists each check (perks on, account found, matched to a business, business active, within the limit) and, if something fails, why and a button to the fix.
 

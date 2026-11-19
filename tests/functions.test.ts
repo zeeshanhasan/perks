@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, test } from "vitest";
 import { generateDiscounts, type DiscountInput } from "../extensions/perks-discount/src/logic";
-import { BLOCK_MESSAGE, validateCart, type ValidationInput } from "../extensions/perks-validation/src/logic";
+import { BLOCK_MESSAGE, REMOVED_MESSAGE, validateCart, type ValidationInput } from "../extensions/perks-validation/src/logic";
 
 const today = "2026-11-02";
 const T0 = { all: false, productIds: [], collectionIds: [], vendors: [], types: [] };
@@ -165,6 +165,10 @@ describe("validation Function", () => {
   });
   test.each([["guest", null], ["normal customer", "me@gmail.com"]])("%s is blocked from employee-only items", (_n, email) => {
     expect(errs(validateCart(vInput([plain, tofoOnly], who(email))))).toEqual(BLOCK);
+  });
+  test("a removed employee gets a message that doesn't tell them to log in", () => {
+    const removed = { isAuthenticated: true, customer: { email: "a@tofoapp.com", eligibility: { value: JSON.stringify({ v: 1, status: "revoked" }) }, usage: null } };
+    expect(errs(validateCart(vInput([tofoOnly], removed)))).toEqual([{ message: REMOVED_MESSAGE, target: "$.cart" }]);
   });
   test("discounted (open) and normal products are never blocked", () => {
     expect(errs(validateCart(vInput([solgar, inColl, plain, custom], who(null))))).toEqual([]);

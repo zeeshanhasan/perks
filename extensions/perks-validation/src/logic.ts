@@ -1,4 +1,4 @@
-import { matches, parseConfig, resolveBusiness, type Buyer, type ProductInput } from "./eligibility";
+import { matches, parseConfig, parseEligibility, resolveBusiness, type Buyer, type ProductInput } from "./eligibility";
 
 export type ValidationInput = {
   buyerJourney: { step?: string | null };
@@ -13,6 +13,10 @@ export type ValidationOutput = {
 
 export const BLOCK_MESSAGE =
   "Some items in your cart are for employees of partner companies only. Log in with your work email to buy them, or remove them.";
+
+/** For a customer the store removed from its program: logging in again wouldn't help. */
+export const REMOVED_MESSAGE =
+  "Some items in your cart are for employees of partner companies only, and your employee perks are no longer active. Remove them to continue, or contact the store.";
 
 /**
  * Fail closed. A line is employee-only if a business's employee-only targeting matches it live,
@@ -35,5 +39,7 @@ export function validateCart(input: ValidationInput): ValidationOutput {
     if (!mine) return true;
     return owners.length ? !owners.includes(mine.id) : false;
   });
-  return { operations: [{ validationAdd: { errors: blocked ? [{ message: BLOCK_MESSAGE, target: "$.cart" }] : [] } }] };
+  const removed = parseEligibility(input.cart.buyerIdentity?.customer?.eligibility?.value)?.status === "revoked";
+  const message = removed ? REMOVED_MESSAGE : BLOCK_MESSAGE;
+  return { operations: [{ validationAdd: { errors: blocked ? [{ message, target: "$.cart" }] : [] } }] };
 }

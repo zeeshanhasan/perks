@@ -46,18 +46,36 @@ async function hasLivePerks(shop: string) {
 /** A store on Grow or above that picked the $9 plan: explain, and send it to choose Standard. */
 function WrongPlan({ planUrl, shopifyPlan, perksLive }: { planUrl: string; shopifyPlan: string; perksLive: boolean }) {
   return (
-    <s-page heading="Choose the Standard plan">
+    <s-page heading="One more step: switch to Standard">
       <s-section>
         <s-stack gap="base">
           <s-paragraph>
-            The Basic plan (${PRICES.basic.monthly}/month) is for stores on Shopify&apos;s Basic plan. Your store is on{" "}
-            {shopifyPlan || "a larger Shopify plan"}, so the Standard plan (${PRICES.standard.monthly}/month) applies. Every
-            feature is the same.
+            Basic is for stores on Shopify&apos;s Basic or Starter plan. Your store is on{" "}
+            {shopifyPlan || "a larger Shopify plan"}, so Standard applies. It has exactly the same features.
           </s-paragraph>
-          {perksLive ? <s-paragraph>Your perks keep working while you switch.</s-paragraph> : null}
-          <s-button variant="primary" onClick={() => window.open(planUrl, "_top")}>
-            Choose Standard
-          </s-button>
+          <s-paragraph>
+            Your free trial carries over, and Standard replaces Basic: you&apos;re never charged for both.
+            {perksLive ? " Your perks keep working while you switch." : ""}
+          </s-paragraph>
+          <s-box padding="base" border="base" borderRadius="base">
+            <s-stack gap="small-200">
+              <s-text type="strong">Standard</s-text>
+              <s-text>
+                ${PRICES.standard.monthly}/month or ${PRICES.standard.yearly}/year · 30-day free trial
+              </s-text>
+              <s-unordered-list>
+                <s-list-item>Unlimited partner companies and employees</s-list-item>
+                <s-list-item>Automatic discount by work email, no codes</s-list-item>
+                <s-list-item>Employee prices in your theme and employee-only products</s-list-item>
+                <s-list-item>Monthly or yearly limits, reports and invoices</s-list-item>
+              </s-unordered-list>
+            </s-stack>
+          </s-box>
+          <s-box>
+            <s-button variant="primary" onClick={() => window.open(planUrl, "_top")}>
+              Switch to Standard
+            </s-button>
+          </s-box>
         </s-stack>
       </s-section>
     </s-page>

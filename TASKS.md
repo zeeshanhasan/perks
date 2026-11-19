@@ -17,9 +17,9 @@ Legend: `[ ]` todo · `[x]` done · 🧑 = needs Zeeshan. Plan: `docs/PRD-v4.md`
 - [x] 0.2 Billing (decision 017, 2026-11-17): Basic $9 / Standard $19 by Shopify plan, 30-day trial, Shopify App Pricing. Plan check in the app root (Partner API), wrong-plan page, Settings → Plan, hourly pause/resume of perks, exempt list. Off until the Partner API env vars are set
 - [x] 0.2b Billing setup (2026-11-18): plans, `comped` private plan for the two PK stores, Partner API client, Railway vars. App handle is `tofo-perks` (Railway `SHOPIFY_APP_HANDLE` must be `tofo-perks` or unset)
 - [x] 0.2c Fix: back from the plan page (`?plan_handle=`) the app re-checks the plan instead of using its 5-minute cache; hourly sweep skips uninstalled stores
-- [ ] 0.2d Redesign the "Choose the Standard plan" page and Settings → Plan (plan cards, trial countdown, features); add a dev-only preview of both
+- [x] (wrong-plan page redesigned 2026-11-19; Settings → Plan unchanged) 0.2d Redesign the "Choose the Standard plan" page and Settings → Plan (plan cards, trial countdown, features); add a dev-only preview of both
 - [ ] 🧑 0.2e Plan feature lines are cut at ~40 characters ("…and employee", "no cod"): shorten them in the listing's Pricing content (texts in `docs/app-store/listing.md`)
-- [ ] 0.2f Set up `employee-perks-demo` as the public demo store (products, "Acme (demo)" on `tofoapp.com` (visitors who want the employee view ask hello@ to add their domain), employee-only products, perks page, Employee mode) and link it from the site (`DEMO_STORE_URL`) and the listing
+- [x] 0.2f (store set up 2026-11-19: USD, "Acme (demo)" on tofoapp.com, 15% off all, Oxygen + Videographer snowboards employee-only, perks on, Employee mode on, perks page live; password in the submission pack. Left: 🧑 a monthly limit on Acme (native dropdowns), `DEMO_STORE_URL` on the site after approval) Set up `employee-perks-demo` as the public demo store (products, "Acme (demo)" on `tofoapp.com` (visitors who want the employee view ask hello@ to add their domain), employee-only products, perks page, Employee mode) and link it from the site (`DEMO_STORE_URL`) and the listing
 - [x] 0.3 Ghost save bar, 404 after updates, login page inside the admin, stray "$" (Cloudflare beacon + stream markers), `include_config_on_deploy`
 - [x] 0.4 CI (lint, typecheck, tests, build) and `scripts/smoke.sh`
 - [ ] 0.4 Automated e2e script on the dev store
@@ -156,7 +156,7 @@ Bugs:
 - [x] (fixed on `fix/fresh-install-findings`) Settings switch label is always "Employee perks are on", even when off (`app.settings.tsx`); section heading "Pause all perks" reads opposite to the on-switch
 - [ ] New stores start with perks off (`enabled` default false), so setup has an extra "Turn on in Settings" step; meanwhile the business page shows "Active" while Home shows red "Perks off". Decided 2026-11-19: new installs keep starting with perks off; fix the mixed signals instead
 - [x] (fixed on `fix/fresh-install-findings`) Wrong-plan page says "Your perks keep working while you switch" to a new store with no perks
-- [ ] Employees: "Joined by: Work-email login" for a customer created by staff in admin (never logged in)
+- [x] (label now "Work email", 2026-11-19) Employees: "Joined by: Work-email login" for a customer created by staff in admin (never logged in)
 - [x] (fixed on `fix/fresh-install-findings`) Request log prints full `id_token`, `hmac` and `session` on embedded GETs (hard rule: no raw tokens in logs)
 - [x] (fixed on `fix/fresh-install-findings`) Hourly billing sweep logs an error (Partner API 500) for `perks-frtekwck`, where the production app is uninstalled; skip quietly
 
@@ -167,7 +167,7 @@ UX:
 - [ ] Add business: "Acme Pharma" placeholder looks filled in; stray grey square in the Percentage field; step 3 summary promises perks before the program is on; two coloured boxes say similar things; after Create, no pointer to the next step
 - [ ] Storefront: theme editor's embed panel still shows "Colours" and an "Employee collection" setting the app never mentions
 - [x] (fixed on `fix/fresh-install-findings`) Employees and Activity help text still describe the retired email-link verification
-- [ ] Activity: settings row is raw (`enabled=true autoDomain=true months=12 excluded=0`)
+- [x] (readable, 2026-11-19) Activity: settings row is raw (`enabled=true autoDomain=true months=12 excluded=0`)
 - [ ] Check a customer: only shows the problem; also say which business matches the domain
 - [ ] Reports "By business": "Employees" column means employees who bought, header doesn't say so
 - [ ] Help "Get started in 4 steps" leaves out "Turn on employee perks in Settings" (Home has it)
@@ -176,9 +176,9 @@ UX:
 
 Storefront (2026-11-19, `tofoapp.com` added to Acme Pharma, "The 3p Fulfilled Snowboard" employee-only). Works: employee price on cards and product page, cart and checkout "Employee price (15% off)", Bogus order → Reports → INV-202611-001, guest prices normal, employee-only product hidden from the collection.
 - [x] (fixed on `fix/fresh-install-findings`, needs `shopify app deploy` to reach stores) **Employee-only product page is blank for guests** (likely reviewers too, Dawn has the same markup): `hideCards` hides the product's own info column because `CARD` includes `.grid__item` and the column links to its own product; the "Only for partner employees" note is inside it. Skip the current product's own link, as the price code does (`employee-mode.js` line ~176)
-- [ ] Product cards don't cross out the normal price though "Cross out the normal price" is on (the product page does)
-- [ ] Strike-through also hits the "Sold out" badge on the product page
-- [ ] Collection count still says "13 products" with the employee-only one hidden
+- [x] (fixed 2026-11-19) Product cards don't cross out the normal price though "Cross out the normal price" is on (the product page does)
+- [x] (fixed 2026-11-19) Strike-through also hits the "Sold out" badge on the product page
+- [x] (count hidden while products are hidden, 2026-11-19) Collection count still says "13 products" with the employee-only one hidden
 - [ ] `listing.md` reviewer steps and screencast say checkout shows "Employee perks"; it says "Employee price (15% off)"
 - [ ] Check: subscription (selling plan) price next to our badge; do the two discounts stack?
 - [ ] Reports cards: on narrow cards the ↑ arrow wraps onto its own line
@@ -196,23 +196,23 @@ Acceptance tests (step 2, 2026-11-19, same store). Passed: A1 (zeeshan@tofoapp.c
 - [ ] `docs/acceptance-tests.md` is out of date: retired email-link tests (A4–A6, A8), old dev store, old settings (scope, "Automatically give perks", link months). Rewrite for v4
 - Employee run (logged in as zeeshan@tofoapp.com; Acme = Hydrogen collection only, Hydrogen snowboard Never discounted). Passed: A7, B2, B3 (Never discounted wins over the collection), B4, B6 (20% in cart and storefront label), D1 (discount gone on the next cart change, employee-only add blocked), D2 ("Perks removed"), D3, F3, J1, J4 (Rs 200/month discount limit: 2× Liquid got Rs 196.26 = 200 − 3.74 already used, line "Employee price (rest of your limit)")
 - [x] (fixed on `fix/fresh-install-findings`) My-perks page says "a Acme Pharma work email" (a/an)
-- [ ] A removed employee trying an employee-only product is told to "log in with your work email (or verify it)" though they are; give removed employees their own message
-- [ ] Phone layout: Employees table scrolls sideways, Remove/Restore cut off
+- [x] (own message, 2026-11-19) A removed employee trying an employee-only product is told to "log in with your work email (or verify it)" though they are; give removed employees their own message
+- [x] (list on phones, 2026-11-19) Phone layout: Employees table scrolls sideways, Remove/Restore cut off
 - [x] (fixed on `fix/fresh-install-findings`) Percentage field accepts "20E" and the summary then says "0% off"; validate the number
 - [x] ("Still saving" banner after 8 s with reload-and-check advice; a hard timeout is not possible without aborting the save) A save that stalls (network blip, 2026-11-19 ~1 min: requests never reached the app) spins forever with no message; the "Still loading" banner only watches page loads. Add a timeout + "Couldn't save, try again" to every save
 - Also passed: I2 (label "Staff price" in preview and store), B7 (test code PERKSTEST 10% on Hydrogen, Combining off: Shopify kept the better total, Rs 209.98 code vs Rs 196.26 employee), F4 (employee collection Hydrogen: links visible to the employee, hidden for guests), F5 (embed off: no app markup, employee discount still at checkout, employee-only still refused for guests; Shopify takes 10–20 s to drop the embed)
 - Also passed: C1 (logged in with a personal Gmail account: no staff prices, employee-only hidden, add-to-cart refused, not on Employees; `/apps/perks/verify` explains "This account uses an @gmail.com address" with Log out)
 - Also passed: D5 (Sara's email changed to Gmail in Shopify → "Not eligible" via webhook)
-- [ ] Employees: a "Not eligible" row still shows the business, "Expires: While email matches" and Remove; say why (email no longer matches) and drop the action. Table scrolls sideways even at ~800 px
+- [x] (rows say why, 2026-11-19) Employees: a "Not eligible" row still shows the business, "Expires: While email matches" and Remove; say why (email no longer matches) and drop the action. Table scrolls sideways even at ~800 px
 - Also passed: E2 (uninstall: "Employee perks" discount gone from Shopify, `app/uninstalled` webhook 200, sessions deleted), K (no app markup in the store, employee-only product addable to the cart, `/apps/perks` 404). The store `perks-fresh-install-1g` now has the app uninstalled
 - [ ] Check after 48 h: `shop/redact` purged `perks-fresh-install-1g`'s data (E2 second half); and that the hourly billing sweep doesn't start erroring for it like `perks-frtekwck`
 - [ ] 🧑 Still to run: E3–E4 (`customers/data_request`, `customers/redact`: Shopify sends them on its own schedule; or trigger with `shopify app webhook trigger`)
 
 Errors and outages (2026-11-19). The admin app is covered: offline banner, "Still loading" after 8 s, per-page error with retry, unknown links go Home. Checkout discounts, employee prices and webhooks keep working while our server is down. Gaps:
-- [ ] Error screen on the root and on public pages (`/`, `/privacy`, `/terms`, not-found) and the storefront pages (`/apps/perks`, `/apps/perks/verify`), styled like the site or the store; today a crash shows React Router's bare default page
-- [ ] Server down: admin shows Cloudflare's 502/521 page inside the Shopify admin, `/apps/perks` shows Shopify's proxy error. Show a branded "Employee Perks is briefly unavailable; employee discounts still work at checkout" page instead (small Worker on the `perks` route, within decision 004)
-- [ ] Uptime check on `/healthz` with an email alert (none today)
-- [ ] Railway: second replica or restart policy (with the planned US region move)
+- [x] (root boundary, 2026-11-19) Error screen on the root and on public pages (`/`, `/privacy`, `/terms`, not-found) and the storefront pages (`/apps/perks`, `/apps/perks/verify`), styled like the site or the store; today a crash shows React Router's bare default page
+- [x] (Worker in infra/cloudflare + runbook; 🧑 deploy it) Server down: admin shows Cloudflare's 502/521 page inside the Shopify admin, `/apps/perks` shows Shopify's proxy error. Show a branded "Employee Perks is briefly unavailable; employee discounts still work at checkout" page instead (small Worker on the `perks` route, within decision 004)
+- [x] (runbook docs/runbooks/outage-page-and-uptime.md; 🧑 set it up) Uptime check on `/healthz` with an email alert (none today)
+- [x] (restart policy already ON_FAILURE; replicas impossible with SQLite) Railway: second replica or restart policy (with the planned US region move)
 
 Later: move Railway to a US region; Built for Shopify after launch; e2e test script.
 

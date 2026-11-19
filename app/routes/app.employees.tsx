@@ -170,16 +170,21 @@ function Row({ m, shop }: { m: Member; shop: string }) {
       </s-table-cell>
       <s-table-cell>{m.business || "—"}</s-table-cell>
       <s-table-cell>
-        {m.source === "domain" ? "Work-email login" : "Email link"}
+        {/* Domain members are added on login, by staff creating the customer, or by "Find existing employees". */}
+        {m.source === "domain" ? "Work email" : "Email link"}
       </s-table-cell>
       <s-table-cell>
         <s-badge tone={st.tone}>{st.label}</s-badge>
       </s-table-cell>
       <s-table-cell>{m.since}</s-table-cell>
       <s-table-cell>
-        {m.source === "domain"
-          ? "While email matches"
-          : (m.expiresAt ?? "Never")}
+        {m.status === "revoked"
+          ? "Removed by staff"
+          : m.status === "inactive"
+            ? "Email no longer at a partner domain"
+            : m.source === "domain"
+              ? "While email matches"
+              : (m.expiresAt ?? "Never")}
       </s-table-cell>
       <s-table-cell>
         {m.status === "active" || m.status === "inactive" ? (
@@ -334,12 +339,12 @@ export default function Employees() {
                 </s-select>
               </s-grid>
               <s-table-header-row>
-                <s-table-header>Employee</s-table-header>
-                <s-table-header>Business</s-table-header>
-                <s-table-header>Joined by</s-table-header>
-                <s-table-header>Status</s-table-header>
-                <s-table-header>Since</s-table-header>
-                <s-table-header>Expires</s-table-header>
+                <s-table-header listSlot="primary">Employee</s-table-header>
+                <s-table-header listSlot="secondary">Business</s-table-header>
+                <s-table-header listSlot="labeled">Joined by</s-table-header>
+                <s-table-header listSlot="inline">Status</s-table-header>
+                <s-table-header listSlot="labeled">Since</s-table-header>
+                <s-table-header listSlot="labeled">Perks until</s-table-header>
                 <s-table-header>
                   <s-text accessibilityVisibility="exclusive">Actions</s-text>
                 </s-table-header>

@@ -32,9 +32,9 @@ export function limitUsage(
   };
 }
 
-/** "Work-email login" / "Verified by email link" for how they joined. */
+/** "Work email" / "Verified by email link" for how they joined. */
 export function joinedBy(source: string | null | undefined) {
-  if (source === "domain") return "Work-email login";
+  if (source === "domain") return "Work email";
   if (source === "link") return "Verified by email link";
-  return "Work-email login";
+  return "Work email";
 }

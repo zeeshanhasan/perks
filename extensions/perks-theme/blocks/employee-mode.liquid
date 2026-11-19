@@ -87,7 +87,11 @@
     .tofo-perks-price span { padding: .2rem .7rem; border-radius: 999px; font-size: 1.2rem;
       background: {{ block.settings.badge_bg }}; color: {{ block.settings.badge_fg }}; }
     .tofo-perks-card-price { display: block; margin-top: .3rem; font-size: 1.3rem; font-weight: 600; color: {{ block.settings.badge_fg }}; }
-    .tofo-perks-strike, .tofo-perks-strike * { text-decoration: line-through; opacity: .6; }
+    /* Strike the amounts only, not badges like "Sold out" in the same price block. */
+    .tofo-perks-strike .price-item, .tofo-perks-strike .money,
+    .tofo-perks-strike:not(:has(.price-item, .money)) { text-decoration: line-through; opacity: .6; }
+    /* The theme's product count includes products hidden from this shopper. */
+    .tofo-perks-hiding #ProductCount, .tofo-perks-hiding #ProductCountDesktop, .tofo-perks-hiding .product-count { display: none !important; }
     .tofo-perks-badge { display: inline-block; padding: .4rem .8rem; border-radius: 999px; font-size: 1.3rem; margin: .8rem 0;
       background: {{ block.settings.badge_bg }}; color: {{ block.settings.badge_fg }}; }
   </style>
