@@ -8,7 +8,7 @@ no Shopify logo in images, field lengths checked.
 
 | Field | Value | Notes |
 |---|---|---|
-| App name (≤30) | **Tofo Employee Perks** (decision pending, see below) | Rule 4.1.2: lead with your own brand, not a generic phrase |
+| App name (≤30) | **Employee Perks** (decided 2026-11-19) | Rule 4.1.2 prefers a brand first; if review asks, add a brand word then |
 | App icon | `docs/app-store/assets/app-icon-1200.png` | 1200×1200, square corners (Shopify rounds them) |
 | Languages | English | Only languages the app UI supports |
 | Primary category | Discounts (Selling products) | |
@@ -16,9 +16,12 @@ no Shopify logo in images, field lengths checked.
 | Sales channel requirement | **Merchant must have Online Store** | Employee prices and hiding products use a theme app embed |
 | Integrations | none | Don't list Shopify itself |
 
-**Name decision:** "Employee Perks" alone is a generic descriptor and risks a rejection under 4.1.2.
-Options: **Tofo Employee Perks** (recommended), or keep "Employee Perks" and risk a change request.
-The listing name and the app's TOML name must be similar ("Employee Perks" in TOML is fine with "Tofo Employee Perks").
+**Name decision (2026-11-19):** keep **Employee Perks**, same as the app's TOML name. Accepted risk: review may ask for a
+more distinctive, brand-first name (rule 4.1.2).
+
+**Built for Shopify** (the checklist on the Distribution page) is an optional badge, not part of submission. It needs
+50 net installs on paid plans, 5 reviews and a 4+ rating, plus admin speed (LCP < 2.5 s, CLS < 0.1, INP < 200 ms over
+100+ calls). Revisit after launch; the server move (TASKS) helps the speed part.
 
 ## 2. Listing text
 
