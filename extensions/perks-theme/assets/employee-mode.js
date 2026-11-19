@@ -59,9 +59,9 @@
    sha256(h).then(function (d) {
     if (P.hiddenHashes.indexOf(d) === -1) return;
     var card = a.closest(CARD) || a;
-    // Own info column can match CARD; it holds the notice
     if (P.product.isProductPage && h === (P.product.handle || "").toLowerCase() && card.querySelector(BUY + ", .tofo-perks-note")) return;
     card.classList.add("tofo-perks-hidden");
+    document.body.classList.add("tofo-perks-hiding");
    });
   });
  }
@@ -178,7 +178,6 @@
    if (!h || h === (P.product.handle || "").toLowerCase() && P.product.isProductPage && !a.closest(CARD)) return;
    if (!cardEligible(h)) return;
    var card = a.closest(CARD);
-   // The product's own info area can match CARD (e.g. Dawn's .grid__item): its price is handled by renderProductPrice.
    if (!card || card.querySelector(".tofo-perks-card-price, #tofo-perks-price, " + BUY) || card.dataset.tofoPriced) return;
    card.dataset.tofoPriced = "1";
    fetchProduct(h).then(function (p) {
@@ -190,6 +189,7 @@
     el.className = "tofo-perks-card-price";
     el.textContent = P.price.text + (p.price_varies ? " from " : " ") + l.price;
     priceEl.insertAdjacentElement("afterend", el);
+    if (P.price.strike) priceEl.classList.add("tofo-perks-strike");
    });
   });
  }

@@ -21,7 +21,7 @@ describe("limitUsage", () => {
 
 describe("joinedBy", () => {
   it("names how they joined", () => {
-    expect(joinedBy("domain")).toBe("Work-email login");
+    expect(joinedBy("domain")).toBe("Work email");
     expect(joinedBy("link")).toBe("Verified by email link");
   });
 });

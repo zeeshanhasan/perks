@@ -60,6 +60,10 @@ function readable(detail: string): string {
   if (kv.domains) parts.push(kv.domains.split(",").join(", "));
   if (kv.discount) parts.push(`discount ${kv.discount}`);
   if (kv.spend) parts.push(`spend ${kv.spend}`);
+  // Settings saves: "enabled=true autoDomain=true months=12 excluded=0" (autoDomain and months are fixed since decision 015).
+  if (kv.enabled) parts.push(kv.enabled === "true" ? "Employee perks on" : "Employee perks off");
+  if (kv.excluded) parts.push(kv.excluded === "0" ? "no never-discounted products" : `${kv.excluded} never-discounted product${kv.excluded === "1" ? "" : "s"}`);
+  if (!parts.length && (kv.autoDomain || kv.months)) return "Settings saved";
   return parts.length ? parts.join(" · ") : detail;
 }
 
