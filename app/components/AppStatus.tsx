@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigation, useRevalidator } from "react-router";
+import { useFetchers, useNavigation, useRevalidator } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 
 // App-wide connection and loading feedback, shown on every app page:
@@ -13,7 +13,9 @@ export function AppStatus() {
   const shopify = useAppBridge();
   const navigation = useNavigation();
   const revalidator = useRevalidator();
-  const busy = navigation.state !== "idle" || revalidator.state !== "idle";
+  // Saves run through fetchers; without watching them a stalled save spins with no message at all.
+  const saving = useFetchers().some((f) => f.state !== "idle" && f.formMethod && f.formMethod.toUpperCase() !== "GET");
+  const busy = navigation.state !== "idle" || revalidator.state !== "idle" || saving;
   const [online, setOnline] = useState(true);
   const [slow, setSlow] = useState(false);
   const wasOffline = useRef(false);
@@ -63,6 +65,14 @@ export function AppStatus() {
     return (
       <s-banner tone="warning" heading="You're offline">
         Changes can&apos;t be saved until your connection is back. This page refreshes by itself when it is.
+      </s-banner>
+    );
+  if (slow && saving)
+    return (
+      <s-banner tone="warning" heading="Still saving">
+        Your connection or Shopify is slow right now. If this doesn&apos;t finish in a minute,{" "}
+        <s-link onClick={() => window.location.reload()}>reload the page</s-link> and check whether your change was
+        saved before trying again.
       </s-banner>
     );
   if (slow)

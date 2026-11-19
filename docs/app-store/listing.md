@@ -76,7 +76,8 @@ Plan feature lines (≤40 characters each, or Shopify cuts them):
 **Feature media:** optional. A 2–3 minute promotional video, or a 1600×900 image with one clear message (no Shopify logo, no prices).
 
 **Demo store URL:** https://employee-perks-demo.myshopify.com (password shown in the demo instructions).
-Demo instructions: "Store password: XXXX. Log in with any Gmail address to see employee prices: the demo company uses gmail.com as its work domain."
+Demo instructions: "Store password: XXXX. Browse as a shopper to see normal prices (employee-only products are hidden). To see the employee view, email hello@tofoapp.com and we'll add your company's email domain to the demo company, then log in with your work email."
+(Personal email domains like gmail.com are never accepted as a work domain, decided 2026-11-19.)
 
 ## 5. Links and contacts
 
@@ -106,22 +107,28 @@ customers' data requests answered through `customers/data_request`. Access is li
 
 ```
 Employee Perks gives employees of partner companies an automatic discount when they log in with their work email.
+A customer qualifies when their store account email is at a partner company's domain. Personal email domains
+(gmail.com, outlook.com and similar) are never accepted, because anyone can create those addresses.
 
-Test store: employee-perks-demo.myshopify.com (store password: XXXX). The app is set up there:
-- Business "Acme (demo)" with work email domain gmail.com, 15% off, limit $100 of discount per month.
-- Employee-only product: "Staff uniform".
-- Employee mode is on in the theme; the perks page is on.
+Please test on your own development store with the email address you can receive mail at (for example your
+company address). New customer accounts send a login code to that address.
 
-1. Install the app on your own test store; Shopify's plan page opens. Choose Standard (free on test stores).
-2. Businesses → Add business: name "Review Co", domain gmail.com, 15% off all products. Save.
-3. Storefront → Turn on → Save in the theme editor (Employee mode).
-4. In the store (new customer accounts), log in with any Gmail address. You receive a login code.
-   Products show "Your staff price" and the discount applies at checkout ("Employee perks").
-5. Log out or use another email domain: normal prices; an employee-only product is hidden and blocked at checkout.
-6. Place a test order (Bogus Gateway). Reports shows it; Create invoice gives a PDF and an Excel file.
-7. Check a customer: type the Gmail address to see which company's perks apply.
+1. Install the app. Shopify's plan page opens: choose Standard (free on development stores). The app opens on Home.
+2. Businesses → Add business: name "Review Co", type the domain of your email (e.g. yourcompany.com), press Enter,
+   Next, 15% off, Next, "All products in the store", Create business.
+3. Settings → switch "Employee perks" on → Save. (New installs start with perks off.)
+4. Storefront → Turn on → Save in the theme editor (this switches on Employee mode).
+5. Optional: Businesses → Review Co → Employee-only products → Add products → pick one → Save.
+6. In the store, log in (new customer accounts) with your email and enter the login code.
+   Product pages and collections show "Your employee price", and checkout shows "Employee price (15% off)".
+7. Log out, or log in with another email: normal prices; the employee-only product is hidden from collections,
+   its page shows "Only for partner employees", and adding it to the cart is refused.
+8. As the employee, place a test order (Bogus Gateway, card number 1). Reports shows it under Review Co;
+   Create invoice gives an invoice page (Print / PDF) and an Excel download.
+9. Check a customer: type your email to see which company's perks apply and why.
 
-Billing: Basic $9 is for Shopify Basic/Starter stores; on other plans the app asks for Standard.
+If your email is a personal address, contact hello@tofoapp.com and we'll help you test.
+Billing: Basic is for Shopify Basic/Starter stores; on other plans the app asks for Standard.
 Support: hello@tofoapp.com
 ```
 
@@ -129,12 +136,13 @@ Support: hello@tofoapp.com
 
 1. Install from the dev store → permissions → Shopify plan page → choose Standard → app Home.
 2. Add business: name, domain, 15% discount, monthly limit; save. Show the green summary.
-3. Storefront: Turn on Employee mode in the theme editor, Save.
-4. Employee-only product: Businesses → edit → Employee-only products → pick a product.
-5. Store: log in with a work-domain email (login code) → employee price on a product → checkout shows "Employee perks".
-6. Another email: normal price, employee-only product blocked at checkout.
-7. Reports → Create invoice → PDF and Excel.
-8. Check a customer, Activity log, Settings → Plan.
+3. Settings: switch Employee perks on, Save.
+4. Storefront: Turn on Employee mode in the theme editor, Save.
+5. Employee-only product: Businesses → edit → Employee-only products → pick a product.
+6. Store: log in with a work-domain email (login code) → employee price on a product → checkout shows "Employee price (15% off)".
+7. Another email: normal price, employee-only product blocked at checkout.
+8. Reports → Create invoice → PDF and Excel.
+9. Check a customer, Activity log, Settings → Plan.
 
 ## 9. Before submitting
 

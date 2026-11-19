@@ -19,7 +19,7 @@ Legend: `[ ]` todo · `[x]` done · 🧑 = needs Zeeshan. Plan: `docs/PRD-v4.md`
 - [x] 0.2c Fix: back from the plan page (`?plan_handle=`) the app re-checks the plan instead of using its 5-minute cache; hourly sweep skips uninstalled stores
 - [ ] 0.2d Redesign the "Choose the Standard plan" page and Settings → Plan (plan cards, trial countdown, features); add a dev-only preview of both
 - [ ] 🧑 0.2e Plan feature lines are cut at ~40 characters ("…and employee", "no cod"): shorten them in the listing's Pricing content (texts in `docs/app-store/listing.md`)
-- [ ] 0.2f Set up `employee-perks-demo` as the public demo store (products, "Acme (demo)" on `gmail.com`, employee-only products, perks page, Employee mode) and link it from the site (`DEMO_STORE_URL`) and the listing
+- [ ] 0.2f Set up `employee-perks-demo` as the public demo store (products, "Acme (demo)" on `tofoapp.com` (visitors who want the employee view ask hello@ to add their domain), employee-only products, perks page, Employee mode) and link it from the site (`DEMO_STORE_URL`) and the listing
 - [x] 0.3 Ghost save bar, 404 after updates, login page inside the admin, stray "$" (Cloudflare beacon + stream markers), `include_config_on_deploy`
 - [x] 0.4 CI (lint, typecheck, tests, build) and `scripts/smoke.sh`
 - [ ] 0.4 Automated e2e script on the dev store
@@ -150,7 +150,7 @@ employee-perks-5 (PR #3 + PR #4), 2026-11-10:
 Store `perks-fresh-install-1g` (Grow dev store, test data, Pakistan/PKR): production app installed, Basic chosen first (wrong-plan page), then Standard monthly. Business "Acme Pharma" (`acmepharma.com`, 15%, no limit), perks on, Employee mode on, test customer `sara@acmepharma.com`.
 
 Submission blocker:
-- [ ] Reviewer instructions (`listing.md` §7) and the demo store (0.2f) use `gmail.com` as the work domain, but the app rejects public email domains (`app/lib/domain.ts`). Decided 2026-11-19: keep rejecting them everywhere (Shopify doesn't allow it either). Rewrite the reviewer instructions and the demo store setup around another domain
+- [x] (2026-11-19: reviewers test on their own store with their own email domain; listing.md §4, §7, §8 rewritten) Reviewer instructions (`listing.md` §7) and the demo store (0.2f) use `gmail.com` as the work domain, but the app rejects public email domains (`app/lib/domain.ts`). Decided 2026-11-19: keep rejecting them everywhere (Shopify doesn't allow it either). Rewrite the reviewer instructions and the demo store setup around another domain
 
 Bugs:
 - [x] (fixed on `fix/fresh-install-findings`) Settings switch label is always "Employee perks are on", even when off (`app.settings.tsx`); section heading "Pause all perks" reads opposite to the on-switch
@@ -185,7 +185,7 @@ Storefront (2026-11-19, `tofoapp.com` added to Acme Pharma, "The 3p Fulfilled Sn
 - [ ] 🧑 Check the invoice's Excel download and Print / PDF (INV-202611-001)
 
 Acceptance tests (step 2, 2026-11-19, same store). Passed: A1 (zeeshan@tofoapp.com, earlier), A3 (`x@tofoapp.co`, `x@tofoapp.com.evil.io`, `x@sub.tofoapp.com` not added), B1/B4 (15% everywhere with "All products"), C2/C3 (guest add-to-cart of an employee-only product refused with the employee-only message), D1/D3 (remove, restore), D6, E1, F1, G1 (gmail.com, duplicate domain, `hr@` → chip), G3, G4, G5, G6 (one "Employee perks"), H1–H3, I1, I3–I4, J2, J3 (invoice on screen).
-- [ ] Every save is slow on the server: create business 3.1–3.9 s, edit business 2.6–3.7 s, pause from the list 2.8 s, delete 2.7 s, Settings 2.6 s (page loads are 5–25 ms). It's the Shopify sync after the DB write; add `[perks] timing` to the save actions to see which call, then make the sync faster or run it after the response (decision 010 already allows "DB first, then sync")
+- [ ] PARKED until after launch (decided 2026-11-19; `[perks] timing sync` lines are live since PR #12, read them from real saves). Every save is slow on the server: create business 3.1–3.9 s, edit business 2.6–3.7 s, pause from the list 2.8 s, delete 2.7 s, Settings 2.6 s (page loads are 5–25 ms). It's the Shopify sync after the DB write; add `[perks] timing` to the save actions to see which call, then make the sync faster or run it after the response (decision 010 already allows "DB first, then sync")
 - [x] (fixed on `fix/fresh-install-findings`) Employee-only message at checkout still says "(or verify it)" (retired email-link wording)
 - [ ] Check a customer with a Gmail address and no account says only "No customer account"; also say personal addresses never qualify
 - [x] (fixed on `fix/fresh-install-findings`) Wizard: "Only some products" with nothing chosen says "gets 10% off no products" and still lets you create; ask for at least one product
@@ -199,7 +199,7 @@ Acceptance tests (step 2, 2026-11-19, same store). Passed: A1 (zeeshan@tofoapp.c
 - [ ] A removed employee trying an employee-only product is told to "log in with your work email (or verify it)" though they are; give removed employees their own message
 - [ ] Phone layout: Employees table scrolls sideways, Remove/Restore cut off
 - [x] (fixed on `fix/fresh-install-findings`) Percentage field accepts "20E" and the summary then says "0% off"; validate the number
-- [ ] A save that stalls (network blip, 2026-11-19 ~1 min: requests never reached the app) spins forever with no message; the "Still loading" banner only watches page loads. Add a timeout + "Couldn't save, try again" to every save
+- [x] ("Still saving" banner after 8 s with reload-and-check advice; a hard timeout is not possible without aborting the save) A save that stalls (network blip, 2026-11-19 ~1 min: requests never reached the app) spins forever with no message; the "Still loading" banner only watches page loads. Add a timeout + "Couldn't save, try again" to every save
 - Also passed: I2 (label "Staff price" in preview and store), B7 (test code PERKSTEST 10% on Hydrogen, Combining off: Shopify kept the better total, Rs 209.98 code vs Rs 196.26 employee), F4 (employee collection Hydrogen: links visible to the employee, hidden for guests), F5 (embed off: no app markup, employee discount still at checkout, employee-only still refused for guests; Shopify takes 10–20 s to drop the embed)
 - Also passed: C1 (logged in with a personal Gmail account: no staff prices, employee-only hidden, add-to-cart refused, not on Employees; `/apps/perks/verify` explains "This account uses an @gmail.com address" with Log out)
 - Also passed: D5 (Sara's email changed to Gmail in Shopify → "Not eligible" via webhook)
