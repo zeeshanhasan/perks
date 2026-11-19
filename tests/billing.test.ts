@@ -28,6 +28,7 @@ const adminOn = (plan: string) =>
 
 beforeEach(async () => {
   clearBillingCache();
+  await db.shopCache.deleteMany({ where: { shop: SHOP } });
   await db.benefitPolicy.deleteMany({ where: { shop: SHOP } });
   await db.benefitPolicy.create({ data: { shop: SHOP, enabled: true } });
 });
@@ -104,9 +105,39 @@ describe("plan check", () => {
     const first = await checkBilling(admin, SHOP, billingConfig(ENV), partner(sub("basic")).f);
     expect(first.billing && first.state.kind).toBe("wrong_plan");
     const cached = await checkBilling(admin, SHOP, billingConfig(ENV), partner(sub("standard")).f);
-    expect(cached.billing && cached.state.kind).toBe("wrong_plan"); // within 5 minutes: cache
+    expect(cached.billing && cached.state.kind).toBe("wrong_plan"); // within the hour: saved copy
     const back = await checkBilling(admin, SHOP, billingConfig(ENV), partner(sub("standard")).f, { fresh: true });
     expect(back.billing && back.state).toEqual({ kind: "ok", tier: "standard" });
+});
+
+test("the plan is saved for an hour and survives a restart; Shopify is asked again after that", async () => {
+  const { admin } = adminOn("Basic");
+  const now = Date.parse("2026-11-19T10:00:00Z");
+  const p1 = partner(sub("basic"));
+  await checkBilling(admin, SHOP, billingConfig(ENV), p1.f, { now });
+  clearBillingCache(); // like a restart: memory gone, database kept
+  const p2 = partner(sub("basic"));
+  const again = await checkBilling(admin, SHOP, billingConfig(ENV), p2.f, { now: now + 30 * 60_000 });
+  expect(again.billing && again.state.kind).toBe("ok");
+  expect(p2.seen).toHaveLength(0); // no Partner API call within the hour
+  const p3 = partner(sub("basic"));
+  await checkBilling(admin, SHOP, billingConfig(ENV), p3.f, { now: now + 61 * 60_000 });
+  expect(p3.seen).toHaveLength(1);
+});
+
+test("store details are fetched once and reused, even if Shopify is down later", async () => {
+  const { shopDetails, clearShopMemory } = await import("../app/lib/shop-cache.server");
+  const { admin, calls } = adminOn("Grow");
+  const now = Date.parse("2026-11-19T10:00:00Z");
+  const d = await shopDetails(admin, SHOP, now);
+  expect(d).toMatchObject({ gid: "gid://shopify/Shop/5", shopifyPlan: "Grow" });
+  clearShopMemory();
+  await shopDetails(admin, SHOP, now + 60_000);
+  expect(calls.filter((c) => c.op === "PerksShopPlan")).toHaveLength(1);
+  // After 6 hours it asks again; if Shopify fails, the saved copy is used instead of an error.
+  clearShopMemory();
+  const down = { graphql: async () => { throw new Error("offline"); } } as any;
+  expect(await shopDetails(down, SHOP, now + 7 * 60 * 60_000)).toMatchObject({ shopifyPlan: "Grow" });
 });
 
 describe("hourly sweep", () => {

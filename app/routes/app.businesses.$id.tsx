@@ -3,6 +3,7 @@ import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "re
 import { redirect, useFetcher, useLoaderData } from "react-router";
 import { SaveBar, useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
+import { RouteError } from "../components/RouteError";
 import { DISCOUNTED_PRODUCTS_NOTE, DiscountFields, EmployeeOnlyHelp, GreenNote, LimitFields } from "../components/BusinessFields";
 import { BusinessWizard } from "../components/BusinessWizard";
 import { DomainChips } from "../components/DomainChips";
@@ -354,3 +355,7 @@ export default function BusinessEdit() {
 }
 
 export const headers: HeadersFunction = (headersArgs) => boundary.headers(headersArgs);
+
+export function ErrorBoundary() {
+  return <RouteError heading="Business" />;
+}

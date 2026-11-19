@@ -45,7 +45,7 @@ export function DiscountFields({
   const fixed = discountType === "fixed";
   return (
     <s-stack gap="base">
-      <s-grid gridTemplateColumns="1fr 1fr" gap="base">
+      <s-grid gridTemplateColumns="@container (inline-size > 600px) 1fr 1fr, 1fr" gap="base">
         <s-select label="Type" value={discountType} onChange={(e) => onChange({ discountType: val(e) })}>
           <s-option value="percentage">Percentage off each item</s-option>
           <s-option value="fixed">Fixed amount off each item</s-option>
@@ -98,7 +98,7 @@ export function LimitFields({
       </s-select>
       {value.limitPeriod !== "none" ? (
         <>
-          <s-grid gridTemplateColumns="1fr 1fr" gap="base">
+          <s-grid gridTemplateColumns="@container (inline-size > 600px) 1fr 1fr, 1fr" gap="base">
             <s-select label="Limit on" value={value.limitBasis} onChange={(e) => onChange({ limitBasis: val(e) })}>
               <s-option value="discount">Discount received</s-option>
               <s-option value="spend">Total spend</s-option>

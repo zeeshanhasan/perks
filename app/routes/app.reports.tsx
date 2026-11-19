@@ -146,7 +146,7 @@ export default function Reports() {
       <s-stack gap="base">
         <s-section accessibilityLabel="Overview">
           <s-stack gap="base">
-            <s-grid gridTemplateColumns="1fr auto minmax(160px, 220px)" gap="base" alignItems="center">
+            <s-grid gridTemplateColumns="@container (inline-size > 600px) 1fr auto minmax(160px, 220px), 1fr" gap="base" alignItems="center">
               <s-stack gap="small-300">
                 <s-heading>Overview</s-heading>
                 <s-text color="subdued">{period}</s-text>

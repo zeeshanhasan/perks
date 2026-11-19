@@ -245,7 +245,7 @@ export default function Home() {
 
       <s-section accessibilityLabel="Overview">
         <s-stack gap="base">
-          <s-grid gridTemplateColumns="1fr auto minmax(160px, 220px)" gap="base" alignItems="center">
+          <s-grid gridTemplateColumns="@container (inline-size > 600px) 1fr auto minmax(160px, 220px), 1fr" gap="base" alignItems="center">
             <s-heading>Overview</s-heading>
             {changingMonth ? <s-spinner size="base" accessibilityLabel="Loading month" /> : <s-box />}
             <s-select

@@ -1,8 +1,9 @@
 import db from "../db.server";
-import { gql, type AdminClient } from "./admin-graphql.server";
+import type { AdminClient } from "./admin-graphql.server";
 import { parseExempt, planPageUrl, planState, type PlanState } from "./billing";
 import { syncShopifyObjects } from "./settings.server";
 import { timed, type Timing } from "./timing.server";
+import { clearShopMemory, shopDetails } from "./shop-cache.server";
 
 // Billing through Shopify App Pricing (decision 017). Shopify hosts the plan page and charges the store;
 // the app only reads the store's plan from the Partner API and sends stores without one to the plan page.
@@ -75,22 +76,37 @@ export async function fetchActiveSubscription(cfg: BillingConfig, shopGid: strin
   };
 }
 
-export async function shopPlan(admin: AdminClient) {
-  const data = await gql<{ shop: { id: string; plan: { publicDisplayName: string; partnerDevelopment: boolean } } }>(admin, `#graphql
-    query PerksShopPlan { shop { id plan { publicDisplayName partnerDevelopment shopifyPlus } } }`);
-  return { id: data.shop.id, name: data.shop.plan.publicDisplayName, dev: data.shop.plan.partnerDevelopment };
-}
+// The live subscription is saved in the database for an hour (Shopify's Partner API is the slowest
+// call we make). The hourly sweep re-checks every store anyway, and a return from Shopify's plan page
+// (?plan_handle=) always re-checks at once. "No plan" is never saved, so a store that just subscribed
+// is let in straight away.
+export const BILLING_TTL = 60 * 60_000;
 
-// Confirmed subscriptions only, for 5 minutes (Shopify's advice): a new approval is seen at once, a cancellation within minutes.
-const cache = new Map<string, { until: number; sub: Subscription; shopifyPlan: string }>();
-const FIVE_MIN = 5 * 60 * 1000;
+/** Kept for tests: the caches now live in the database (ShopCache) plus a small memory layer. */
 export function clearBillingCache() {
-  cache.clear();
+  clearShopMemory();
 }
 
 export type BillingCheck =
   | { state: PlanState; subscription: Subscription | null; shopifyPlan: string | null; planUrl: string; billing: true }
   | { billing: false };
+
+async function savedSubscription(shop: string, now: number): Promise<Subscription | null> {
+  const row = await db.shopCache.findUnique({ where: { shop }, select: { billing: true, billingAt: true } });
+  if (!row?.billing || !row.billingAt || now - row.billingAt.getTime() >= BILLING_TTL) return null;
+  try {
+    return JSON.parse(row.billing) as Subscription;
+  } catch {
+    return null;
+  }
+}
+
+async function saveSubscription(shop: string, sub: Subscription | null, now: number) {
+  await db.shopCache.updateMany({
+    where: { shop },
+    data: sub ? { billing: JSON.stringify(sub), billingAt: new Date(now) } : { billing: null, billingAt: null },
+  });
+}
 
 /** Runs on every app page (root loader). Saves the plan, and turns perks back on if they were paused. */
 export async function checkBilling(
@@ -98,50 +114,49 @@ export async function checkBilling(
   shop: string,
   cfg = billingConfig(),
   fetchImpl: typeof fetch = fetch,
-  opts: { fresh?: boolean; timing?: Timing } = {},
+  opts: { fresh?: boolean; timing?: Timing; now?: number } = {},
 ): Promise<BillingCheck> {
   const t = opts.timing;
+  const now = opts.now ?? Date.now();
   if (!cfg.enabled || cfg.exempt.has(shop.toLowerCase())) return { billing: false };
   const planUrl = planPageUrl(shop, cfg.appHandle);
   try {
-    // Back from Shopify's plan page (it adds ?plan_handle=…): the plan just changed, so ask Shopify again.
-    if (opts.fresh) cache.delete(shop);
-    let hit = cache.get(shop);
-    if (!hit || hit.until < Date.now()) {
-      const [sp, spMs] = await timed(() => shopPlan(admin));
-      t?.add("billing.shopPlan", spMs);
-      const [sub, subMs] = await timed(() => fetchActiveSubscription(cfg, sp.id, fetchImpl));
-      t?.add("billing.partnerApi", subMs);
-      if (!sub) return { billing: true, state: { kind: "needs_plan" }, subscription: null, shopifyPlan: sp.name, planUrl };
-      hit = { until: Date.now() + FIVE_MIN, sub, shopifyPlan: sp.name };
-      cache.set(shop, hit);
-    } else {
+    const [details, dMs] = await timed(() => shopDetails(admin, shop, now));
+    t?.add("billing.shop", dMs);
+    let sub = opts.fresh ? null : await savedSubscription(shop, now);
+    if (sub) {
       t?.add("billing.cached", 0);
+    } else {
+      const [live, subMs] = await timed(() => fetchActiveSubscription(cfg, details.gid, fetchImpl));
+      t?.add("billing.partnerApi", subMs);
+      await saveSubscription(shop, live, now);
+      if (!live) return { billing: true, state: { kind: "needs_plan" }, subscription: null, shopifyPlan: details.shopifyPlan, planUrl };
+      sub = live;
     }
     const [policy, dbMs] = await timed(() => db.benefitPolicy.findUnique({ where: { shop } }));
     t?.add("billing.db", dbMs);
     const state = planState({
-      subscribedHandle: hit.sub.handle,
+      subscribedHandle: sub.handle,
       basicHandle: cfg.basicHandle,
       standardHandle: cfg.standardHandle,
-      shopifyPlan: hit.shopifyPlan,
+      shopifyPlan: details.shopifyPlan,
       planAtStart: policy?.planShopifyAtStart ?? null,
     });
     if (policy && state.kind === "ok") {
       const paused = Boolean(policy.billingPausedAt);
-      if (paused || policy.planHandle !== hit.sub.handle || !policy.planShopifyAtStart) {
+      if (paused || policy.planHandle !== sub.handle || !policy.planShopifyAtStart) {
         await db.benefitPolicy.update({
           where: { shop },
           data: {
-            planHandle: hit.sub.handle,
-            planShopifyAtStart: policy.planShopifyAtStart ?? hit.shopifyPlan,
+            planHandle: sub.handle,
+            planShopifyAtStart: policy.planShopifyAtStart ?? details.shopifyPlan,
             billingPausedAt: null,
           },
         });
         if (paused) await syncShopifyObjects(admin, shop).catch((err) => console.error("[perks] resume after plan failed", shop, err));
       }
     }
-    return { billing: true, state, subscription: hit.sub, shopifyPlan: hit.shopifyPlan, planUrl };
+    return { billing: true, state, subscription: sub, shopifyPlan: details.shopifyPlan, planUrl };
   } catch (err) {
     console.error("[perks] billing check failed (letting the store in)", shop, err);
     return { billing: false };
@@ -166,8 +181,9 @@ export async function sweepBilling(
     if (!(await db.session.findFirst({ where: { shop: p.shop, isOnline: false }, select: { id: true } }))) continue;
     try {
       const admin = await adminFor(p.shop);
-      const sp = await shopPlan(admin);
-      const sub = await fetchActiveSubscription(cfg, sp.id, fetchImpl);
+      const details = await shopDetails(admin, p.shop);
+      const sub = await fetchActiveSubscription(cfg, details.gid, fetchImpl);
+      await saveSubscription(p.shop, sub, Date.now());
       if (!sub && !p.billingPausedAt) {
         await db.benefitPolicy.update({ where: { shop: p.shop }, data: { billingPausedAt: new Date() } });
         await syncShopifyObjects(admin, p.shop);

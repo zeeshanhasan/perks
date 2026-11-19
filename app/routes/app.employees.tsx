@@ -12,6 +12,7 @@ import {
 } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
+import { RouteError } from "../components/RouteError";
 import db from "../db.server";
 import { PageHelp } from "../components/ui";
 import { merchantActor } from "../lib/admin-actor.server";
@@ -295,7 +296,7 @@ export default function Employees() {
                 slot="filters"
                 gap="small"
                 alignItems="center"
-                gridTemplateColumns="minmax(12rem, 2fr) minmax(9rem, 1fr) minmax(9rem, 1fr)"
+                gridTemplateColumns="@container (inline-size > 600px) minmax(12rem, 2fr) minmax(9rem, 1fr) minmax(9rem, 1fr), 1fr"
               >
                 <s-search-field
                   label="Search employees"
@@ -376,3 +377,7 @@ export default function Employees() {
 
 export const headers: HeadersFunction = (headersArgs) =>
   boundary.headers(headersArgs);
+
+export function ErrorBoundary() {
+  return <RouteError heading="Employees" />;
+}
