@@ -1,4 +1,4 @@
-import { formatMoney } from "../lib/business";
+import { discountValueError, formatMoney } from "../lib/business";
 
 // Pieces shared by the Edit business page and the Add business wizard, so both read the same.
 
@@ -24,6 +24,7 @@ export function GreenNote({ children }: { children: React.ReactNode }) {
 const val = (e: Event) => (e.currentTarget as unknown as { value: string }).value;
 
 export function discountSentence(discountType: string, discountValue: string, currency: string) {
+  if (discountValueError(discountType, discountValue)) return "Enter a valid discount to see what employees get.";
   return discountType === "fixed"
     ? `Employees get ${formatMoney(Number(discountValue) || 0, currency)} off every unit of a discounted product, never more than its price.`
     : `Employees get ${Number(discountValue) || 0}% off the price of every discounted product.`;
@@ -58,7 +59,7 @@ export function DiscountFields({
           max={fixed ? 1000000 : 90}
           step={fixed ? 0.01 : 1}
           suffix={fixed ? undefined : "%"}
-          error={error}
+          error={error ?? discountValueError(discountType, discountValue) ?? undefined}
         />
       </s-grid>
       <GreenNote>{discountSentence(discountType, discountValue, currency)}</GreenNote>

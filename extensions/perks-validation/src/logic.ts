@@ -12,7 +12,7 @@ export type ValidationOutput = {
 };
 
 export const BLOCK_MESSAGE =
-  "Some items in your cart are for employees of partner companies only. Log in with your work email (or verify it) to buy them, or remove them.";
+  "Some items in your cart are for employees of partner companies only. Log in with your work email to buy them, or remove them.";
 
 /**
  * Fail closed. A line is employee-only if a business's employee-only targeting matches it live,

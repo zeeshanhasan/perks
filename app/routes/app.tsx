@@ -4,6 +4,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 
 import { authenticate } from "../shopify.server";
+import db from "../db.server";
 import { AppStatus } from "../components/AppStatus";
 import { checkBilling } from "../lib/billing.server";
 import { PRICES } from "../lib/billing";
@@ -22,15 +23,28 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
   const wrongPlan =
     billing.billing && billing.state.kind === "wrong_plan"
-      ? { planUrl: billing.planUrl, shopifyPlan: billing.shopifyPlan ?? "" }
+      ? {
+          planUrl: billing.planUrl,
+          shopifyPlan: billing.shopifyPlan ?? "",
+          // Only stores with perks running are told they keep working; a new store has none yet.
+          perksLive: await hasLivePerks(session.shop),
+        }
       : null;
 
   // eslint-disable-next-line no-undef
   return { apiKey: process.env.SHOPIFY_API_KEY || "", wrongPlan };
 };
 
+async function hasLivePerks(shop: string) {
+  const [policy, businesses] = await Promise.all([
+    db.benefitPolicy.findUnique({ where: { shop }, select: { enabled: true } }),
+    db.business.count({ where: { shop, active: true, archivedAt: null } }),
+  ]);
+  return Boolean(policy?.enabled && businesses > 0);
+}
+
 /** A store on Grow or above that picked the $9 plan: explain, and send it to choose Standard. */
-function WrongPlan({ planUrl, shopifyPlan }: { planUrl: string; shopifyPlan: string }) {
+function WrongPlan({ planUrl, shopifyPlan, perksLive }: { planUrl: string; shopifyPlan: string; perksLive: boolean }) {
   return (
     <s-page heading="Choose the Standard plan">
       <s-section>
@@ -40,7 +54,7 @@ function WrongPlan({ planUrl, shopifyPlan }: { planUrl: string; shopifyPlan: str
             {shopifyPlan || "a larger Shopify plan"}, so the Standard plan (${PRICES.standard.monthly}/month) applies. Every
             feature is the same.
           </s-paragraph>
-          <s-paragraph>Your perks keep working while you switch.</s-paragraph>
+          {perksLive ? <s-paragraph>Your perks keep working while you switch.</s-paragraph> : null}
           <s-button variant="primary" onClick={() => window.open(planUrl, "_top")}>
             Choose Standard
           </s-button>

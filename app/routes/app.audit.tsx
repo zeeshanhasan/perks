@@ -195,9 +195,8 @@ export default function Audit() {
           )}
         </s-section>
         <PageHelp title="What's recorded">
-          Every settings change, business change, verification attempt and employee change. &ldquo;Blocked&rdquo; means
-          the app stopped something on purpose (for example a link opened by the wrong account); &ldquo;Failed&rdquo;
-          means something went wrong. Work emails are partly hidden and links are never stored.
+          Every settings change, business change and employee change. &ldquo;Blocked&rdquo; means the app stopped
+          something on purpose; &ldquo;Failed&rdquo; means something went wrong. Work emails are partly hidden.
         </PageHelp>
       </s-stack>
     </s-page>

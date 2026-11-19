@@ -72,7 +72,7 @@ export const pages = {
       check: true,
       eyebrow: "Employee perks",
       title: "You're all set",
-      lead: `You're logged in with a ${employerName} work email, so employee prices and products are unlocked automatically.`,
+      lead: `You're logged in with your ${employerName} work email, so employee prices and products are unlocked automatically.`,
       body: shopButton,
     }),
 

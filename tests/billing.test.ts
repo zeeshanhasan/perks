@@ -156,4 +156,16 @@ describe("hourly sweep", () => {
     expect(await sweepBilling(async () => admin, billingConfig(ENV), partner(sub("basic")).f)).toEqual({ [SHOP]: "resumed" });
     expect((await db.benefitPolicy.findUniqueOrThrow({ where: { shop: SHOP } })).billingPausedAt).toBeNull();
   });
+
+  test("a store whose token no longer works (uninstalled, session left behind) is cleared once, then skipped", async () => {
+    await db.benefitPolicy.update({ where: { shop: SHOP }, data: { discountId: "gid://shopify/DiscountAutomaticNode/1" } });
+    await db.session.deleteMany({ where: { shop: SHOP } });
+    await db.session.create({ data: { id: `offline_${SHOP}`, shop: SHOP, state: "x", isOnline: false, accessToken: "test" } });
+    const noAccess = async (): Promise<never> => {
+      throw new Response(undefined, { status: 500, statusText: "Internal Server Error" });
+    };
+    expect(await sweepBilling(noAccess, billingConfig(ENV), partner(null).f)).toEqual({ [SHOP]: "no access" });
+    expect(await db.session.count({ where: { shop: SHOP } })).toBe(0);
+    expect(await sweepBilling(noAccess, billingConfig(ENV), partner(null).f)).toEqual({});
+  });
 });
