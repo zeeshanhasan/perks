@@ -15,14 +15,21 @@ import type { SetupStep } from "../lib/setup.server";
 import { getSetup, themeEditorEmbedUrl } from "../lib/setup.server";
 import { embedStatus } from "../lib/storefront.server";
 import { authenticate } from "../shopify.server";
+import { startTiming } from "../lib/timing.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const t = startTiming("home");
+  const { admin, session } = await t.step("auth", () => authenticate.admin(request));
   const month = new URL(request.url).searchParams.get("month");
   // The theme check is the slowest call (~1 s): start it now and stream it in after the page shows.
-  const embed = embedStatus(admin).then((e) => e.on);
-  const info = await shopInfo(admin, session.shop);
-  const setup = await getSetup(session.shop, info.timezone, month);
+  const embedT = startTiming("home.theme-check", session.shop);
+  const embed = embedT.step("themeEmbed", () => embedStatus(admin)).then((e) => {
+    embedT.done();
+    return e.on;
+  });
+  const info = await t.step("shopInfo", () => shopInfo(admin, session.shop));
+  const setup = await t.step("setup", () => getSetup(session.shop, info.timezone, month));
+  t.done(`shop=${session.shop}`);
   return {
     currency: info.currency,
     months: monthOptions(new Date(), 12, info.timezone),

@@ -2,6 +2,7 @@ import db from "../db.server";
 import { gql, type AdminClient } from "./admin-graphql.server";
 import { parseExempt, planPageUrl, planState, type PlanState } from "./billing";
 import { syncShopifyObjects } from "./settings.server";
+import { timed, type Timing } from "./timing.server";
 
 // Billing through Shopify App Pricing (decision 017). Shopify hosts the plan page and charges the store;
 // the app only reads the store's plan from the Partner API and sends stores without one to the plan page.
@@ -97,8 +98,9 @@ export async function checkBilling(
   shop: string,
   cfg = billingConfig(),
   fetchImpl: typeof fetch = fetch,
-  opts: { fresh?: boolean } = {},
+  opts: { fresh?: boolean; timing?: Timing } = {},
 ): Promise<BillingCheck> {
+  const t = opts.timing;
   if (!cfg.enabled || cfg.exempt.has(shop.toLowerCase())) return { billing: false };
   const planUrl = planPageUrl(shop, cfg.appHandle);
   try {
@@ -106,13 +108,18 @@ export async function checkBilling(
     if (opts.fresh) cache.delete(shop);
     let hit = cache.get(shop);
     if (!hit || hit.until < Date.now()) {
-      const sp = await shopPlan(admin);
-      const sub = await fetchActiveSubscription(cfg, sp.id, fetchImpl);
+      const [sp, spMs] = await timed(() => shopPlan(admin));
+      t?.add("billing.shopPlan", spMs);
+      const [sub, subMs] = await timed(() => fetchActiveSubscription(cfg, sp.id, fetchImpl));
+      t?.add("billing.partnerApi", subMs);
       if (!sub) return { billing: true, state: { kind: "needs_plan" }, subscription: null, shopifyPlan: sp.name, planUrl };
       hit = { until: Date.now() + FIVE_MIN, sub, shopifyPlan: sp.name };
       cache.set(shop, hit);
+    } else {
+      t?.add("billing.cached", 0);
     }
-    const policy = await db.benefitPolicy.findUnique({ where: { shop } });
+    const [policy, dbMs] = await timed(() => db.benefitPolicy.findUnique({ where: { shop } }));
+    t?.add("billing.db", dbMs);
     const state = planState({
       subscribedHandle: hit.sub.handle,
       basicHandle: cfg.basicHandle,

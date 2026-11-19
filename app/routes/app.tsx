@@ -6,13 +6,16 @@ import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 import { checkBilling } from "../lib/billing.server";
 import { PRICES } from "../lib/billing";
+import { startTiming } from "../lib/timing.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin, session, redirect } = await authenticate.admin(request);
+  const t = startTiming("app-root");
+  const { admin, session, redirect } = await t.step("auth", () => authenticate.admin(request));
 
   // Billing (decision 017): stores without a plan go to Shopify's plan page. Off until the Partner API is set up.
   const fresh = new URL(request.url).searchParams.has("plan_handle");
-  const billing = await checkBilling(admin, session.shop, undefined, undefined, { fresh });
+  const billing = await t.step("billing", () => checkBilling(admin, session.shop, undefined, undefined, { fresh, timing: t }));
+  t.done(`shop=${session.shop} path=${new URL(request.url).pathname}`);
   if (billing.billing && billing.state.kind === "needs_plan") {
     throw redirect(billing.planUrl, { target: "_top" });
   }
