@@ -1,99 +1,147 @@
 # App Store listing and submission
 
-Updated 2026-11-16 for employee-perks-6. Copy these into the Partner Dashboard → App listing.
+Updated 2026-11-19. Copy these into Partner Dashboard → Employee Perks → Distribution → Manage submission.
+Written to Shopify's listing rules: no prices outside Pricing, no statistics or "the only/best", no reviews,
+no Shopify logo in images, field lengths checked.
 
-## Basics
+## 1. Basics
 
-- **App name:** Employee Perks
-- **Pricing (decision 017):** Shopify App Pricing, two public plans, 30-day trial on both, every feature in both:
-  - **Basic**, handle `basic`: $9/month or $90/year. Top features: "For stores on Shopify Basic or Starter", "Unlimited partner companies and employees", "Every feature included".
-  - **Standard**, handle `standard`: $19/month or $190/year. Top features: "For Grow, Advanced and Plus", "Unlimited partner companies and employees", "Every feature included".
-  - Welcome link: `/app`. Mark both plans free for partners and developers so reviewers can test.
-  - Founding stores (first 50) keep their price for life: say so in the listing description.
-- **App icon:** 1200×1200 PNG made from `public/brand/employee-perks-icon.svg`.
-- **Category:** Selling products → Discounts (secondary: Customer accounts).
+| Field | Value | Notes |
+|---|---|---|
+| App name (≤30) | **Tofo Employee Perks** (decision pending, see below) | Rule 4.1.2: lead with your own brand, not a generic phrase |
+| App icon | `docs/app-store/assets/app-icon-1200.png` | 1200×1200, square corners (Shopify rounds them) |
+| Languages | English | Only languages the app UI supports |
+| Primary category | Discounts (Selling products) | |
+| Search terms (5) | employee discount · staff discount · corporate discount · employee pricing · B2B discount | One idea per term |
+| Sales channel requirement | **Merchant must have Online Store** | Employee prices and hiding products use a theme app embed |
+| Integrations | none | Don't list Shopify itself |
 
-## Listing text
+**Name decision:** "Employee Perks" alone is a generic descriptor and risks a rejection under 4.1.2.
+Options: **Tofo Employee Perks** (recommended), or keep "Employee Perks" and risk a change request.
+The listing name and the app's TOML name must be similar ("Employee Perks" in TOML is fine with "Tofo Employee Perks").
 
-**Tagline (≤ 62 chars):** Employee discounts for partner companies, no codes
+## 2. Listing text
 
-**Introduction (≤ 100 chars):** Give partner companies' employees their own prices and products. They log in with their work email.
+**App card subtitle (≤62):**
+Give partner companies' employees their own prices and perks
 
-**Description**
+**App introduction (≤100):**
+Win corporate customers: partner employees get their discount automatically at checkout.
 
-Run a corporate perks program without codes or spreadsheets. Add a partner company with its work email domain (like acme.com) and the discount its employees get. Employees log in to your store with their work email: Shopify's login code proves it's theirs, and their discount applies at checkout.
+**App details (≤500):**
+Employee Perks lets you run a corporate perks program without discount codes. Add a partner company with its work email domain and the discount its employees get. Employees log in with their work email, see their own price while they shop, and the discount applies at checkout. Keep some products for employees only, cap each employee's discount per month or year, and invoice each company for what its employees bought.
 
-**Key features (≤ 80 chars each)**
+**Features (≤80 each):**
+1. Automatic discount for customers logged in with a partner's work email
+2. Many partner companies, each with its own discount and products
+3. Employee prices shown on product pages and collections
+4. Employee-only products, hidden from others and blocked at checkout
+5. Monthly or yearly limits on each employee's discount or spend
+6. Reports and invoices per company, as PDF and Excel
+7. A perks page on your store listing your partner companies
+8. Check any customer and see exactly why they do or don't get perks
 
-1. Automatic discounts for customers logged in with a partner's work email
-2. Employee prices in your theme and products only employees can buy
-3. Monthly or yearly limits, invoices per company, and an activity log
+## 3. Pricing (only here, never in images or text)
 
-**Feature list (detail)**
+Shopify App Pricing (already set up):
+- **Basic**, handle `basic`: $9/month or $90/year, 30-day trial. For Shopify Basic or Starter stores.
+- **Standard**, handle `standard`: $19/month or $190/year, 30-day trial. For Grow, Advanced and Plus.
+- Private `comped` plan for the two partner stores.
+- Pricing info URL: https://perks.tofoapp.com/#pricing
 
-- **Many partner companies:** each with its own domains, percentage or fixed discount, products and collections.
-- **Employee prices:** employees see their price on product pages and collections; other shoppers see the normal price.
-- **Employee-only products:** hidden from other shoppers and blocked at checkout for anyone who isn't an employee.
-- **Limits:** cap the discount or the spend per employee, every month or every year.
-- **Reports and invoices:** what each company's employees bought, with a PDF invoice and an Excel file of every item.
-- **Public perks page:** list partner companies and their discounts on your store.
-- **Full control:** check any customer, remove perks instantly, every change logged.
+Plan feature lines (≤40 characters each, or Shopify cuts them):
+| Basic | Standard |
+|---|---|
+| For Shopify Basic or Starter stores | For Shopify Grow, Advanced and Plus |
+| Unlimited companies and employees | (same) |
+| Auto discount by work email, no codes | (same) |
+| Employee prices shown in your theme | (same) |
+| Monthly or yearly limits per employee | (same) |
+| Employee-only products | (same) |
+| Invoices per company (PDF + Excel) | (same) |
 
-## URLs and contacts
+## 4. Media
 
-- Privacy policy: https://perks.tofoapp.com/privacy (the live page is the source; `privacy-policy.md` is an old draft)
-- Terms of service: https://perks.tofoapp.com/terms (draft: review first)
+**Screenshots (1600×900, 3–6, desktop, no pricing, no personal data, alt text for each):**
+1. Home with the setup steps and overview. Alt: "Employee Perks home with setup steps and this month's employee orders"
+2. Add a business: domains, discount, limit. Alt: "Adding a partner company with its email domain, discount and monthly limit"
+3. A product page in the store showing the employee price. Alt: "Store product page showing an employee their own price"
+4. Checkout with the employee discount line. Alt: "Checkout with the employee discount applied automatically"
+5. Reports with an invoice for a company. Alt: "Invoice for a partner company with each employee's orders"
+6. Check a customer. Alt: "Checking why a customer does or doesn't get employee perks"
+
+**Feature media:** optional. A 2–3 minute promotional video, or a 1600×900 image with one clear message (no Shopify logo, no prices).
+
+**Demo store URL:** https://employee-perks-demo.myshopify.com (password shown in the demo instructions).
+Demo instructions: "Store password: XXXX. Log in with any Gmail address to see employee prices: the demo company uses gmail.com as its work domain."
+
+## 5. Links and contacts
+
+- Privacy policy: https://perks.tofoapp.com/privacy
+- Terms of service: https://perks.tofoapp.com/terms (shown in Shopify's install screen)
 - Website: https://perks.tofoapp.com
+- FAQ: https://perks.tofoapp.com/#faq
 - Support email: hello@tofoapp.com (make sure it receives mail)
-- Emergency developer contact: Zeeshan's email and phone (Partner Dashboard only)
+- Emergency developer contact: done (Partner Dashboard)
 
-## Protected customer data (Partner Dashboard → API access → Protected customer data)
+## 6. Protected customer data (request access)
 
-Request Level 1 and these Level 2 fields, with these reasons:
+Tick only what the app uses. **Do not tick name, phone, address, geolocation, IP or browser data.**
 
-- **Customer data (Level 1):** match a logged-in customer to a partner company and show the merchant who gets perks.
-- **Email (Level 2):** the customer's account email domain decides which company's perks they get. Emails in the activity log are partly hidden.
-- **Orders (read_orders):** count each employee's discount and spend for monthly/yearly limits, and build the per-company report and invoice. Only the last 60 days; no `read_all_orders`.
-- Data retention: deleted on `customers/redact` and `shop/redact`; data requests answered from `customers/data_request`.
+| Data | Why |
+|---|---|
+| Customer data (Level 1) | Match a logged-in customer to a partner company and show the merchant who gets employee perks |
+| Email (Level 2) | The account email's domain decides which company's perks the customer gets. Emails in the activity log are partly hidden |
+| Orders (read_orders) | Count each employee's discount and spend for monthly/yearly limits, and build each company's report and invoice. Last 60 days only; no read_all_orders |
 
-## Screenshots (1600×900, 3–6; no browser chrome or personal data)
+Also answer: data is used only to run the merchant's perks program; never sold or shared; processed by our host only;
+encrypted in transit (HTTPS); deleted on `customers/redact` and `shop/redact` (48 hours after uninstall);
+customers' data requests answered through `customers/data_request`. Access is limited to the developer.
+(Check one thing before answering "encrypted at rest": whether Railway volumes are encrypted at rest.)
 
-1. Home: setup guide and the numbers
-2. Edit business: domains, discount, limit (green summary)
-3. Businesses list
-4. Storefront: an employee price on a product page (theme)
-5. Checkout: "Employee perks" discount applied
-6. Reports: a company's invoice (PDF view)
+## 7. Testing instructions for reviewers (paste in "Testing instructions")
 
-## Demo screencast (required, 2–3 min, English or with English captions)
+```
+Employee Perks gives employees of partner companies an automatic discount when they log in with their work email.
 
-1. Install from the dev store, approve permissions, land on Home.
-2. Add a business (domain, 15%, a monthly limit), turn on Employee mode from the Storefront page.
-3. On the store: log in with a work-email account → employee price → checkout with the discount.
-4. Log in with a personal email → normal price; an employee-only product is blocked at checkout.
-5. Reports → Create invoice → PDF and Excel.
+Test store: employee-perks-demo.myshopify.com (store password: XXXX). The app is set up there:
+- Business "Acme (demo)" with work email domain gmail.com, 15% off, limit $100 of discount per month.
+- Employee-only product: "Staff uniform".
+- Employee mode is on in the theme; the perks page is on.
 
-## Reviewer instructions (paste in "Testing instructions")
+1. Install the app on your own test store; Shopify's plan page opens. Choose Standard (free on test stores).
+2. Businesses → Add business: name "Review Co", domain gmail.com, 15% off all products. Save.
+3. Storefront → Turn on → Save in the theme editor (Employee mode).
+4. In the store (new customer accounts), log in with any Gmail address. You receive a login code.
+   Products show "Your staff price" and the discount applies at checkout ("Employee perks").
+5. Log out or use another email domain: normal prices; an employee-only product is hidden and blocked at checkout.
+6. Place a test order (Bogus Gateway). Reports shows it; Create invoice gives a PDF and an Excel file.
+7. Check a customer: type the Gmail address to see which company's perks apply.
 
-- The app needs **new customer accounts** (Settings → Customer accounts), so shoppers log in with a one-time code.
-- After install: Businesses → Add business → name "Review Co", domain `<a domain whose mailbox you give the reviewer>`, 15%.
-- Storefront page → Turn on Employee mode (opens the theme editor with the embed selected) → Save.
-- Log in on the store with an email at that domain: products show the employee price; the discount applies at checkout.
-- Log in with any other email: normal prices; employee-only products are hidden and blocked at checkout.
-- Bogus Gateway is on for test orders.
-- Give the reviewer a working inbox at the test domain (they need the login code), or a dev store with a test customer already set up.
+Billing: Basic $9 is for Shopify Basic/Starter stores; on other plans the app asks for Standard.
+Support: hello@tofoapp.com
+```
 
-## Billing setup (🧑, before submitting)
+## 8. Demo screencast (required, English, 3–5 minutes, setup + every feature)
 
-1. Partner Dashboard → app → Distribution → Manage listing → Pricing content → Settings → **Shopify App Pricing**. Create the two plans above.
-2. Partner Dashboard → Settings → Partner API clients → create one with **Manage apps**. Put in Railway (never in code): `SHOPIFY_PARTNER_ORG_ID` (the number in the Partner Dashboard URL), `SHOPIFY_PARTNER_API_ACCESS_TOKEN`, `SHOPIFY_APP_GID` (`gid://shopify/App/<number in the app's Partner Dashboard URL>`).
-3. Railway `BILLING_EXEMPT_SHOPS`: your own stores and the first client, comma separated (they never see the plan page).
-4. Billing stays off until all three Partner API values are set. Then: open the app on the dev store → the plan page shows → pick a plan (free on dev stores) → back in the app, Settings shows the plan.
+1. Install from the dev store → permissions → Shopify plan page → choose Standard → app Home.
+2. Add business: name, domain, 15% discount, monthly limit; save. Show the green summary.
+3. Storefront: Turn on Employee mode in the theme editor, Save.
+4. Employee-only product: Businesses → edit → Employee-only products → pick a product.
+5. Store: log in with a work-domain email (login code) → employee price on a product → checkout shows "Employee perks".
+6. Another email: normal price, employee-only product blocked at checkout.
+7. Reports → Create invoice → PDF and Excel.
+8. Check a customer, Activity log, Settings → Plan.
 
-## Before submitting
+## 9. Before submitting
 
-- [ ] Landing page shows no store address box (done: "Get early access" until the listing is live, App Store rule 2.3.1)
-- [ ] Run the automated checks in the Partner Dashboard
-- [ ] Storefront speed: Lighthouse with and without the Employee mode embed (must not drop the score much)
-- [ ] Protected customer data request approved
-- [ ] When the listing is live: set `APP_STORE_URL` in `app/components/PublicLayout.tsx`
+- [ ] App name decided (see 1)
+- [ ] Plan feature lines shortened (see 3)
+- [ ] Demo store set up and its password added to the demo instructions
+- [ ] Screenshots and screencast uploaded
+- [ ] Protected customer data request submitted (email only)
+- [ ] App capabilities selected: Discounts, Online Store (theme app extension), Checkout (validation), Customer accounts
+- [ ] Automated checks run (last; they expire after 30 days)
+- [ ] AI self review: Mark as done (we ran it; the only failure was fixed)
+- [ ] Submit for review
+- [ ] After approval: set `APP_STORE_URL` and `DEMO_STORE_URL` in `app/components/PublicLayout.tsx`
