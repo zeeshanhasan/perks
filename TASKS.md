@@ -135,11 +135,17 @@ employee-perks-5 (PR #3 + PR #4), 2026-11-10:
 - [ ] Store steps: open Storefront → check Employee mode is on
 - [ ] Store steps: pin the Employee perks block on the customer page
 
-## Next (in order)
+## Next (in order, from 2026-11-19)
 
-1. App Store submission (free launch): follow `docs/app-store/listing.md` (protected customer data, screenshots, screencast, reviewer instructions). Store address box removed from the landing page (rule 2.3.1)
-2. Billing ($10 flat)
-3. e2e test script
+1. 🧑 Fresh install walkthrough: new dev store + the production app (plan page included), Zeeshan gives UX feedback on onboarding and plan choice
+2. Test the app from 0 to 100 (`docs/acceptance-tests.md`), reading the `[perks] timing` logs for slow pages
+3. Fix the batch from 1–2 in one PR, including 0.2d (plan pages redesign)
+4. Set up the demo store (0.2f), then record the screencast and take the 6 screenshots (1600×900, `docs/app-store/listing.md` §4); use them in the listing, on the website gallery and in the app setup
+5. Website update: screenshots, SEO, the rest of the content
+6. Finish the submission (`docs/app-store/listing.md` §9) and submit
+7. MVS demo store: new dev store, CPL products from myvitaminstore-pk via CSV export/import (products only, no customers or orders)
+
+Later: move Railway to a US region; Built for Shopify after launch; e2e test script.
 
 ## Parked
 
