@@ -11,7 +11,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session, redirect } = await authenticate.admin(request);
 
   // Billing (decision 017): stores without a plan go to Shopify's plan page. Off until the Partner API is set up.
-  const billing = await checkBilling(admin, session.shop);
+  const fresh = new URL(request.url).searchParams.has("plan_handle");
+  const billing = await checkBilling(admin, session.shop, undefined, undefined, { fresh });
   if (billing.billing && billing.state.kind === "needs_plan") {
     throw redirect(billing.planUrl, { target: "_top" });
   }

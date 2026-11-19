@@ -99,9 +99,23 @@ describe("plan check", () => {
   });
 });
 
+  test("coming back from the plan page sees the new plan at once, not the cached one", async () => {
+    const { admin } = adminOn("Grow");
+    const first = await checkBilling(admin, SHOP, billingConfig(ENV), partner(sub("basic")).f);
+    expect(first.billing && first.state.kind).toBe("wrong_plan");
+    const cached = await checkBilling(admin, SHOP, billingConfig(ENV), partner(sub("standard")).f);
+    expect(cached.billing && cached.state.kind).toBe("wrong_plan"); // within 5 minutes: cache
+    const back = await checkBilling(admin, SHOP, billingConfig(ENV), partner(sub("standard")).f, { fresh: true });
+    expect(back.billing && back.state).toEqual({ kind: "ok", tier: "standard" });
+});
+
 describe("hourly sweep", () => {
   test("pauses the discount when the plan ends and resumes it when it's back", async () => {
     await db.benefitPolicy.update({ where: { shop: SHOP }, data: { discountId: "gid://shopify/DiscountAutomaticNode/1" } });
+    // A store without a session (uninstalled) is skipped; with one, it's checked.
+    await db.session.deleteMany({ where: { shop: SHOP } });
+    expect(await sweepBilling(async () => fakeAdmin().admin, billingConfig(ENV), partner(null).f)).toEqual({});
+    await db.session.create({ data: { id: `offline_${SHOP}`, shop: SHOP, state: "x", isOnline: false, accessToken: "test" } });
     const { admin, calls } = adminOn("Basic");
     expect(await sweepBilling(async () => admin, billingConfig(ENV), partner(null).f)).toEqual({ [SHOP]: "paused" });
     expect((await db.benefitPolicy.findUniqueOrThrow({ where: { shop: SHOP } })).billingPausedAt).not.toBeNull();

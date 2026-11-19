@@ -109,46 +109,55 @@ function SetupChecklist({ steps, embedOn, themeUrl }: { steps: Step[]; embedOn: 
         <s-paragraph>
           Give employees of partner companies discounts and products only they can buy. Takes about 3 minutes.
         </s-paragraph>
-        <s-stack gap="small-200">
-          <s-text color="subdued">
-            {doneCount} of {required.length} steps done
-          </s-text>
+        <s-grid gridTemplateColumns="1fr auto" gap="base" alignItems="center">
           <s-progress value={doneCount} max={required.length} accessibilityLabel="Setup progress" />
-        </s-stack>
-        <s-divider />
-        {all.map((step, i) => {
-          const isNext = next?.id === step.id;
-          return (
-            <s-stack key={step.id} direction="inline" gap="base" alignItems="start">
-              {step.checking ? (
-                <s-spinner size="base" accessibilityLabel="Checking your theme" />
-              ) : (
-                <s-icon
-                  type={step.done ? "check-circle-filled" : step.manual ? "circle-dashed" : "circle"}
-                  tone={step.done ? "success" : "neutral"}
-                />
-              )}
-              <s-stack gap="small-200" inlineSize="100%">
-                <s-text type="strong">
-                  {i + 1}. {step.title}
-                  {step.manual ? " (recommended)" : ""}
-                </s-text>
-                {!step.done ? <s-text color="subdued">{step.description}</s-text> : null}
-                {!step.done && !step.checking && (isNext || step.manual) ? (
-                  <s-box>
-                    <s-button
-                      variant={isNext ? "primary" : "secondary"}
-                      href={step.action.href}
-                      {...(step.action.external ? { target: "_blank" } : {})}
-                    >
-                      {step.action.label}
-                    </s-button>
-                  </s-box>
-                ) : null}
+          <s-text color="subdued">
+            {doneCount} of {required.length} done
+          </s-text>
+        </s-grid>
+        {/* Same row style as the Manage list: status icon | title + description | action or Done. */}
+        <s-stack gap="none">
+          {all.map((step, i) => {
+            const isNext = next?.id === step.id;
+            return (
+              <s-stack key={step.id} gap="none">
+                {i > 0 ? <s-divider /> : null}
+                <s-box paddingBlock="small" paddingInline="small-100">
+                  <s-grid gridTemplateColumns="auto 1fr auto" gap="base" alignItems="center">
+                    {step.checking ? (
+                      <s-spinner size="base" accessibilityLabel="Checking your theme" />
+                    ) : (
+                      <s-icon
+                        type={step.done ? "check-circle-filled" : step.manual ? "circle-dashed" : "circle"}
+                        tone={step.done ? "success" : "neutral"}
+                      />
+                    )}
+                    <s-stack gap="none">
+                      <s-text type="strong">
+                        {step.title}
+                        {step.manual ? " (recommended)" : ""}
+                      </s-text>
+                      {!step.done ? <s-text color="subdued">{step.description}</s-text> : null}
+                    </s-stack>
+                    {step.done ? (
+                      <s-badge tone="success">Done</s-badge>
+                    ) : step.checking ? (
+                      <s-box />
+                    ) : (
+                      <s-button
+                        variant={isNext ? "primary" : "secondary"}
+                        href={step.action.href}
+                        {...(step.action.external ? { target: "_blank" } : {})}
+                      >
+                        {step.action.label}
+                      </s-button>
+                    )}
+                  </s-grid>
+                </s-box>
               </s-stack>
-            </s-stack>
-          );
-        })}
+            );
+          })}
+        </s-stack>
       </s-stack>
     </s-section>
   );

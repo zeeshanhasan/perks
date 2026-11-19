@@ -92,10 +92,18 @@ export type BillingCheck =
   | { billing: false };
 
 /** Runs on every app page (root loader). Saves the plan, and turns perks back on if they were paused. */
-export async function checkBilling(admin: AdminClient, shop: string, cfg = billingConfig(), fetchImpl: typeof fetch = fetch): Promise<BillingCheck> {
+export async function checkBilling(
+  admin: AdminClient,
+  shop: string,
+  cfg = billingConfig(),
+  fetchImpl: typeof fetch = fetch,
+  opts: { fresh?: boolean } = {},
+): Promise<BillingCheck> {
   if (!cfg.enabled || cfg.exempt.has(shop.toLowerCase())) return { billing: false };
   const planUrl = planPageUrl(shop, cfg.appHandle);
   try {
+    // Back from Shopify's plan page (it adds ?plan_handle=…): the plan just changed, so ask Shopify again.
+    if (opts.fresh) cache.delete(shop);
     let hit = cache.get(shop);
     if (!hit || hit.until < Date.now()) {
       const sp = await shopPlan(admin);
@@ -147,6 +155,8 @@ export async function sweepBilling(
   const out: Record<string, string> = {};
   for (const p of policies) {
     if (cfg.exempt.has(p.shop.toLowerCase())) continue;
+    // Uninstalled stores keep their settings for 48 hours but have no session: nothing to check.
+    if (!(await db.session.findFirst({ where: { shop: p.shop, isOnline: false }, select: { id: true } }))) continue;
     try {
       const admin = await adminFor(p.shop);
       const sp = await shopPlan(admin);
