@@ -27,12 +27,13 @@ export default function Terms() {
       <main className={s.legal}>
         <div className={s.legalCard}>
           <h1>Terms of service</h1>
-          <p className={s.updated}>Last updated: 16 November 2026</p>
+          <p className={s.updated}>Last updated: 20 November 2026</p>
 
           <p>
             These terms apply when a Shopify merchant (&ldquo;you&rdquo;)
             installs or uses Employee Perks (&ldquo;the App&rdquo;), provided by
-            Tofoapp (&ldquo;we&rdquo;). By installing the App you agree to them.
+            Zeeshan Hasan, trading as Tofoapp (&ldquo;Tofoapp&rdquo;,
+            &ldquo;we&rdquo;). By installing the App you agree to them.
             If you don&apos;t agree, please don&apos;t install it, or uninstall
             it.
           </p>
@@ -93,6 +94,36 @@ export default function Terms() {
             to.
           </p>
 
+          <h2>Data processing</h2>
+          <p>
+            For your customers&apos; personal data, you are the controller and
+            we process it for you, only to run your perks program. In
+            particular, we:
+          </p>
+          <ul>
+            <li>
+              use only the customer ID, the account email and recent orders,
+              and only to decide who gets perks, apply limits, and build your
+              reports and invoices. We never sell it or use it for marketing;
+            </li>
+            <li>
+              keep it with our hosting provider only, encrypted in transit and
+              at rest, and limit access to the people who run the App;
+            </li>
+            <li>
+              delete a customer&apos;s data when Shopify sends us their
+              deletion request, and all your store&apos;s data 48 hours after
+              you uninstall;
+            </li>
+            <li>
+              help you answer customers&apos; requests to see their data;
+            </li>
+            <li>
+              tell you without undue delay, and within 72 hours, if a security
+              incident affects your customers&apos; data.
+            </li>
+          </ul>
+
           <h2>Availability and changes</h2>
           <p>
             We work to keep the App running and correct, but we can&apos;t
@@ -116,6 +147,14 @@ export default function Terms() {
             You can stop at any time by uninstalling the App. We may suspend
             access if the App is used in breach of these terms. Discounts and
             checkout rules stop working as soon as the App is uninstalled.
+          </p>
+
+          <h2>Governing law</h2>
+          <p>
+            These terms are governed by the laws of England and Wales. Before
+            going to court, we&apos;ll both try to settle any disagreement by
+            email in good faith. If that doesn&apos;t work within 30 days, the
+            courts of England and Wales will decide it.
           </p>
 
           <h2>Changes to these terms</h2>
