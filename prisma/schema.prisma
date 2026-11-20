@@ -72,6 +72,10 @@ model BenefitPolicy {
   planHandle           String?
   planShopifyAtStart   String?
   billingPausedAt      DateTime?
+  /// Last products/create|update|delete webhook, and the last sync that ran after one. The scheduler re-syncs
+  /// (once things are quiet) so the storefront's product lists include imported or edited products.
+  productsChangedAt    DateTime?
+  productsSyncedAt     DateTime?
   updatedAt            DateTime @updatedAt
 }
 
