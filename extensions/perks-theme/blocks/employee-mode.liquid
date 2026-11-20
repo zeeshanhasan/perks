@@ -79,20 +79,21 @@
 
   <style>
     .tofo-perks-hidden { display: none !important; }
-    .tofo-perks-note { border: 1px solid rgba(var(--color-foreground, 0,0,0), .15); border-radius: 8px; padding: 1.2rem 1.4rem; margin: 1.5rem 0; }
-    .tofo-perks-note strong { display: block; margin-bottom: .4rem; }
-    .tofo-perks-note p { margin: 0 0 .8rem; }
-    .tofo-perks-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem .6rem; margin: .6rem 0; font-size: 1.5rem; }
+    .tofo-perks-note { border: 1px solid rgba(var(--color-foreground, 0,0,0), .15); border-radius: 8px; padding: .8em 1em; margin: 1em 0; }
+    .tofo-perks-note strong { display: block; margin-bottom: .3em; }
+    .tofo-perks-note p { margin: 0 0 .6em; }
+    /* Sizes in em (the script also copies the theme's price size): themes set very different root sizes. */
+    .tofo-perks-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3em .5em; margin: .4em 0; font-size: 1em; line-height: 1.3; font-weight: 400; }
     .tofo-perks-price strong { font-weight: 700; }
-    .tofo-perks-price span { padding: .2rem .7rem; border-radius: 999px; font-size: 1.2rem;
+    .tofo-perks-price span { padding: .15em .6em; border-radius: 999px; font-size: .8em;
       background: {{ block.settings.badge_bg }}; color: {{ block.settings.badge_fg }}; }
-    .tofo-perks-card-price { display: block; margin-top: .3rem; font-size: 1.3rem; font-weight: 600; color: {{ block.settings.badge_fg }}; }
+    .tofo-perks-card-price { display: block; margin-top: .2em; font-size: .9em; line-height: 1.3; font-weight: 600; letter-spacing: normal; color: {{ block.settings.badge_fg }}; }
     /* Strike the amounts only, not badges like "Sold out" in the same price block. */
     .tofo-perks-strike .price-item, .tofo-perks-strike .money,
     .tofo-perks-strike:not(:has(.price-item, .money)) { text-decoration: line-through; opacity: .6; }
     /* The theme's product count includes products hidden from this shopper. */
     .tofo-perks-hiding #ProductCount, .tofo-perks-hiding #ProductCountDesktop, .tofo-perks-hiding .product-count { display: none !important; }
-    .tofo-perks-badge { display: inline-block; padding: .4rem .8rem; border-radius: 999px; font-size: 1.3rem; margin: .8rem 0;
+    .tofo-perks-badge { display: inline-block; padding: .3em .7em; border-radius: 999px; font-size: .9em; margin: .6em 0;
       background: {{ block.settings.badge_bg }}; color: {{ block.settings.badge_fg }}; }
   </style>
 
