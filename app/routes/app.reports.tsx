@@ -3,7 +3,6 @@ import { useLoaderData, useNavigate, useNavigation, useSearchParams } from "reac
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { RouteError } from "../components/RouteError";
-import { PageHelp } from "../components/ui";
 import { formatMoney } from "../lib/business";
 import { shopInfo } from "../lib/catalog.server";
 import { businessSummary, ensureInvoices, listMonthlyInvoices, refreshUnknownFulfillment } from "../lib/invoice.server";
@@ -250,12 +249,6 @@ export default function Reports() {
             </s-box>
           )}
         </s-section>
-
-        <PageHelp title="Usage and billing">
-          Every order an employee places is recorded against their business. Each business gets one invoice per month that
-          updates by itself: cancelled orders drop out, and an order&apos;s amount becomes due once it&apos;s fulfilled.
-          Choose whether a business is billed for the discount or the total spend on its page.
-        </PageHelp>
       </s-stack>
     </s-page>
   );

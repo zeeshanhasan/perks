@@ -232,9 +232,16 @@ Errors and outages (2026-11-19). The admin app is covered: offline banner, "Stil
 - [x] Bill for (discount or spend) moved to the business page
 - [x] Excel: invoice, business, email, month, order, order status, vendor, type per item
 - [x] `orders/updated` webhook keeps fulfilment and amounts current; old snapshot invoices deleted by the migration
-- [ ] Release: merge → Railway (migration runs) → `shopify app deploy --config production` (new webhook topic) → check Reports on mvs-demo (fulfil an order, cancel one)
+- [x] Release: merged, migration ran, employee-perks-15 released 2026-11-20; Reports on mvs-demo shows the cancelled order gone. 🧑 Fulfil an order on mvs-demo to see it become due
 - [x] Checked on the dev app with two fake local orders: Reports list, filters, View, Excel route (200, 2 orders), business "Monthly invoice" section. Not checked: the PDF auto-print and the file landing in Downloads (the browser pane doesn't save downloads)
 - [ ] Couldn't reproduce the Create invoice error (button is gone now)
+
+### Employees page (Zeeshan, 2026-11-20), on `feat/employees-page`
+
+- [x] Columns: Employee, Business, Joined (date + how), Orders (count + spend), Limit (used of limit, "At limit"), Status, Remove/Restore; "Perks until" and "Since" dropped
+- [x] Status tabs with counts; search, business and sort in one row
+- [x] Export to Excel (current filters)
+- [x] Help banners removed from Employees and Reports
 
 Later: move Railway to a US region; Built for Shopify after launch; e2e test script.
 
