@@ -38,11 +38,15 @@ export default function Help() {
   return (
     <s-page heading="Help">
       {/* ---------- Main column: how the app works, in the order of its pages ---------- */}
-      <s-section heading="Get started in 4 steps">
+      <s-section heading="Get started in 5 steps">
         <s-ordered-list>
           <s-list-item>
             <strong>Add a business</strong> on <s-link href="/app/businesses">Businesses</s-link>: the company name, its
             work email domains (e.g. acme.com) and the discount its employees get.
+          </s-list-item>
+          <s-list-item>
+            <strong>Turn on employee perks</strong> in <s-link href="/app/settings">Settings</s-link> and save. Until
+            then nobody gets a discount.
           </s-list-item>
           <s-list-item>
             <strong>Turn on Employee mode</strong> in your theme from the <s-link href="/app/storefront">Storefront</s-link>{" "}

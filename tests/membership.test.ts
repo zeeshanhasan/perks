@@ -5,6 +5,7 @@ import {
   reactivateMembership,
   recordDomainCustomer,
   redactCustomer,
+  redactShop,
   revokeMembership,
   sweepExpired,
 } from "../app/lib/membership.server";
@@ -85,10 +86,35 @@ describe("lifecycle (employees who verified by email link before decision 016)",
 
   test("E4: customers/redact deletes the customer's data", async () => {
     const { admin, metafields } = await verified();
+    await db.auditEvent.create({ data: { shop: SHOP, actor: `customer:${EMP}`, action: "membership.domain_join", subject: EMP, result: "ok", detail: "z***@tofoapp.com" } });
     await redactCustomer(SHOP, EMP, admin);
     expect(await db.employeeMembership.count({ where: { customerId: EMP } })).toBe(0);
     expect(await db.verificationChallenge.count({ where: { customerId: EMP } })).toBe(0);
     expect(metafields.size).toBe(0);
+    expect(await db.auditEvent.count({ where: { OR: [{ subject: EMP }, { actor: `customer:${EMP}` }] } })).toBe(0);
+  });
+
+  test("E4: customers/redact keeps order totals but drops the customer's ID and email", async () => {
+    await db.orderUsage.deleteMany();
+    await db.orderUsage.create({
+      data: {
+        shop: SHOP, orderId: "o1", orderName: "#1001", customerId: EMP, businessId: "b1",
+        processedAt: new Date(), currency: "USD", spend: 90, total: 100, discount: 10, email: "a@tofoapp.com",
+      },
+    });
+    await redactCustomer(SHOP, EMP);
+    const o = await db.orderUsage.findFirstOrThrow({ where: { orderId: "o1" } });
+    expect(o).toMatchObject({ customerId: "redacted", email: "", discount: 10 });
+    await db.orderUsage.deleteMany();
+  });
+
+  test("E3: shop/redact deletes everything for the shop, including the store cache", async () => {
+    await db.shopCache.create({ data: { shop: SHOP, shopGid: "gid://shopify/Shop/1", infoAt: new Date() } });
+    await verified();
+    await redactShop(SHOP);
+    expect(await db.shopCache.count({ where: { shop: SHOP } })).toBe(0);
+    expect(await db.employeeMembership.count({ where: { shop: SHOP } })).toBe(0);
+    expect(await db.auditEvent.count({ where: { shop: SHOP } })).toBe(0);
   });
 });
 
