@@ -10,7 +10,7 @@ import { formatMoney } from "../lib/business";
 import { shopInfo } from "../lib/catalog.server";
 import { themeEditorEmbedUrl } from "../lib/setup.server";
 import type { StorefrontOptions } from "../lib/storefront";
-import { STOREFRONT_DEFAULTS, STOREFRONT_LIMITS, storefrontFromForm } from "../lib/storefront";
+import { BADGE_COLORS, STOREFRONT_DEFAULTS, STOREFRONT_LIMITS, storefrontFromForm } from "../lib/storefront";
 import { embedStatus, getStorefront, saveStorefront } from "../lib/storefront.server";
 import { authenticate } from "../shopify.server";
 
@@ -61,7 +61,7 @@ function EmployeeModeStatus({ embed, themeUrl }: { embed: { on: boolean | null; 
           {checking
             ? "Checking your live theme…"
             : on === true
-              ? `Switched on in ${embed?.theme ?? "your live theme"}. Badge colours follow your theme (theme editor → App embeds → Employee mode).`
+              ? `Switched on in ${embed?.theme ?? "your live theme"}.`
               : on === false
                 ? "Needed for everything below. Click Turn on: it's already switched on in the theme editor, you just click Save there."
                 : "Couldn't check your theme just now. Click Check again, or open the theme editor."}
@@ -89,6 +89,7 @@ const preview = {
   image: { background: "#f1f1f1", borderRadius: 8, height: 72, marginBottom: 8 },
   title: { fontWeight: 600, marginBottom: 4 },
   muted: { color: "#8a8a8a" },
+  pill: { padding: "1px 8px", borderRadius: 999, fontSize: 12 },
   button: { display: "inline-block", marginTop: 8, padding: "6px 12px", borderRadius: 8, background: "#303030", color: "#fff", fontWeight: 600 },
 } as const;
 
@@ -184,6 +185,18 @@ export default function Storefront() {
                   )}
                 </s-stack>
               ) : null}
+              <s-grid gridTemplateColumns="1fr 1fr" gap="base">
+                <s-color-field
+                  label="Badge background"
+                  value={o.badgeBg || BADGE_COLORS.bg}
+                  onChange={(e) => set({ badgeBg: (e.currentTarget as unknown as { value: string }).value })}
+                />
+                <s-color-field
+                  label="Badge and price text"
+                  value={o.badgeFg || BADGE_COLORS.fg}
+                  onChange={(e) => set({ badgeFg: (e.currentTarget as unknown as { value: string }).value })}
+                />
+              </s-grid>
             </s-stack>
             <s-stack gap="small-200">
               <PreviewLabel>Preview: a product card, for an employee</PreviewLabel>
@@ -192,8 +205,9 @@ export default function Storefront() {
                 <div style={preview.title}>Sample product</div>
                 {o.showPrice ? (
                   <div>
+                    {o.strikePrice ? <s style={{ ...preview.muted, display: "block" }}>{full}</s> : null}
                     {word("priceLabel")} <strong>{employee}</strong>{" "}
-                    {o.strikePrice ? <s style={preview.muted}>{full}</s> : null}
+                    <span style={{ ...preview.pill, background: o.badgeBg || BADGE_COLORS.bg, color: o.badgeFg || BADGE_COLORS.fg }}>15% off</span>
                   </div>
                 ) : (
                   <div>

@@ -107,10 +107,12 @@
  function canShowPrice() {
   return P.eligible && P.enabled && P.price && P.price.show && !(P.price.type === "fixed" && !P.price.sameCurrency);
  }
- function label(cents) {
-  var pr = P.price;
-  var off = pr.type === "fixed" ? P.discountLabel : pr.value + "% off";
-  return { price: formatMoney(employeePrice(cents, pr), pr.format), off: off };
+ function fill(el, cents, from) {
+  var pr = P.price, s = document.createElement("strong"), t = document.createElement("span");
+  el.textContent = pr.text + (from ? " from " : " ");
+  s.textContent = formatMoney(employeePrice(cents, pr), pr.format);
+  t.textContent = pr.type === "fixed" ? P.discountLabel : pr.value + "% off";
+  el.appendChild(s); el.appendChild(t);
  }
  function currentVariant() {
   var input = document.querySelector('form[action*="/cart/add"] [name="id"]');
@@ -129,15 +131,7 @@
    el.id = "tofo-perks-price";
    el.className = "tofo-perks-price";
   }
-  var l = label(cents);
-  el.textContent = "";
-  el.appendChild(document.createTextNode(P.price.text + " "));
-  var strong = document.createElement("strong");
-  strong.textContent = l.price;
-  var tag = document.createElement("span");
-  tag.textContent = l.off;
-  el.appendChild(strong);
-  el.appendChild(tag);
+  fill(el, cents);
   if (priceEl) {
    el.style.fontSize = getComputedStyle(priceEl).fontSize;
    if (el.previousElementSibling !== priceEl) priceEl.insertAdjacentElement("afterend", el);
@@ -189,10 +183,9 @@
     if (!p || p.gift_card || P.price.excluded.indexOf(String(p.id)) !== -1) return;
     var priceEl = card.querySelector(".price, [class*='price']");
     if (!priceEl) return;
-    var l = label(p.price_min != null ? p.price_min : p.price);
-    var el = document.createElement("span");
-    el.className = "tofo-perks-card-price";
-    el.textContent = P.price.text + (p.price_varies ? " from " : " ") + l.price;
+    var el = document.createElement("div");
+    el.className = "tofo-perks-price tofo-perks-card-price";
+    fill(el, p.price_min != null ? p.price_min : p.price, p.price_varies);
     el.style.fontSize = getComputedStyle(priceEl).fontSize;
     priceEl.insertAdjacentElement("afterend", el);
     if (P.price.strike) priceEl.classList.add("tofo-perks-strike");
