@@ -94,14 +94,17 @@
   form.parentNode.insertBefore(el, form);
  }
  var PRICE_SELS = ["product-price .price", '[id^="price-template"] .price', ".product__price", "[data-product-price]", ".price"];
+ // The id input of the product's own cart form (every theme has one); its value follows the variant
+ var MAIN;
+ function mainForm() {
+  return MAIN || (MAIN = document.querySelector('form[action*="/cart/add"] [name="id"][value="' + P.product.variant + '"]'));
+ }
  function findProductPrice() {
-  var f = document.querySelector('form[action*="/cart/add"] [name="id"][value="' + P.product.variant + '"]');
-  var roots = [f && f.closest(".shopify-section, section"), document.querySelector("main")];
-  for (var r = 0; r < 2; r++)
-   for (var i = 0; roots[r] && i < PRICE_SELS.length; i++) {
-    var el = roots[r].querySelector(PRICE_SELS[i]);
-    if (el) return el;
-   }
+  var f = mainForm(), root = f && f.form.closest(".shopify-section, section");
+  for (var i = 0; root && i < PRICE_SELS.length; i++) {
+   var el = root.querySelector(PRICE_SELS[i]);
+   if (el) return el;
+  }
   return null;
  }
  function canShowPrice() {
@@ -115,7 +118,7 @@
   el.appendChild(s); el.appendChild(t);
  }
  function currentVariant() {
-  var input = document.querySelector('form[action*="/cart/add"] [name="id"]');
+  var input = mainForm();
   var id = input && input.value ? input.value : new URLSearchParams(location.search).get("variant");
   return id && P.product.prices[id] != null ? id : String(P.product.variant);
  }
@@ -123,7 +126,7 @@
   var cents = P.product.prices[currentVariant()];
   if (cents == null) return false;
   var priceEl = findProductPrice();
-  var form = document.querySelector(BUY);
+  var form = mainForm() ? MAIN.form : document.querySelector(BUY);
   if (!priceEl && !form) return false;
   var el = document.getElementById("tofo-perks-price");
   if (!el) {
@@ -194,7 +197,7 @@
  }
  function productPage() {
   if (!P.product.isProductPage) return;
-  var form = document.querySelector(BUY);
+  var form = mainForm() ? MAIN.form : document.querySelector(BUY);
   if (!form) return;
   var blocked = P.product.handle && P.hiddenHashes.length && window.crypto && crypto.subtle
    ? sha256(P.product.handle.toLowerCase()).then(function (d) { return P.hiddenHashes.indexOf(d) !== -1; })
