@@ -12,6 +12,9 @@ export type StorefrontOptions = {
   noticeBody: string;
   noticeButton: string;
   badgeText: string;
+  /** Pill background and accent text colour (#rrggbb). Empty = the values set in the theme editor. */
+  badgeBg: string;
+  badgeFg: string;
   /** Public page at /apps/perks listing partner companies and their discounts. Off until the merchant turns it on. */
   perksPage: boolean;
   perksPageDomains: boolean;
@@ -28,6 +31,8 @@ export const STOREFRONT_DEFAULTS: StorefrontOptions = {
   noticeBody: "This product is reserved for employees of our partner companies. Log in with your work email to buy it.",
   noticeButton: "Log in with work email",
   badgeText: "Employee discount: {discount} applied at checkout",
+  badgeBg: "",
+  badgeFg: "",
   perksPage: false,
   perksPageDomains: true,
   perksPageTitle: "Employee perks",
@@ -43,6 +48,8 @@ export const STOREFRONT_LIMITS: Record<keyof StorefrontOptions, number> = {
   noticeBody: 240,
   noticeButton: 40,
   badgeText: 80,
+  badgeBg: 7,
+  badgeFg: 7,
   perksPage: 0,
   perksPageDomains: 0,
   perksPageTitle: 60,
@@ -50,6 +57,9 @@ export const STOREFRONT_LIMITS: Record<keyof StorefrontOptions, number> = {
 };
 
 const BOOLS = ["hideProducts", "showPrice", "strikePrice", "perksPage", "perksPageDomains"] as const;
+/** Defaults used when the app has no colour saved (and in the preview). */
+export const BADGE_COLORS = { bg: "#e3f1df", fg: "#0c5132" };
+const COLORS = ["badgeBg", "badgeFg"] as const;
 const TEXTS = ["priceLabel", "noticeTitle", "noticeBody", "noticeButton", "badgeText", "perksPageTitle", "perksPageIntro"] as const;
 
 /** Parses stored JSON (or a form), falling back to defaults for anything missing or invalid. */
@@ -64,6 +74,7 @@ export function parseStorefront(raw: unknown): StorefrontOptions {
   } else if (raw && typeof raw === "object") v = raw as Record<string, unknown>;
   const out = { ...STOREFRONT_DEFAULTS };
   for (const k of BOOLS) if (typeof v[k] === "boolean") out[k] = v[k] as boolean;
+  for (const k of COLORS) if (typeof v[k] === "string" && /^#[0-9a-f]{6}$/i.test(v[k] as string)) out[k] = (v[k] as string).toLowerCase();
   for (const k of TEXTS) {
     const t = typeof v[k] === "string" ? (v[k] as string).replace(/\s+/g, " ").trim().slice(0, STOREFRONT_LIMITS[k]) : "";
     if (t) out[k] = t;
@@ -84,6 +95,7 @@ export function storefrontFromForm(form: FormData): StorefrontOptions {
   const v: Record<string, unknown> = {};
   for (const k of BOOLS) v[k] = form.get(k) === "on";
   for (const k of TEXTS) v[k] = String(form.get(k) ?? "");
+  for (const k of COLORS) v[k] = String(form.get(k) ?? "");
   return parseStorefront(v);
 }
 

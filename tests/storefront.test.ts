@@ -45,3 +45,11 @@ describe("embedEnabled", () => {
     expect(embedEnabled(old, { title: "Employee Perks", handle: "tofo-perks" })).toBe(true);
   });
 });
+
+describe("badge colours (set in the app, theme editor is the fallback)", () => {
+  it("keeps valid #rrggbb colours, lowercased, and drops anything else", () => {
+    expect(parseStorefront({ badgeBg: "#E3F1DF", badgeFg: "#0c5132" })).toMatchObject({ badgeBg: "#e3f1df", badgeFg: "#0c5132" });
+    expect(parseStorefront({ badgeBg: "red", badgeFg: "#fff" })).toMatchObject({ badgeBg: "", badgeFg: "" });
+    expect(parseStorefront("{}")).toMatchObject({ badgeBg: "", badgeFg: "" });
+  });
+});

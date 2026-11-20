@@ -120,7 +120,7 @@ Rules that always apply:
 
 **Invoice**: a document from the store to the partner company: invoice number, issue date, period, From (the store) and Bill to (the business), what is billed, and one row per employee per month (email, month, orders, products, spend, discount, billed). **Print / Save PDF**, and **Download for Excel (every item)** with one row per product bought. Issued invoices never change. It shows employees' work emails, so it should only go to that company.
 
-**Storefront**: **Employee mode** status (On/Off) with Check again and Open theme editor; **What employees see** (show their price, cross out the normal price, with a live preview); **What other shoppers see** (hide employee-only products, and the message on those product pages, with a preview). Texts are under **Edit wording**. The backup message is used on themes that hide prices; {discount} is replaced by the discount, e.g. 15% off.
+**Storefront**: **Employee mode** status (On/Off) with Check again and Open theme editor; **What employees see** (show their price, cross out the normal price, the badge colours, with a live preview); **What other shoppers see** (hide employee-only products, and the message on those product pages, with a preview). Texts are under **Edit wording**. The backup message is used on themes that hide prices; {discount} is replaced by the discount, e.g. 15% off.
 
 **Perks page**: switch **Show the perks page on my store** (badge Live/Off), the page address with **Copy link** and **View page**, Title, Intro, **Show each company's work email domains**, and a preview of the companies listed (active businesses only).
 

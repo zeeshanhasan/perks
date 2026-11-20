@@ -77,6 +77,11 @@
     {%- if my_biz.type == 'fixed' -%}{{ my_biz.value | times: 100 | money }} off{%- else -%}{{ my_biz.value }}% off{%- endif -%}
   {%- endcapture -%}
 
+  {%- comment -%} Colours: set in the app (Storefront page); the theme editor values are the fallback. {%- endcomment -%}
+  {%- assign c_bg = block.settings.badge_bg -%}
+  {%- assign c_fg = block.settings.badge_fg -%}
+  {%- if cfg.ui.badgeBg != blank -%}{%- assign c_bg = cfg.ui.badgeBg -%}{%- endif -%}
+  {%- if cfg.ui.badgeFg != blank -%}{%- assign c_fg = cfg.ui.badgeFg -%}{%- endif -%}
   <style>
     .tofo-perks-hidden { display: none !important; }
     .tofo-perks-note { border: 1px solid rgba(var(--color-foreground, 0,0,0), .15); border-radius: 8px; padding: .8em 1em; margin: 1em 0; }
@@ -86,15 +91,15 @@
     .tofo-perks-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3em .5em; margin: .4em 0; font-size: 1em; line-height: 1.3; font-weight: 400; }
     .tofo-perks-price strong { font-weight: 700; }
     .tofo-perks-price span { padding: .15em .6em; border-radius: 999px; font-size: .8em;
-      background: {{ block.settings.badge_bg }}; color: {{ block.settings.badge_fg }}; }
-    .tofo-perks-card-price { display: block; margin-top: .2em; font-size: .9em; line-height: 1.3; font-weight: 600; letter-spacing: normal; color: {{ block.settings.badge_fg }}; }
+      background: {{ c_bg }}; color: {{ c_fg }}; }
+    .tofo-perks-card-price { margin: .2em 0 0; font-size: .9em; letter-spacing: normal; }
     /* Strike the amounts only, not badges like "Sold out" in the same price block. */
     .tofo-perks-strike .price-item, .tofo-perks-strike .money,
     .tofo-perks-strike:not(:has(.price-item, .money)) { text-decoration: line-through; opacity: .6; }
     /* The theme's product count includes products hidden from this shopper. */
     .tofo-perks-hiding #ProductCount, .tofo-perks-hiding #ProductCountDesktop, .tofo-perks-hiding .product-count { display: none !important; }
     .tofo-perks-badge { display: inline-block; padding: .3em .7em; border-radius: 999px; font-size: .9em; margin: .6em 0;
-      background: {{ block.settings.badge_bg }}; color: {{ block.settings.badge_fg }}; }
+      background: {{ c_bg }}; color: {{ c_fg }}; }
   </style>
 
   <script>
@@ -144,7 +149,7 @@
   "settings": [
     { "type": "paragraph", "content": "Texts and options are set in the Employee Perks app, under Storefront. Checkout is always protected, even with this off." },
     { "type": "collection", "id": "employee_collection", "label": "Employee collection (optional)", "info": "Links to this collection are hidden from other shoppers." },
-    { "type": "header", "content": "Colours" },
+    { "type": "header", "content": "Colours (used when not set in the Employee Perks app)" },
     { "type": "color", "id": "badge_bg", "label": "Badge background", "default": "#E3F1DF" },
     { "type": "color", "id": "badge_fg", "label": "Badge text color", "default": "#0C5132" }
   ]
