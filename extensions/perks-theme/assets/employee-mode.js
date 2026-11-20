@@ -1,4 +1,4 @@
-/* Tofo Perks: Employee mode. Cosmetic only; checkout enforcement happens in Shopify Functions. */
+/* Employee mode: cosmetic only; checkout is enforced by Functions. */
 (function () {
  function employeePrice(cents, pr) {
   if (pr.type === "fixed") {
@@ -176,10 +176,11 @@
    if (a.dataset.tofoPrice) return;
    a.dataset.tofoPrice = "1";
    var h = handleOf(a);
-   if (!h || h === (P.product.handle || "").toLowerCase() && P.product.isProductPage && !a.closest(CARD)) return;
+   var own = h === (P.product.handle || "").toLowerCase() && P.product.isProductPage;
+   if (!h || own && !a.closest(CARD)) return;
    if (!cardEligible(h)) return;
    var card = a.closest(CARD);
-   if (!card || card.querySelector(".tofo-perks-card-price, #tofo-perks-price, " + BUY) || card.dataset.tofoPriced) return;
+   if (!card || card.querySelector(".tofo-perks-card-price, #tofo-perks-price") || own && card.querySelector(BUY) || card.dataset.tofoPriced) return;
    card.dataset.tofoPriced = "1";
    fetchProduct(h).then(function (p) {
     if (!p || p.gift_card || P.price.excluded.indexOf(String(p.id)) !== -1) return;
