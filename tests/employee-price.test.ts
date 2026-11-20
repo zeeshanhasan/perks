@@ -41,3 +41,14 @@ describe("theme Liquid", () => {
     expect(bad).toEqual([]);
   });
 });
+
+describe("theme block schema limits (Shopify rejects the deploy otherwise)", () => {
+  it("header settings are at most 50 characters", async () => {
+    const { readFileSync, readdirSync } = await import("fs");
+    const dir = new URL("../extensions/perks-theme/blocks/", import.meta.url);
+    for (const f of readdirSync(dir).filter((n) => n.endsWith(".liquid"))) {
+      const src = readFileSync(new URL(f, dir), "utf8");
+      for (const m of src.matchAll(/"type":\s*"header",\s*"content":\s*"([^"]*)"/g)) expect(m[1].length, `${f}: ${m[1]}`).toBeLessThanOrEqual(50);
+    }
+  });
+});
