@@ -170,6 +170,25 @@ function SetupChecklist({ steps, embedOn, themeUrl }: { steps: Step[]; embedOn: 
   );
 }
 
+/** Shown once setup is done until the first employee joins: what happens now and what to do next. */
+function LiveBanner() {
+  const navigate = useNavigate();
+  return (
+    <s-banner tone="success" heading="Employee perks are live">
+      <s-paragraph>
+        Tell your partner businesses: their employees create an account in your store with their work email and see their
+        prices right away. Nothing to install on their side.
+      </s-paragraph>
+      <s-button slot="secondary-actions" onClick={() => navigate("/app/check")}>
+        Check a customer
+      </s-button>
+      <s-button slot="secondary-actions" onClick={() => navigate("/app/perks-page")}>
+        Share the perks page
+      </s-button>
+    </s-banner>
+  );
+}
+
 export default function Home() {
   const { steps, enabled, businesses, stats, month, lastMonth, months, currency, perksPage, embed, themeUrl, canReadThemes, askPrompt } =
     useLoaderData<typeof loader>();
@@ -183,6 +202,11 @@ export default function Home() {
   const vs = (cur: number, prev: number, fmt?: (n: number) => string) => trend(cur, prev, lastMonth.label, fmt);
   const monthName = month.label.split(" ")[0];
   const nextServerStep = steps.find((s) => !s.done);
+  // A store that has never had an employee or an order: while setting up, show only the checklist (the
+  // Manage list repeats it and the numbers are all zero). Stores that paused their perks keep everything.
+  const brandNew = stats.active + stats.revoked === 0 && month.orders === 0 && lastMonth.orders === 0;
+  /** embedOn: undefined while the theme is checked, null when it couldn't be read (that step is optional then). */
+  const setupDone = (embedOn: boolean | null | undefined) => !nextServerStep && embedOn !== false;
 
   const storefrontRow = (on: boolean | null | undefined): Row => {
     const s =
@@ -222,8 +246,99 @@ export default function Home() {
     },
   ];
 
+  // A render function, not a component: a component declared here would remount on every render.
+  const homeBody = (embedOn: boolean | null | undefined) => {
+    const done = setupDone(embedOn);
+    const hideNumbers = brandNew && !done;
+    return (
+      <>
+        <SetupChecklist steps={steps} embedOn={embedOn} themeUrl={themeUrl} />
+        {done && brandNew ? <LiveBanner /> : null}
+        {hideNumbers ? null : (
+          <>
+          <s-section accessibilityLabel="Overview">
+            <s-stack gap="base">
+              <s-grid gridTemplateColumns="@container (inline-size > 600px) 1fr auto minmax(160px, 220px), 1fr" gap="base" alignItems="center">
+                <s-heading>Overview</s-heading>
+                {changingMonth ? <s-spinner size="base" accessibilityLabel="Loading month" /> : <s-box />}
+                <s-select
+                  label="Month"
+                  labelAccessibilityVisibility="exclusive"
+                  value={month.key}
+                  disabled={changingMonth}
+                  onChange={(e) => navigate(`?month=${(e.currentTarget as unknown as { value: string }).value}`)}
+                >
+                  {months.map((m) => (
+                    <s-option key={m.key} value={m.key}>
+                      {m.label}
+                    </s-option>
+                  ))}
+                </s-select>
+              </s-grid>
+              <div style={{ opacity: changingMonth ? 0.5 : 1, transition: "opacity 150ms" }}>
+                <s-grid gridTemplateColumns="repeat(auto-fit, minmax(170px, 1fr))" gap="base">
+                  <Metric
+                    id="spend"
+                    label="Employee spend"
+                    value={money(month.spend)}
+                    sub={plural(month.orders, "order")}
+                    help="What employees spent in the chosen month (after their discount), and how many orders. Cancelled orders aren't counted."
+                    change={vs(month.spend, lastMonth.spend, money)}
+                  />
+                  <Metric
+                    id="discount"
+                    label="Discount given"
+                    value={money(month.discount)}
+                    help="Total employee discount given on the chosen month's orders. This is what you can bill partner companies for in Reports."
+                    change={vs(month.discount, lastMonth.discount, money)}
+                    neutral
+                  />
+                  <Metric
+                    id="employees"
+                    label="Active employees"
+                    value={String(month.employees)}
+                    sub={`${month.newEmployees} joined`}
+                    help="Employees who can get perks now and had joined by the end of the chosen month, and how many joined in it. Removed employees aren't counted."
+                    change={vs(month.employees, lastMonth.employees)}
+                  />
+                  <Metric
+                    id="businesses"
+                    label="Active businesses"
+                    value={String(month.businesses)}
+                    help="Partner companies giving perks now that were added by the end of the chosen month. Paused and deleted ones aren't counted."
+                    change={vs(month.businesses, lastMonth.businesses)}
+                  />
+                </s-grid>
+              </div>
+            </s-stack>
+          </s-section>
+
+          <s-section heading="Manage">
+            <s-stack gap="none">
+              {rowsBefore.map((row, i) => (
+                <s-stack key={row.title} gap="none">
+                  {i > 0 ? <s-divider /> : null}
+                  <ManageRow row={row} />
+                </s-stack>
+              ))}
+              <s-divider />
+              <ManageRow row={storefrontRow(embedOn)} />
+              {rowsAfter.map((row) => (
+                <s-stack key={row.title} gap="none">
+                  <s-divider />
+                  <ManageRow row={row} />
+                </s-stack>
+              ))}
+            </s-stack>
+          </s-section>
+          </>
+        )}
+      </>
+    );
+  };
+
   return (
-    <s-page heading="Employee perks">
+    <s-page heading="Employee Perks">
       {nextServerStep ? (
         <s-button slot="primary-action" variant="primary" href={nextServerStep.action.href}>
           {nextServerStep.action.label}
@@ -237,91 +352,11 @@ export default function Home() {
         Check a customer
       </s-button>
 
-      <Suspense fallback={<SetupChecklist steps={steps} embedOn={undefined} themeUrl={themeUrl} />}>
-        <Await resolve={embed} errorElement={<SetupChecklist steps={steps} embedOn={null} themeUrl={themeUrl} />}>
-          {(on) => <SetupChecklist steps={steps} embedOn={on} themeUrl={themeUrl} />}
+      <Suspense fallback={homeBody(undefined)}>
+        <Await resolve={embed} errorElement={homeBody(null)}>
+          {(on) => homeBody(on)}
         </Await>
       </Suspense>
-
-      <s-section accessibilityLabel="Overview">
-        <s-stack gap="base">
-          <s-grid gridTemplateColumns="@container (inline-size > 600px) 1fr auto minmax(160px, 220px), 1fr" gap="base" alignItems="center">
-            <s-heading>Overview</s-heading>
-            {changingMonth ? <s-spinner size="base" accessibilityLabel="Loading month" /> : <s-box />}
-            <s-select
-              label="Month"
-              labelAccessibilityVisibility="exclusive"
-              value={month.key}
-              disabled={changingMonth}
-              onChange={(e) => navigate(`?month=${(e.currentTarget as unknown as { value: string }).value}`)}
-            >
-              {months.map((m) => (
-                <s-option key={m.key} value={m.key}>
-                  {m.label}
-                </s-option>
-              ))}
-            </s-select>
-          </s-grid>
-          <div style={{ opacity: changingMonth ? 0.5 : 1, transition: "opacity 150ms" }}>
-            <s-grid gridTemplateColumns="repeat(auto-fit, minmax(170px, 1fr))" gap="base">
-              <Metric
-                id="spend"
-                label="Employee spend"
-                value={money(month.spend)}
-                sub={plural(month.orders, "order")}
-                help="What employees spent in the chosen month (after their discount), and how many orders. Cancelled orders aren't counted."
-                change={vs(month.spend, lastMonth.spend, money)}
-              />
-              <Metric
-                id="discount"
-                label="Discount given"
-                value={money(month.discount)}
-                help="Total employee discount given on the chosen month's orders. This is what you can bill partner companies for in Reports."
-                change={vs(month.discount, lastMonth.discount, money)}
-                neutral
-              />
-              <Metric
-                id="employees"
-                label="Active employees"
-                value={String(month.employees)}
-                sub={`${month.newEmployees} joined`}
-                help="Employees who can get perks now and had joined by the end of the chosen month, and how many joined in it. Removed employees aren't counted."
-                change={vs(month.employees, lastMonth.employees)}
-              />
-              <Metric
-                id="businesses"
-                label="Active businesses"
-                value={String(month.businesses)}
-                help="Partner companies giving perks now that were added by the end of the chosen month. Paused and deleted ones aren't counted."
-                change={vs(month.businesses, lastMonth.businesses)}
-              />
-            </s-grid>
-          </div>
-        </s-stack>
-      </s-section>
-
-      <s-section heading="Manage">
-        <s-stack gap="none">
-          {rowsBefore.map((row, i) => (
-            <s-stack key={row.title} gap="none">
-              {i > 0 ? <s-divider /> : null}
-              <ManageRow row={row} />
-            </s-stack>
-          ))}
-          <s-divider />
-          <Suspense fallback={<ManageRow row={storefrontRow(undefined)} />}>
-            <Await resolve={embed} errorElement={<ManageRow row={storefrontRow(null)} />}>
-              {(on) => <ManageRow row={storefrontRow(on)} />}
-            </Await>
-          </Suspense>
-          {rowsAfter.map((row) => (
-            <s-stack key={row.title} gap="none">
-              <s-divider />
-              <ManageRow row={row} />
-            </s-stack>
-          ))}
-        </s-stack>
-      </s-section>
 
       <HelpSection prompt={askPrompt} openSidekick={openSidekick} />
 
@@ -333,7 +368,7 @@ export default function Home() {
 }
 
 export function ErrorBoundary() {
-  return <RouteError heading="Employee perks" />;
+  return <RouteError heading="Employee Perks" />;
 }
 
 export const headers: HeadersFunction = (headersArgs) => boundary.headers(headersArgs);

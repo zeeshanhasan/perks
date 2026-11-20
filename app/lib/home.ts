@@ -111,6 +111,8 @@ export type Trend = { dir: "up" | "down" | "flat"; text: string };
 export function trend(current: number, previous: number, previousLabel: string, format: (n: number) => string = String): Trend {
   const month = previousLabel.split(" ")[0];
   const diff = Math.round((current - previous) * 100) / 100;
+  // Nothing in either month (a new store): no line, "Same as October" would read like a result.
+  if (current === 0 && previous === 0) return { dir: "flat", text: "" };
   if (diff === 0) return { dir: "flat", text: `Same as ${month}` };
   return { dir: diff > 0 ? "up" : "down", text: `${diff > 0 ? "+" : "−"}${format(Math.abs(diff))} vs ${month}` };
 }

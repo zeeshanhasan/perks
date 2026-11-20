@@ -46,6 +46,29 @@ export function diagnose(i: DiagnoseInput): Diagnosis {
     checks,
   });
 
+  const domain = emailDomain(i.email);
+  const byDomain = i.businesses.find((b) => b.domains.includes(domain)) ?? null;
+  /** When an earlier step fails, still say what the email itself would match (or why it never could). */
+  const domainNote = (): Check =>
+    byDomain
+      ? {
+          status: "info",
+          title: `${domain} matches ${byDomain.name}${byDomain.active ? "" : " (paused)"}`,
+          detail: "Once the step above is fixed, they get this business's perks.",
+        }
+      : isPublicEmailDomain(domain)
+        ? {
+            status: "fail",
+            title: `Personal emails (${domain}) never get perks`,
+            detail: "Only work emails on a business's domain qualify. Ask them to use their work email.",
+          }
+        : {
+            status: "fail",
+            title: `${domain} isn't on any business`,
+            detail: "Add this domain to a business if their company is a partner.",
+            link: { label: "Open Businesses", href: "/app/businesses" },
+          };
+
   if (!i.programOn) {
     checks.push({
       status: "fail",
@@ -53,7 +76,8 @@ export function diagnose(i: DiagnoseInput): Diagnosis {
       detail: "Turn them on in Settings, and make sure at least one business is active.",
       link: { label: "Open Settings", href: "/app/settings" },
     });
-    return done(false);
+    checks.push(domainNote());
+    return done(false, byDomain?.name ?? null);
   }
   checks.push({ status: "ok", title: "Employee perks are on" });
 
@@ -63,7 +87,8 @@ export function diagnose(i: DiagnoseInput): Diagnosis {
       title: "No customer account with this email",
       detail: "They need to create an account (or log in once) with this email. Guest checkouts never get perks.",
     });
-    return done(false);
+    checks.push(domainNote());
+    return done(false, byDomain?.name ?? null);
   }
   checks.push({ status: "ok", title: "Customer account found" });
 
@@ -78,8 +103,6 @@ export function diagnose(i: DiagnoseInput): Diagnosis {
     return done(false);
   }
 
-  const domain = emailDomain(i.email);
-  const byDomain = i.businesses.find((b) => b.domains.includes(domain)) ?? null;
   const linkActive =
     m?.source === "link" && m.status === "active" && (!m.expiresAt || m.expiresAt.getTime() > i.now.getTime());
   const byLink = linkActive ? (i.businesses.find((b) => b.id === m?.businessId) ?? null) : null;

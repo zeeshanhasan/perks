@@ -35,6 +35,22 @@ describe("diagnose", () => {
     expect(last(d).title).toMatch(/No customer account/);
   });
 
+  it("program off or no account: still says which business the domain matches", () => {
+    for (const d of [diagnose({ ...base, programOn: false }), diagnose({ ...base, customer: null })]) {
+      expect(d.businessName).toBe("Acme");
+      expect(d.checks.at(-1)).toMatchObject({ status: "info", title: "acme.com matches Acme" });
+    }
+    const paused = diagnose({ ...base, customer: null, businesses: [{ ...acme, active: false }] });
+    expect(paused.checks.at(-1)!.title).toBe("acme.com matches Acme (paused)");
+  });
+
+  it("no account with a personal or unknown email: says it can't qualify", () => {
+    const gmail = diagnose({ ...base, email: "sara@gmail.com", customer: null });
+    expect(last(gmail).title).toBe("Personal emails (gmail.com) never get perks");
+    const unknown = diagnose({ ...base, email: "sara@unknown-co.com", customer: null });
+    expect(last(unknown).title).toMatch(/unknown-co.com isn't on any business/);
+  });
+
   it("revoked beats a matching domain", () => {
     const d = diagnose({ ...base, membership: { status: "revoked", source: "domain", businessId: "b1", expiresAt: null } });
     expect(d.eligible).toBe(false);

@@ -19,6 +19,7 @@ import { isPublicEmailDomain } from "../lib/domain";
 import { deleteBusiness, deleteImpact, saveBusiness } from "../lib/settings.server";
 import type { Targeting } from "../lib/targeting";
 import { EMPTY_TARGET, isEmptyTarget } from "../lib/targeting";
+import db from "../db.server";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -27,15 +28,17 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const isNew = params.id === "new";
   // The store's vendor and product type lists are the slowest part: stream them in after the page shows.
   const lists = catalogFacets(admin).then(({ vendors, types }) => ({ vendors, types }));
-  const [info, business, taken, impact, own] = await Promise.all([
+  const [info, business, taken, impact, own, policy] = await Promise.all([
     shopInfo(admin, shop),
     isNew ? null : getBusiness(shop, params.id!),
     takenDomains(shop, isNew ? undefined : params.id),
     isNew ? { employees: 0, orders: 0 } : deleteImpact(shop, params.id!),
     isNew ? ownEmailDomain(admin) : { shopName: "", ownDomain: null as string | null },
+    db.benefitPolicy.findUnique({ where: { shop }, select: { enabled: true, discountId: true } }),
   ]);
   if (!isNew && !business) throw redirect("/app/businesses");
-  return { business, currency: info.currency, lists, taken, impact, ...own };
+  const programOn = Boolean(policy?.enabled && policy.discountId);
+  return { business, currency: info.currency, lists, taken, impact, programOn, ...own };
 };
 
 const NO_LISTS = { vendors: [] as string[], types: [] as string[] };
@@ -112,7 +115,7 @@ type FormState = {
 const SAVE_BAR_ID = "business-save-bar";
 
 export default function BusinessEdit() {
-  const { business, lists, currency, shopName, ownDomain, impact, taken } = useLoaderData<typeof loader>();
+  const { business, lists, currency, shopName, ownDomain, impact, taken, programOn } = useLoaderData<typeof loader>();
   const { vendors, types } = useStreamed(lists, NO_LISTS);
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
@@ -150,10 +153,12 @@ export default function BusinessEdit() {
     if (fetcher.data?.ok) {
       setSyncFailed(Boolean(fetcher.data.warning));
       if (fetcher.data.warning) shopify.toast.show("Saved, but Shopify wasn't updated", { isError: true });
-      else shopify.toast.show(isNew ? "Business created. Perks are live." : "Business saved");
-      if (isNew && fetcher.data.id) void leave(`/app/businesses/${fetcher.data.id}`);
+      else if (!isNew) shopify.toast.show("Business saved");
+      else shopify.toast.show(programOn ? "Business created. Its employees get perks now." : "Business created. Next: turn on employee perks.");
+      // Program still off: Home shows the setup checklist with the next step.
+      if (isNew && fetcher.data.id) void leave(programOn ? `/app/businesses/${fetcher.data.id}` : "/app");
     }
-  }, [fetcher.data, shopify, isNew, leave]);
+  }, [fetcher.data, shopify, isNew, leave, programOn]);
 
 
   const save = () =>
@@ -190,6 +195,7 @@ export default function BusinessEdit() {
           types={types}
           shopName={shopName}
           ownDomain={ownDomain}
+          programOn={programOn}
           taken={taken}
           saving={saving}
           errors={errors}
@@ -227,7 +233,7 @@ export default function BusinessEdit() {
             {initial.active ? "Active" : "Paused"}
           </s-badge>
           <s-stack gap="base">
-            <s-text-field label="Name" value={f.name} onInput={input("name")} error={errors.name} placeholder="Acme Pharma" />
+            <s-text-field label="Name" value={f.name} onInput={input("name")} error={errors.name} />
             <DomainChips
               value={f.domains ? f.domains.split(/,\s*/).filter(Boolean) : []}
               onChange={(d) => set({ domains: d.join(", ") })}
