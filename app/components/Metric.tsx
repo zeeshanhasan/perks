@@ -31,16 +31,19 @@ export function Metric({
           <s-heading>{value}</s-heading>
           {sub ? <s-text color="subdued">{sub}</s-text> : null}
         </s-stack>
-        <s-stack direction="inline" gap="small-300" alignItems="center">
-          {change.dir !== "flat" ? (
-            <s-icon
-              type={change.dir === "up" ? "arrow-up" : "arrow-down"}
-              tone={neutral ? "neutral" : change.dir === "up" ? "success" : "critical"}
-              size="small"
-            />
-          ) : null}
-          <s-text color="subdued">{change.text}</s-text>
-        </s-stack>
+        {change.text ? (
+          // Grid, not an inline stack: on narrow cards the arrow wrapped onto its own line.
+          <s-grid gridTemplateColumns={change.dir !== "flat" ? "auto 1fr" : "1fr"} gap="small-300" alignItems="center">
+            {change.dir !== "flat" ? (
+              <s-icon
+                type={change.dir === "up" ? "arrow-up" : "arrow-down"}
+                tone={neutral ? "neutral" : change.dir === "up" ? "success" : "critical"}
+                size="small"
+              />
+            ) : null}
+            <s-text color="subdued">{change.text}</s-text>
+          </s-grid>
+        ) : null}
       </s-stack>
     </s-box>
   );

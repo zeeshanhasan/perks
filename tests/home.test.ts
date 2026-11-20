@@ -41,6 +41,9 @@ describe("trend", () => {
     expect(trend(2, 5, "October 2026")).toEqual({ dir: "down", text: "−3 vs October" });
     expect(trend(4, 4, "October 2026")).toEqual({ dir: "flat", text: "Same as October" });
   });
+  it("shows no line when both months are zero", () => {
+    expect(trend(0, 0, "October 2026")).toEqual({ dir: "flat", text: "" });
+  });
   it("formats money and avoids float noise", () => {
     expect(trend(0.3, 0.1, "May 2026", (n) => `PKR ${n}`)).toEqual({ dir: "up", text: "+PKR 0.2 vs May" });
   });

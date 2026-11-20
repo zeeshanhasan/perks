@@ -217,7 +217,7 @@ export default function Reports() {
               <s-table-header-row>
                 <s-table-header>Business</s-table-header>
                 <s-table-header format="numeric">Orders</s-table-header>
-                <s-table-header format="numeric">Employees</s-table-header>
+                <s-table-header format="numeric">Employees buying</s-table-header>
                 <s-table-header format="numeric">Spend</s-table-header>
                 <s-table-header format="numeric">Discount</s-table-header>
                 <s-table-header>

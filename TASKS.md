@@ -163,13 +163,13 @@ Bugs:
 UX:
 - [ ] 🧑 Install screen lists "Geolocation, IP address, browser and OS": untick them in the Partner Dashboard protected customer data form
 - [ ] 🧑 Plan page opens on yearly: make monthly the default in the Partner Dashboard (Shopify fixes the page's size and layout)
-- [ ] Home: setup card duplicates the Manage list (Zeeshan); four zero cards with "Same as October" on day one; setup card disappears with no "you're live" / next step; title "Employee perks" in lowercase
-- [ ] Add business: "Acme Pharma" placeholder looks filled in; stray grey square in the Percentage field; step 3 summary promises perks before the program is on; two coloured boxes say similar things; after Create, no pointer to the next step
+- [x] (on `feat/screenshot-pages-ux`, 2026-11-20) (new stores see only the checklist until live; then a "live" banner until the first employee joins; zero months show no trend line; title "Employee Perks") Home: setup card duplicates the Manage list (Zeeshan); four zero cards with "Same as October" on day one; setup card disappears with no "you're live" / next step; title "Employee perks" in lowercase
+- [x] (on `feat/screenshot-pages-ux`, 2026-11-20) (placeholder gone; note above the product picker is plain text; summary says it starts once perks are on; after Create with perks off, goes Home to the next step. Grey square in Percentage: not reproduced, still to look at) Add business: "Acme Pharma" placeholder looks filled in; stray grey square in the Percentage field; step 3 summary promises perks before the program is on; two coloured boxes say similar things; after Create, no pointer to the next step
 - [ ] Storefront: theme editor's embed panel still shows "Colours" and an "Employee collection" setting the app never mentions
 - [x] (fixed on `fix/fresh-install-findings`) Employees and Activity help text still describe the retired email-link verification
 - [x] (readable, 2026-11-19) Activity: settings row is raw (`enabled=true autoDomain=true months=12 excluded=0`)
-- [ ] Check a customer: only shows the problem; also say which business matches the domain
-- [ ] Reports "By business": "Employees" column means employees who bought, header doesn't say so
+- [x] (on `feat/screenshot-pages-ux`, 2026-11-20) Check a customer: only shows the problem; also say which business matches the domain
+- [x] (on `feat/screenshot-pages-ux`, 2026-11-20) (now "Employees buying") Reports "By business": "Employees" column means employees who bought, header doesn't say so
 - [ ] Help "Get started in 4 steps" leaves out "Turn on employee perks in Settings" (Home has it)
 - [ ] Customer page: Employee perks block isn't there until the merchant adds it with "+ Block"; setup never mentions it
 - [ ] Speed: first open 1.4 s (Partner API ~0.5 s); each return from the plan page re-checks the Partner API (0.35–0.86 s); later pages 5–25 ms server time. Create business took ~8 s on screen (not timed in the logs)
@@ -181,15 +181,15 @@ Storefront (2026-11-19, `tofoapp.com` added to Acme Pharma, "The 3p Fulfilled Sn
 - [x] (count hidden while products are hidden, 2026-11-19) Collection count still says "13 products" with the employee-only one hidden
 - [ ] `listing.md` reviewer steps and screencast say checkout shows "Employee perks"; it says "Employee price (15% off)"
 - [ ] Check: subscription (selling plan) price next to our badge; do the two discounts stack?
-- [ ] Reports cards: on narrow cards the ↑ arrow wraps onto its own line
+- [x] (on `feat/screenshot-pages-ux`, 2026-11-20) Reports cards: on narrow cards the ↑ arrow wraps onto its own line
 - [ ] 🧑 Check the invoice's Excel download and Print / PDF (INV-202611-001)
 
 Acceptance tests (step 2, 2026-11-19, same store). Passed: A1 (zeeshan@tofoapp.com, earlier), A3 (`x@tofoapp.co`, `x@tofoapp.com.evil.io`, `x@sub.tofoapp.com` not added), B1/B4 (15% everywhere with "All products"), C2/C3 (guest add-to-cart of an employee-only product refused with the employee-only message), D1/D3 (remove, restore), D6, E1, F1, G1 (gmail.com, duplicate domain, `hr@` → chip), G3, G4, G5, G6 (one "Employee perks"), H1–H3, I1, I3–I4, J2, J3 (invoice on screen).
 - [ ] PARKED until after launch (decided 2026-11-19; `[perks] timing sync` lines are live since PR #12, read them from real saves). Every save is slow on the server: create business 3.1–3.9 s, edit business 2.6–3.7 s, pause from the list 2.8 s, delete 2.7 s, Settings 2.6 s (page loads are 5–25 ms). It's the Shopify sync after the DB write; add `[perks] timing` to the save actions to see which call, then make the sync faster or run it after the response (decision 010 already allows "DB first, then sync")
 - [x] (fixed on `fix/fresh-install-findings`) Employee-only message at checkout still says "(or verify it)" (retired email-link wording)
-- [ ] Check a customer with a Gmail address and no account says only "No customer account"; also say personal addresses never qualify
+- [x] (on `feat/screenshot-pages-ux`, 2026-11-20) Check a customer with a Gmail address and no account says only "No customer account"; also say personal addresses never qualify
 - [x] (fixed on `fix/fresh-install-findings`) Wizard: "Only some products" with nothing chosen says "gets 10% off no products" and still lets you create; ask for at least one product
-- [ ] Create business toast says "Business saved"; should say it's created and whether perks are live
+- [x] (on `feat/screenshot-pages-ux`, 2026-11-20) (toast says created, and whether perks are live) Create business toast says "Business saved"; should say it's created and whether perks are live
 - [ ] Businesses list: switches look grey (disabled) on first load though on; a paused switch is so faint it looks disabled
 - [ ] Business page: Vendor / Product type sometimes show as text boxes with Add (fallback) instead of the dropdowns, on the same store
 - [ ] Employees: a removed employee shows "Expires: While email matches"

@@ -9,7 +9,6 @@ import {
   DISCOUNTED_PRODUCTS_NOTE,
   DiscountFields,
   EmployeeOnlyHelp,
-  GreenNote,
   LimitFields,
   limitSentence,
 } from "./BusinessFields";
@@ -42,6 +41,8 @@ type Props = {
   types: string[];
   shopName: string;
   ownDomain: string | null;
+  /** Employee perks are on in Settings (otherwise nobody gets the discount yet). */
+  programOn: boolean;
   taken: TakenDomain[];
   saving: boolean;
   errors: Record<string, string>;
@@ -53,7 +54,7 @@ const values = (e: Event) => (e.currentTarget as unknown as { values: string[] }
 
 const STEPS = ["Who gets perks", "Discount", "Products"];
 
-export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, taken, saving, errors, onSubmit }: Props) {
+export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, programOn, taken, saving, errors, onSubmit }: Props) {
   const [step, setStep] = useState(1);
   const [preset, setPreset] = useState<Preset>("partner");
   const [name, setName] = useState("");
@@ -106,6 +107,7 @@ export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, 
     } ${products}.`,
     employeeOnly && !isEmptyTarget(employeeOnlyTarget) ? "Some products are for them only." : "",
     limitSentence(limit, currency),
+    programOn ? "" : "This starts once you turn on employee perks in Settings.",
   ]
     .filter(Boolean)
     .join(" ");
@@ -154,7 +156,6 @@ export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, 
               value={name}
               onInput={(e) => setName(value(e))}
               error={errors.name}
-              placeholder="Acme Pharma"
             />
             <DomainChips value={domains} onChange={setDomains} taken={taken} error={errors.domains} />
           </s-stack>
@@ -181,7 +182,8 @@ export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, 
         <>
           <s-section heading="Discounted products">
             <s-stack gap="base">
-              <GreenNote>{DISCOUNTED_PRODUCTS_NOTE}</GreenNote>
+              {/* Plain text: a second coloured box here repeated the Summary below. */}
+              <s-text color="subdued">{DISCOUNTED_PRODUCTS_NOTE}</s-text>
               <TargetEditor
                 value={discountTarget}
                 onChange={setDiscountTarget}
