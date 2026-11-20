@@ -136,6 +136,7 @@
   el.appendChild(strong);
   el.appendChild(tag);
   if (priceEl) {
+   el.style.fontSize = getComputedStyle(priceEl).fontSize;
    if (el.previousElementSibling !== priceEl) priceEl.insertAdjacentElement("afterend", el);
    if (P.price.strike) priceEl.classList.add("tofo-perks-strike");
   } else if (el.nextElementSibling !== form) {
@@ -188,6 +189,7 @@
     var el = document.createElement("span");
     el.className = "tofo-perks-card-price";
     el.textContent = P.price.text + (p.price_varies ? " from " : " ") + l.price;
+    el.style.fontSize = getComputedStyle(priceEl).fontSize;
     priceEl.insertAdjacentElement("afterend", el);
     if (P.price.strike) priceEl.classList.add("tofo-perks-strike");
    });
