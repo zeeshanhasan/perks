@@ -31,7 +31,7 @@
  if (!P) return;
  var DEBUG = /[?&]perks_debug=1/.test(location.search);
  function debug() { if (DEBUG) console.log.apply(console, ["[Employee Perks]"].concat([].slice.call(arguments))); }
- debug("state", { eligible: P.eligible, enabled: P.enabled, product: P.product, price: P.price });
+ debug("state", P);
  var CARD = "li, .grid__item, .card-wrapper, .product-card, .product-item, .predictive-search__list-item";
  var BUY = 'form[action*="/cart/add"], product-form, .product-form, .shopify-payment-button, .product-form__buttons';
  function hex(buf) {
@@ -93,12 +93,15 @@
   el.textContent = (P.text.badge || "Employee discount: {discount} applied at checkout").replace("{discount}", P.discountLabel).replace("{percent}%", P.discountLabel);
   form.parentNode.insertBefore(el, form);
  }
- var PRICE_SELS = ['[id^="price-template"] .price', ".product__info-container .price", ".product__info-wrapper .price", ".product-single__price", ".product__price", "[data-product-price]", "main .price"];
+ var PRICE_SELS = ['[id^="price-template"] .price', ".product-single__price", ".product__price", "[data-product-price]", ".price"];
  function findProductPrice() {
-  for (var i = 0; i < PRICE_SELS.length; i++) {
-   var el = document.querySelector(PRICE_SELS[i]);
-   if (el) return el;
-  }
+  var f = document.querySelector('form[action*="/cart/add"] [name="id"][value="' + P.product.variant + '"]');
+  var roots = [f && f.closest(".shopify-section, section"), document.querySelector("main")];
+  for (var r = 0; r < 2; r++)
+   for (var i = 0; roots[r] && i < PRICE_SELS.length; i++) {
+    var el = roots[r].querySelector(PRICE_SELS[i]);
+    if (el) return el;
+   }
   return null;
  }
  function canShowPrice() {
@@ -142,7 +145,7 @@
   } else if (el.nextElementSibling !== form) {
    form.parentNode.insertBefore(el, form);
   }
-  debug("employee price shown", { variant: currentVariant(), cents: cents, priceEl: Boolean(priceEl) });
+  debug("price", cents, priceEl);
   return true;
  }
  function watchProductPrice() {
@@ -204,7 +207,7 @@
    ? sha256(P.product.handle.toLowerCase()).then(function (d) { return P.hiddenHashes.indexOf(d) !== -1; })
    : Promise.resolve(false);
   blocked.then(function (isBlocked) {
-   debug("product page", { blocked: isBlocked, discounted: P.product.discounted, canShowPrice: canShowPrice() });
+   debug("page", isBlocked, P.product.discounted, canShowPrice());
    if (isBlocked) notice(form);
    else if (P.eligible && P.enabled && P.product.discounted) {
     if (canShowPrice() && renderProductPrice()) watchProductPrice();
