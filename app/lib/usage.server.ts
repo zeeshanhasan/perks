@@ -37,11 +37,41 @@ export async function recordOrder(shop: string, payload: unknown, admin?: AdminC
       discount: o.discount,
       items,
       email: (o.email ?? "").slice(0, 255),
+      fulfillment: o.fulfillment,
+      cancelled: o.cancelled,
     },
-    update: { spend: o.spend, total: o.total, discount: o.discount, items },
+    update: { spend: o.spend, total: o.total, discount: o.discount, items, fulfillment: o.fulfillment },
   });
   if (admin) await publishUsage(admin, shop, o.customerId);
   return "recorded" as const;
+}
+
+/**
+ * orders/updated (fulfilment, edits, refunds, cancellation): keeps a recorded employee order current.
+ * Orders we never recorded are left alone: who the buyer worked for is decided once, when the order is placed.
+ */
+export async function updateOrder(shop: string, payload: unknown, admin?: AdminClient | null) {
+  const o = orderSummary(payload as Parameters<typeof orderSummary>[0]);
+  if (!o.orderId) return "skipped" as const;
+  const row = await db.orderUsage.findFirst({ where: { shop, orderId: o.orderId } });
+  if (!row) return "skipped" as const;
+  const items = orderItems(payload as Parameters<typeof orderItems>[0]);
+  const changed = row.spend !== o.spend || row.discount !== o.discount || (o.cancelled && !row.cancelled);
+  await db.orderUsage.update({
+    where: { id: row.id },
+    data: {
+      spend: o.spend,
+      total: o.total,
+      discount: o.discount,
+      fulfillment: o.fulfillment,
+      // A cancelled order stays cancelled (Shopify can't un-cancel).
+      cancelled: row.cancelled || o.cancelled,
+      ...(items.length ? { items: JSON.stringify(items) } : {}),
+    },
+  });
+  // Limits only depend on money and cancellation.
+  if (admin && changed) await publishUsage(admin, shop, row.customerId);
+  return "updated" as const;
 }
 
 /** orders/cancelled: exclude from reports and limits. */

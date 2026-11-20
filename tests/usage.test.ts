@@ -2,15 +2,17 @@
 import { beforeEach, expect, test } from "vitest";
 import db from "../app/db.server";
 import {
-  createInvoice,
   employeeRows,
-  getInvoice,
+  ensureInvoices,
+  getMonthlyInvoice,
   invoiceCsv,
+  invoiceStatus,
+  listMonthlyInvoices,
   businessSummary,
 } from "../app/lib/invoice.server";
 import { csvEscape, rangeFor } from "../app/lib/report";
 import { buildUsage, perksDiscountOf } from "../app/lib/usage";
-import { cancelOrder, recordOrder } from "../app/lib/usage.server";
+import { cancelOrder, recordOrder, updateOrder } from "../app/lib/usage.server";
 import { fakeAdmin } from "./fake-admin";
 
 const SHOP = "perks-usage.myshopify.com";
@@ -38,6 +40,8 @@ const order = (
       title: "Vitamin C",
       variant_title: "60 tabs",
       sku: "VC-60",
+      vendor: "Acme Labs",
+      product_id: 501,
       quantity: 2,
       price: "500.00",
       discount_allocations: [
@@ -175,48 +179,78 @@ test("buildUsage splits month and year", () => {
   });
 });
 
-test("summary + invoice on discount or spend, frozen after issue", async () => {
-  await recordOrder(SHOP, order(1, "a@tofoapp.com", 11), null);
-  await recordOrder(
-    SHOP,
-    order(2, "x@tofoapp.com", 12, { processed_at: "2026-11-20T10:00:00Z" }),
-    null,
-  );
+test("summary counts placed and fulfilled orders", async () => {
+  await recordOrder(SHOP, order(1, "a@tofoapp.com", 11, { fulfillment_status: "fulfilled" }), null);
+  await recordOrder(SHOP, order(2, "x@tofoapp.com", 12, { processed_at: "2026-11-20T10:00:00Z" }), null);
   await recordOrder(SHOP, order(3, "b@google.com", 13), null);
   const r = rangeFor("custom", new Date(), "2026-11-01", "2026-11-30");
   const s = await businessSummary(SHOP, r.from, r.to);
   expect(s.lines.find((l) => l.businessId === tofo)).toMatchObject({
     orders: 2,
+    fulfilled: 1,
     employees: 2,
     spend: 1700,
     discount: 300,
   });
-  expect(s.totals).toMatchObject({ orders: 3, discount: 450 });
+  expect(s.totals).toMatchObject({ orders: 3, fulfilled: 1, employees: 3, discount: 450 });
+});
 
-  const now = new Date("2026-12-01T00:00:00Z");
-  const disc = await createInvoice(SHOP, tofo, r.from, r.to, "discount", now);
-  const spend = await createInvoice(SHOP, tofo, r.from, r.to, "spend", now);
-  expect([disc.number, disc.amount, disc.orderCount]).toEqual([
-    "INV-202612-001",
-    300,
-    2,
+test("orders/updated keeps fulfilment, amounts and cancellation current; unknown orders are skipped", async () => {
+  await recordOrder(SHOP, order(1, "a@tofoapp.com", 11), null);
+  expect((await db.orderUsage.findFirst({ where: { shop: SHOP } }))!.fulfillment).toBe("unfulfilled");
+  expect(await updateOrder(SHOP, order(1, "a@tofoapp.com", 11, { fulfillment_status: "partial" }), null)).toBe("updated");
+  expect((await db.orderUsage.findFirst({ where: { shop: SHOP } }))!.fulfillment).toBe("partial");
+  await updateOrder(SHOP, order(1, "a@tofoapp.com", 11, { fulfillment_status: "fulfilled", subtotal_price: "700" }), null);
+  expect(await db.orderUsage.findFirst({ where: { shop: SHOP } })).toMatchObject({ fulfillment: "fulfilled", spend: 700 });
+  await updateOrder(SHOP, order(1, "a@tofoapp.com", 11, { cancelled_at: "2026-11-03T00:00:00Z" }), null);
+  expect((await db.orderUsage.findFirst({ where: { shop: SHOP } }))!.cancelled).toBe(true);
+  expect(await updateOrder(SHOP, order(9, "z@tofoapp.com", 19), null)).toBe("skipped");
+});
+
+test("one live invoice per business per month: due once fulfilled, cancelled orders drop out", async () => {
+  await db.business.update({ where: { id: tofo }, data: { billFor: "discount" } });
+  await recordOrder(SHOP, order(1, "a@tofoapp.com", 11, { fulfillment_status: "fulfilled" }), null);
+  await recordOrder(SHOP, order(2, "x@tofoapp.com", 12, { processed_at: "2026-11-20T10:00:00Z" }), null);
+  await recordOrder(SHOP, order(3, "b@google.com", 13), null);
+  await recordOrder(SHOP, order(4, "a@tofoapp.com", 11, { processed_at: "2026-10-05T10:00:00Z", fulfillment_status: "fulfilled" }), null);
+  await ensureInvoices(SHOP);
+  await ensureInvoices(SHOP); // idempotent
+  const now = new Date("2026-11-25T00:00:00Z");
+  const all = await listMonthlyInvoices(SHOP, {}, now);
+  expect(all.map((i) => [i.number, i.business, i.month])).toEqual([
+    ["INV-202611-001", "Tofo", "2026-11"],
+    ["INV-202611-002", "Google", "2026-11"],
+    ["INV-202610-001", "Tofo", "2026-10"],
   ]);
-  expect([spend.number, spend.amount]).toEqual(["INV-202612-002", 1700]);
+  const nov = all[0];
+  expect(nov).toMatchObject({ orders: 2, fulfilled: 1, due: 150, inProcess: 150, status: "open" });
+  expect(all[2]).toMatchObject({ due: 150, inProcess: 0, status: "ready" });
+  expect(await listMonthlyInvoices(SHOP, { businessId: tofo, fromMonth: "2026-11", toMonth: "2026-11" }, now)).toHaveLength(1);
 
-  await cancelOrder(SHOP, { id: 2 }, null); // later cancellation doesn't change issued invoices
-  const inv = (await getInvoice(SHOP, disc.id))!;
-  expect(inv.invoice.amount).toBe(300);
-  expect(inv.lines).toHaveLength(2);
+  // Fulfilled later: becomes due. Spend billing: billed on what they paid.
+  await updateOrder(SHOP, order(2, "x@tofoapp.com", 12, { processed_at: "2026-11-20T10:00:00Z", fulfillment_status: "fulfilled" }), null);
+  await db.business.update({ where: { id: tofo }, data: { billFor: "spend" } });
+  expect((await listMonthlyInvoices(SHOP, { businessId: tofo, fromMonth: "2026-11" }, now))[0]).toMatchObject({ due: 1700, inProcess: 0 });
+
+  // Cancelled: drops out, number kept.
+  await cancelOrder(SHOP, { id: 2 }, null);
+  const inv = (await getMonthlyInvoice(SHOP, nov.id, null, now))!;
+  expect(inv.invoice.number).toBe("INV-202611-001");
+  expect(inv.lines).toHaveLength(1);
+  expect(inv.due).toBe(850);
   const csv = invoiceCsv(inv, "Test Store");
-  expect(csv).toContain("INV-202612-001");
-  expect(csv).toContain("Total,,,,,,,,,,,,300.00");
-  // One row per product line, with the employee's email, never a bare customer ID.
-  expect(csv).toContain("Nov 2026,#1,2026-11-02,Vitamin C,60 tabs,VC-60,2,500.00,1000.00,150.00,850.00,150.00");
+  expect(csv).toContain("Invoice,Business,Employee email,Month,Order,Order date,Order status,Product,Variant,SKU,Vendor,Type,Quantity");
+  expect(csv).toContain("INV-202611-001,Tofo,a@tofoapp.com,November 2026,#1,2026-11-02,Fulfilled,Vitamin C,60 tabs,VC-60,Acme Labs,,2,500.00,1000.00,150.00,850.00,850.00,Yes");
   expect(csv).not.toMatch(/Customer ID/);
-  const rows = employeeRows(inv.lines, "discount");
-  expect(rows).toHaveLength(2);
-  expect(rows[0]).toMatchObject({ month: "Nov 2026", orders: 1, products: 3, discount: 150, billed: 150 });
-  expect(await getInvoice("other.myshopify.com", disc.id)).toBeNull(); // shop isolation
+  const rows = employeeRows(inv.lines, inv.billFor);
+  expect(rows).toEqual([{ employee: "a@tofoapp.com", orders: 1, fulfilled: 1, products: 3, spend: 850, discount: 150, inProcess: 0, due: 850 }]);
+  expect(await getMonthlyInvoice("other.myshopify.com", nov.id)).toBeNull(); // shop isolation
+});
+
+test("invoice status", () => {
+  expect(invoiceStatus("2026-11", 2, 1, new Date("2026-11-30T23:00:00Z"))).toBe("open");
+  expect(invoiceStatus("2026-11", 2, 1, new Date("2026-12-01T00:00:00Z"))).toBe("waiting");
+  expect(invoiceStatus("2026-11", 2, 2, new Date("2026-12-01T00:00:00Z"))).toBe("ready");
 });
 
 test("date ranges", () => {

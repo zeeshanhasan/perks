@@ -363,13 +363,13 @@ const HOW = [
   },
   {
     title: "You invoice the company (optional)",
-    text: "If the company pays for the perk, bill it for the discount or the spend.",
+    text: "If the company pays for the perk, a monthly invoice bills it for the discount or the spend.",
     ui: (
       <>
-        <p className={s.uiH}>Create invoice <span className={`${s.uiBadge} ${s.uiBadgeGrey}`}>Acme · Nov 2026</span></p>
+        <p className={s.uiH}>INV-202611-001 <span className={`${s.uiBadge} ${s.uiBadgeGrey}`}>Acme · Nov 2026</span></p>
         <div className={s.uiRow}><span className={s.uiMuted}>Employees</span><span>2</span></div>
         <div className={s.uiRow}><span className={s.uiMuted}>Orders</span><span>4</span></div>
-        <div className={s.uiRow} style={{ fontWeight: 700 }}><span>Discount to bill</span><span>$31.00</span></div>
+        <div className={s.uiRow} style={{ fontWeight: 700 }}><span>Amount due</span><span>$31.00</span></div>
         <span className={s.uiBtn}>Download PDF + Excel</span>
       </>
     ),

@@ -241,7 +241,7 @@ export default function Home() {
     {
       icon: "chart-vertical",
       title: "Reports",
-      status: plural(month.invoices, "invoice") + ` in ${monthName}`,
+      status: plural(month.orders, "employee order") + ` in ${monthName}`,
       href: "/app/reports",
     },
   ];

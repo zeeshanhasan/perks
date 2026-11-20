@@ -25,14 +25,13 @@ export function themeEditorEmbedUrl(shop: string, apiKey: string) {
  * active ones (removed employees and paused or deleted businesses don't count), joined by the month's end.
  */
 async function monthNumbers(shop: string, r: MonthRange) {
-  const [usage, employees, newEmployees, businesses, invoices] = await Promise.all([
+  const [usage, employees, newEmployees, businesses] = await Promise.all([
     businessSummary(shop, r.from, r.to),
     db.employeeMembership.count({ where: { shop, status: "active", createdAt: { lt: r.to } } }),
     db.employeeMembership.count({ where: { shop, status: "active", createdAt: { gte: r.from, lt: r.to } } }),
     db.business.count({ where: { shop, active: true, archivedAt: null, createdAt: { lt: r.to } } }),
-    db.invoice.count({ where: { shop, createdAt: { gte: r.from, lt: r.to } } }),
   ]);
-  return { ...usage.totals, employees, newEmployees, businesses, invoices, label: r.label, key: r.key };
+  return { ...usage.totals, employees, newEmployees, businesses, label: r.label, key: r.key };
 }
 
 /** Home data that comes from our database. The theme check (Employee mode) is loaded separately. */

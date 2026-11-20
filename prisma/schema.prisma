@@ -162,6 +162,8 @@ model Business {
   limitOverflow      String   @default("partial")
   billingEmail       String   @default("")
   billingAddress     String   @default("")
+  /// What its monthly invoice bills: "discount" (employee discount given) | "spend" (what employees paid)
+  billFor            String   @default("discount")
   active             Boolean  @default(true)
   /// Set when deleted. Kept so reports and invoices still show the name.
   archivedAt         DateTime?
@@ -188,6 +190,8 @@ model OrderUsage {
   /// Employee discount received on this order
   discount    Float
   cancelled   Boolean  @default(false)
+  /// Shopify fulfilment: "unfulfilled" | "partial" | "fulfilled" | "unknown" (recorded before this was tracked; looked up on the Reports page)
+  fulfillment String   @default("unknown")
   /// Line items as JSON (OrderItem[] in lib/usage.ts), for itemised invoices. "[]" for orders recorded before this existed.
   items       String   @default("[]")
   /// The customer's email on the order (fallback for the employee email on invoices)
@@ -199,26 +203,21 @@ model OrderUsage {
   @@index([shop, customerId, processedAt])
 }
 
+/// One invoice per business per month (decision 018). Only the number is stored: amounts are worked out live
+/// from OrderUsage, so cancelled orders drop out and fulfilled ones become due.
 model Invoice {
-  id          String   @id @default(cuid())
-  shop        String
-  businessId  String
-  number      String
-  periodStart DateTime
-  /// Exclusive end
-  periodEnd   DateTime
-  /// "discount" | "spend"
-  basis       String
-  amount      Float
-  orderCount  Int
-  currency    String
-  /// Frozen snapshot of billed orders (JSON), so later cancellations don't change an issued invoice
-  lines       String   @default("[]")
-  businessName String  @default("")
-  createdAt   DateTime @default(now())
+  id           String   @id @default(cuid())
+  shop         String
+  businessId   String
+  /// "2026-11"
+  month        String
+  /// INV-202611-001 (numbered in the order businesses first have orders that month)
+  number       String
+  businessName String   @default("")
+  createdAt    DateTime @default(now())
 
   @@unique([shop, number])
-  @@index([shop, businessId])
+  @@unique([shop, businessId, month])
 }
 
 

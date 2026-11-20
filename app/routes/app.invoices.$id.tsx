@@ -1,61 +1,36 @@
+import { useEffect } from "react";
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { redirect, useLoaderData } from "react-router";
+import { redirect, useLoaderData, useSearchParams } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { RouteError } from "../components/RouteError";
-import { gql } from "../lib/admin-graphql.server";
 import { formatMoney } from "../lib/business";
-import { employeeRows, getInvoice, invoiceCsv } from "../lib/invoice.server";
-import { prettyRange } from "../lib/report";
+import { STATUS_BADGE, downloadInvoiceExcel } from "../lib/invoice-ui";
+import { STATUS_LABEL, billedOf, employeeRows, getMonthlyInvoice, isDue, monthLabel } from "../lib/invoice.server";
+import { shopDetails } from "../lib/shop-details.server";
 import { authenticate } from "../shopify.server";
-
-type ShopDetails = { name: string; email: string; address: string[] };
-
-/** The store's name, email and address for the "From" block. Falls back to the shop domain. */
-async function shopDetails(admin: Parameters<typeof gql>[0], shop: string): Promise<ShopDetails> {
-  try {
-    const data = await gql<{
-      shop: {
-        name: string;
-        email: string;
-        shopAddress: { address1: string | null; address2: string | null; city: string | null; province: string | null; zip: string | null; country: string | null } | null;
-      };
-    }>(admin, `#graphql
-      query PerksInvoiceShop {
-        shop {
-          name
-          email
-          shopAddress { address1 address2 city province zip country }
-        }
-      }`);
-    const a = data.shop.shopAddress;
-    const address = a
-      ? [a.address1, a.address2, [a.city, a.province, a.zip].filter(Boolean).join(", "), a.country].filter((x): x is string => Boolean(x))
-      : [];
-    return { name: data.shop.name || shop, email: data.shop.email, address };
-  } catch {
-    return { name: shop, email: "", address: [] };
-  }
-}
 
 const DATE = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
-  const [data, from] = await Promise.all([getInvoice(session.shop, params.id!), shopDetails(admin, session.shop)]);
+  // No admin here: item details (vendor, type) are only needed for Excel, and fetching them would slow the page.
+  const [data, from] = await Promise.all([getMonthlyInvoice(session.shop, params.id!), shopDetails(admin, session.shop)]);
   if (!data) throw redirect("/app/reports");
-  const { invoice, business, lines } = data;
-  const rows = employeeRows(lines, invoice.basis);
+  const { invoice, business, lines, billFor } = data;
+  const rows = employeeRows(lines, billFor);
   return {
     from,
-    csv: invoiceCsv(data, from.name),
     invoice: {
+      id: invoice.id,
       number: invoice.number,
-      issued: DATE.format(invoice.createdAt),
-      period: prettyRange(invoice.periodStart, invoice.periodEnd),
-      basis: invoice.basis,
-      amount: invoice.amount,
-      currency: invoice.currency,
-      orders: invoice.orderCount,
+      month: monthLabel(invoice.month),
+      issued: DATE.format(new Date()),
+      billFor,
+      currency: data.currency,
+      due: data.due,
+      inProcess: data.inProcess,
+      status: data.status,
     },
     billTo: {
       name: business?.name ?? invoice.businessName,
@@ -63,8 +38,17 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       billingAddress: business?.billingAddress ?? "",
     },
     rows,
+    orders: lines.map((l) => ({
+      name: l.orderName,
+      date: l.date,
+      employee: l.email || "Employee (email not recorded)",
+      status: STATUS_LABEL[l.fulfillment] ?? l.fulfillment,
+      due: isDue(l),
+      billed: billedOf(billFor, l),
+    })),
     totals: {
-      employees: new Set(rows.map((r) => r.employee)).size,
+      employees: rows.length,
+      orders: lines.length,
       products: rows.reduce((s, r) => s + r.products, 0),
       spend: rows.reduce((s, r) => s + r.spend, 0),
       discount: rows.reduce((s, r) => s + r.discount, 0),
@@ -96,21 +80,26 @@ const CSS = `
 #perks-invoice tfoot td { border-bottom: none; font-weight: 600; }
 #perks-invoice .due td { font-size: 15px; border-top: 2px solid #1a1a1a; }
 #perks-invoice .foot { margin-top: 24px; }
+#perks-invoice h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #6b6b6b; margin: 28px 0 4px; }
+#perks-invoice .pending { color: #8a6116; }
 `;
 
 export default function InvoicePage() {
-  const { from, invoice, billTo, rows, totals, csv } = useLoaderData<typeof loader>();
+  const { from, invoice, billTo, rows, orders, totals } = useLoaderData<typeof loader>();
+  const shopify = useAppBridge();
+  const [params] = useSearchParams();
   const money = (n: number) => formatMoney(n, invoice.currency);
-  const onSpend = invoice.basis === "spend";
+  const onSpend = invoice.billFor === "spend";
+  const badge = STATUS_BADGE[invoice.status];
+  const waiting = orders.filter((o) => !o.due).length;
 
-  const download = () => {
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }); // BOM so Excel reads it as UTF-8
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${invoice.number}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
+  // "PDF" from the Reports list opens this page with ?print=1.
+  useEffect(() => {
+    if (params.get("print") === "1") setTimeout(() => window.print(), 300);
+  }, [params]);
+
+  const download = () =>
+    downloadInvoiceExcel(invoice.id, invoice.number).catch(() => shopify.toast.show("Couldn't download the Excel file. Try again.", { isError: true }));
 
   return (
     <s-page heading={`Invoice ${invoice.number}`}>
@@ -118,12 +107,23 @@ export default function InvoicePage() {
       <s-link slot="breadcrumb-actions" href="/app/reports">
         Reports
       </s-link>
+      <s-badge slot="accessory" tone={badge.tone}>
+        {badge.label}
+      </s-badge>
       <s-button slot="primary-action" variant="primary" icon="print" onClick={() => window.print()}>
         Print / Save PDF
       </s-button>
       <s-button slot="secondary-actions" icon="export" onClick={download}>
-        Download for Excel (every item)
+        Download Excel
       </s-button>
+
+      {invoice.status !== "ready" ? (
+        <s-banner tone={invoice.status === "open" ? "info" : "warning"}>
+          {invoice.status === "open"
+            ? `This invoice keeps updating until ${invoice.month} is over: new orders are added, cancelled ones drop out.`
+            : `${waiting} order${waiting === 1 ? " isn't" : "s aren't"} fulfilled yet. ${waiting === 1 ? "It's" : "They're"} added to the amount due once fulfilled.`}
+        </s-banner>
+      ) : null}
 
       <s-section>
         <div id="perks-invoice">
@@ -135,10 +135,10 @@ export default function InvoicePage() {
             <dl className="meta">
               <dt>Invoice no.</dt>
               <dd>{invoice.number}</dd>
-              <dt>Issue date</dt>
+              <dt>Date</dt>
               <dd>{invoice.issued}</dd>
-              <dt>Period</dt>
-              <dd>{invoice.period}</dd>
+              <dt>Month</dt>
+              <dd>{invoice.month}</dd>
             </dl>
           </div>
 
@@ -162,35 +162,33 @@ export default function InvoicePage() {
           <div className="note">
             {billTo.name}&apos;s employees shop at {from.name} with an employee discount, as part of your employee perks
             agreement. This invoice is for{" "}
-            <strong>
-              {onSpend ? "the total your employees spent" : "the discount your employees received"}
-            </strong>{" "}
-            on {invoice.orders} order{invoice.orders === 1 ? "" : "s"} placed between {invoice.period}. The table below shows each
-            employee by month; the attached spreadsheet lists every item they bought.
+            <strong>{onSpend ? "the total your employees spent" : "the discount your employees received"}</strong> in{" "}
+            {invoice.month}. Orders are due once they&apos;re fulfilled; cancelled orders aren&apos;t billed. The attached
+            spreadsheet lists every item.
           </div>
 
           <table>
             <thead>
               <tr>
                 <th>Employee</th>
-                <th>Month</th>
                 <th className="num">Orders</th>
                 <th className="num">Products</th>
                 <th className="num">Spend</th>
                 <th className="num">Discount</th>
-                <th className="num">Billed</th>
+                <th className="num">In process</th>
+                <th className="num">Due</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={`${r.month} ${r.employee}`}>
+                <tr key={r.employee}>
                   <td>{r.employee}</td>
-                  <td>{r.month}</td>
                   <td className="num">{r.orders}</td>
                   <td className="num">{r.products || "—"}</td>
                   <td className="num">{money(r.spend)}</td>
                   <td className="num">{money(r.discount)}</td>
-                  <td className="num">{money(r.billed)}</td>
+                  <td className="num">{r.inProcess ? money(r.inProcess) : "—"}</td>
+                  <td className="num">{money(r.due)}</td>
                 </tr>
               ))}
             </tbody>
@@ -199,18 +197,42 @@ export default function InvoicePage() {
                 <td>
                   {totals.employees} employee{totals.employees === 1 ? "" : "s"}
                 </td>
-                <td />
-                <td className="num">{invoice.orders}</td>
+                <td className="num">{totals.orders}</td>
                 <td className="num">{totals.products || "—"}</td>
                 <td className="num">{money(totals.spend)}</td>
                 <td className="num">{money(totals.discount)}</td>
-                <td className="num">{money(invoice.amount)}</td>
+                <td className="num">{invoice.inProcess ? money(invoice.inProcess) : "—"}</td>
+                <td className="num">{money(invoice.due)}</td>
               </tr>
               <tr className="due">
                 <td colSpan={6}>Amount due</td>
-                <td className="num">{money(invoice.amount)}</td>
+                <td className="num">{money(invoice.due)}</td>
               </tr>
             </tfoot>
+          </table>
+
+          <h2>Orders</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Date</th>
+                <th>Employee</th>
+                <th>Status</th>
+                <th className="num">Billed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((o) => (
+                <tr key={o.name}>
+                  <td>{o.name}</td>
+                  <td>{o.date}</td>
+                  <td>{o.employee}</td>
+                  <td className={o.due ? undefined : "pending"}>{o.status}</td>
+                  <td className="num">{money(o.billed)}</td>
+                </tr>
+              ))}
+            </tbody>
           </table>
 
           <div className="foot muted">
