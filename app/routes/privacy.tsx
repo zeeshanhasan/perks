@@ -24,10 +24,10 @@ export default function Privacy() {
       <main className={s.legal}>
         <div className={s.legalCard}>
           <h1>Employee Perks: Privacy policy</h1>
-          <p className={s.updated}>Last updated: 17 November 2026</p>
+          <p className={s.updated}>Last updated: 20 November 2026</p>
 
           <p>
-            Employee Perks (&ldquo;the App&rdquo;) is provided by Tofoapp to
+            Employee Perks (&ldquo;the App&rdquo;) is provided by Zeeshan Hasan, trading as Tofoapp, to
             Shopify merchants. This policy explains what the App collects when a
             merchant installs it, and how that data is used.
           </p>
@@ -88,8 +88,9 @@ export default function Privacy() {
           <h2>Retention and deletion</h2>
           <ul>
             <li>
-              Customer data is deleted when Shopify sends a customer redaction
-              request.
+              A customer&apos;s data is deleted when Shopify sends a customer
+              redaction request. Their past orders keep only the amounts, without
+              their ID or email, so the merchant&apos;s invoice totals stay right.
             </li>
             <li>
               All store data is deleted 48 hours after the app is uninstalled,

@@ -5,14 +5,13 @@ import s from "./public.module.css";
 // Shared footer and theme for the public site (perks.tofoapp.com): landing, privacy, terms.
 
 export const CONTACT_EMAIL = "hello@tofoapp.com";
-/** The App Store listing, once it's live. Until then the main button asks for early access by email. */
+/** The App Store listing, once it's live. Until then the Install button opens a note with how to get it. */
 export const APP_STORE_URL: string | null = null;
-/** A live store to try it on (password shown on the page if it has one). Until set, "View demo store" opens How it works. */
-export const DEMO_STORE_URL: string | null = null;
+/** A live store to try it on, as a shopper. Its password is public on purpose (it only keeps search engines out). */
+export const DEMO_STORE_URL: string | null = "https://employee-perks-demo.myshopify.com";
+export const DEMO_STORE_PASSWORD = "ugenti";
 export const SITE_URL = "https://perks.tofoapp.com";
 export const ICON = "/brand/employee-perks-icon.svg";
-
-export const earlyAccessMail = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Early access: Employee Perks")}`;
 
 /** Icon for the public pages. Text uses Inter, already loaded by the root layout. */
 export const publicLinks: LinksFunction = () => [
@@ -20,14 +19,14 @@ export const publicLinks: LinksFunction = () => [
   { rel: "apple-touch-icon", href: ICON },
 ];
 
-/** Main call to action: the App Store when listed, otherwise early access by email (never a store address box). */
+/** Main call to action: the App Store listing once it's live; until then a panel on the page explains how to get it. */
 export function primaryCta(source: string) {
   if (APP_STORE_URL)
     return {
       href: `${APP_STORE_URL}?utm_source=${encodeURIComponent(source)}`,
       label: "Get it on the Shopify App Store",
     };
-  return { href: earlyAccessMail, label: "Get early access" };
+  return { href: "#install", label: "Install on Shopify" };
 }
 
 /** Set the saved theme before the page paints, so dark mode never flashes light. */

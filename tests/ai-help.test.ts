@@ -20,7 +20,14 @@ describe("AI help links", () => {
     expect(aiPrompt("https://perks.tofoapp.com/llms.txt").length).toBeLessThan(200);
   });
 
-  it("guide has no store-specific details", () => {
-    expect(AI_GUIDE).not.toMatch(/myshopify\.com|perks-frtekwck/);
+  it("guide has no store-specific details (only the public demo store)", () => {
+    const others = AI_GUIDE.replaceAll("employee-perks-demo.myshopify.com", "");
+    expect(others).not.toMatch(/myshopify\.com|perks-frtekwck/);
+  });
+
+  it("guide covers pre-sales, support and setup", () => {
+    for (const t of ["30-day free trial", "hello@tofoapp.com", "Settings → switch **Employee perks** on", "Is it right for my store?", "no reviews"])
+      expect(AI_GUIDE).toContain(t);
+    expect(AI_GUIDE).not.toMatch(/first 50|founding/i);
   });
 });
