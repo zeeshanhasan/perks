@@ -93,7 +93,7 @@
   el.textContent = (P.text.badge || "Employee discount: {discount} applied at checkout").replace("{discount}", P.discountLabel).replace("{percent}%", P.discountLabel);
   form.parentNode.insertBefore(el, form);
  }
- var PRICE_SELS = ['[id^="price-template"] .price', ".product-single__price", ".product__price", "[data-product-price]", ".price"];
+ var PRICE_SELS = ["product-price .price", '[id^="price-template"] .price', ".product__price", "[data-product-price]", ".price"];
  function findProductPrice() {
   var f = document.querySelector('form[action*="/cart/add"] [name="id"][value="' + P.product.variant + '"]');
   var roots = [f && f.closest(".shopify-section, section"), document.querySelector("main")];
