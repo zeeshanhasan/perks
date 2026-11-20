@@ -27,3 +27,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      # Shopify's own checks for the theme app extension (Liquid, schema). Limits Shopify only enforces at
+      # release (script size, header length) are covered by tests/employee-price.test.ts.
+      - name: Theme check (theme app extension)
+        run: npx --yes @shopify/cli@5.0.2 theme check --path extensions/perks-theme --fail-level error
