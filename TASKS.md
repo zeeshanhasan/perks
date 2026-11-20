@@ -225,6 +225,17 @@ Errors and outages (2026-11-19). The admin app is covered: offline banner, "Stil
 - [ ] 🧑 Check a product page on mvs-demo and employee-perks-demo after employee-perks-14
 - [ ] Storefront script is at ~9.9 of 10 KB: minify or move code before the next storefront feature
 
+### Reports review (Zeeshan, 2026-11-20), on `feat/monthly-invoices` (decision 018)
+
+- [x] Reports: dropped the Overview cards (Home has them); "Usage by business" with Orders placed / Orders fulfilled / Employees buying / Spend / Discount and a Total row; no Create invoice button
+- [x] Monthly invoices: one per business per month, live (cancelled orders drop out, due once fulfilled, rest "In process"), filters business + month, View / Excel / PDF per row
+- [x] Bill for (discount or spend) moved to the business page
+- [x] Excel: invoice, business, email, month, order, order status, vendor, type per item
+- [x] `orders/updated` webhook keeps fulfilment and amounts current; old snapshot invoices deleted by the migration
+- [ ] Release: merge → Railway (migration runs) → `shopify app deploy --config production` (new webhook topic) → check Reports on mvs-demo (fulfil an order, cancel one)
+- [x] Checked on the dev app with two fake local orders: Reports list, filters, View, Excel route (200, 2 orders), business "Monthly invoice" section. Not checked: the PDF auto-print and the file landing in Downloads (the browser pane doesn't save downloads)
+- [ ] Couldn't reproduce the Create invoice error (button is gone now)
+
 Later: move Railway to a US region; Built for Shopify after launch; e2e test script.
 
 ## Parked

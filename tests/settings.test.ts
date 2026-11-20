@@ -25,6 +25,7 @@ const tofo: BusinessInput = {
   limitOverflow: "partial",
   billingEmail: "hr@tofoapp.com",
   billingAddress: "",
+  billFor: "discount",
   active: true,
 };
 const google: BusinessInput = { ...tofo, name: "Google", domains: ["google.com"], discountType: "fixed", discountValue: 200, employeeOnlyTarget: EMPTY_TARGET, limitPeriod: "none", limitAmount: null };

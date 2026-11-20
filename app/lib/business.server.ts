@@ -73,6 +73,7 @@ export function businessData(i: BusinessInput) {
     limitOverflow: i.limitOverflow,
     billingEmail: i.billingEmail,
     billingAddress: i.billingAddress,
+    billFor: i.billFor,
     active: i.active,
   };
 }

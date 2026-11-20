@@ -33,6 +33,7 @@ export type WizardValues = {
   limitAmount: string;
   limitOverflow: string;
   billingEmail: string;
+  billFor: string;
 };
 
 type Props = {
@@ -128,6 +129,7 @@ export function BusinessWizard({ currency, vendors, types, shopName, ownDomain, 
       ...limit,
       limitAmount: limit.limitPeriod === "none" ? "" : limit.limitAmount,
       billingEmail: "",
+      billFor: "discount",
     });
   };
 

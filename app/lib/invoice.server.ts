@@ -2,8 +2,8 @@ import db from "../db.server";
 import type { AdminClient } from "./admin-graphql.server";
 import { gql } from "./admin-graphql.server";
 import type { OrderItem } from "./usage";
-import { PERKS_DISCOUNT_TITLES, parseItems, round2 } from "./usage";
-import { lastDay, toCsv, ymd } from "./report";
+import { fulfillmentFromAdmin, isPerksTitle, parseItems, round2 } from "./usage";
+import { toCsv, ymd } from "./report";
 
 export type Basis = "discount" | "spend";
 
@@ -12,14 +12,15 @@ export async function businessSummary(shop: string, from: Date, to: Date) {
     db.business.findMany({ where: { shop }, orderBy: { createdAt: "asc" } }),
     db.orderUsage.findMany({
       where: { shop, cancelled: false, processedAt: { gte: from, lt: to } },
-      select: { businessId: true, customerId: true, spend: true, total: true, discount: true, currency: true },
+      select: { businessId: true, customerId: true, spend: true, total: true, discount: true, currency: true, fulfillment: true },
     }),
   ]);
   const currency = rows[0]?.currency ?? "PKR";
-  const by = new Map<string, { orders: number; employees: Set<string>; spend: number; total: number; discount: number }>();
+  const by = new Map<string, { orders: number; fulfilled: number; employees: Set<string>; spend: number; total: number; discount: number }>();
   for (const r of rows) {
-    const x = by.get(r.businessId) ?? { orders: 0, employees: new Set<string>(), spend: 0, total: 0, discount: 0 };
+    const x = by.get(r.businessId) ?? { orders: 0, fulfilled: 0, employees: new Set<string>(), spend: 0, total: 0, discount: 0 };
     x.orders++;
+    if (r.fulfillment === "fulfilled") x.fulfilled++;
     x.employees.add(r.customerId);
     x.spend += r.spend;
     x.total += r.total;
@@ -33,16 +34,21 @@ export async function businessSummary(shop: string, from: Date, to: Date) {
       businessId: b.id,
       name: b.archivedAt ? `${b.name} (deleted)` : b.name,
       orders: x?.orders ?? 0,
+      fulfilled: x?.fulfilled ?? 0,
       employees: x?.employees.size ?? 0,
       spend: round2(x?.spend ?? 0),
       total: round2(x?.total ?? 0),
       discount: round2(x?.discount ?? 0),
     };
   });
-  const totals = lines.reduce(
-    (t, l) => ({ orders: t.orders + l.orders, employees: t.employees + l.employees, spend: round2(t.spend + l.spend), discount: round2(t.discount + l.discount) }),
-    { orders: 0, employees: 0, spend: 0, discount: 0 },
-  );
+  const totals = {
+    ...lines.reduce(
+      (t, l) => ({ orders: t.orders + l.orders, fulfilled: t.fulfilled + l.fulfilled, spend: round2(t.spend + l.spend), discount: round2(t.discount + l.discount) }),
+      { orders: 0, fulfilled: 0, spend: 0, discount: 0 },
+    ),
+    // Different employees overall (one employee can't be in two businesses' totals twice).
+    employees: new Set(rows.map((r) => r.customerId)).size,
+  };
   return { currency, lines, totals };
 }
 
@@ -53,15 +59,13 @@ export async function ordersFor(shop: string, businessId: string, from: Date, to
   });
 }
 
-async function nextNumber(shop: string, now: Date) {
-  const prefix = `INV-${now.toISOString().slice(0, 7).replace("-", "")}-`;
-  const count = await db.invoice.count({ where: { shop, number: { startsWith: prefix } } });
-  return `${prefix}${String(count + 1).padStart(3, "0")}`;
-}
-
 /** Fills in line items for orders recorded before items were stored (from the Admin API), and saves them. Best effort. */
 async function backfillItems(admin: AdminClient, rows: { id: string; orderId: string; items: string }[]) {
-  const missing = rows.filter((r) => !parseItems(r.items).length);
+  // No items, or items from before product ids were kept (needed for Vendor and Type in Excel).
+  const missing = rows.filter((r) => {
+    const items = parseItems(r.items);
+    return !items.length || items.some((i) => i.productId === undefined);
+  });
   for (let i = 0; i < missing.length; i += 50) {
     const batch = missing.slice(i, i + 50);
     try {
@@ -77,6 +81,8 @@ async function backfillItems(admin: AdminClient, rows: { id: string; orderId: st
                   title
                   variantTitle
                   sku
+                  vendor
+                  product { id productType }
                   quantity
                   originalUnitPriceSet { shopMoney { amount } }
                   discountedTotalSet { shopMoney { amount } }
@@ -112,6 +118,8 @@ type ShopifyOrder = {
       title: string;
       variantTitle: string | null;
       sku: string | null;
+      vendor?: string | null;
+      product?: { id: string; productType: string } | null;
       quantity: number;
       originalUnitPriceSet: { shopMoney: { amount: string } };
       discountedTotalSet: { shopMoney: { amount: string } };
@@ -124,7 +132,7 @@ export function itemsFromAdmin(order: ShopifyOrder): OrderItem[] {
   return (order.lineItems?.nodes ?? []).map((li) => {
     const unitPrice = round2(Number(li.originalUnitPriceSet.shopMoney.amount) || 0);
     const perks = li.discountAllocations
-      .filter((a) => PERKS_DISCOUNT_TITLES.some((t) => (a.discountApplication?.title ?? "").includes(t)))
+      .filter((a) => isPerksTitle(a.discountApplication?.title ?? ""))
       .reduce((s, a) => s + (Number(a.allocatedAmountSet.shopMoney.amount) || 0), 0);
     return {
       title: li.title,
@@ -134,6 +142,9 @@ export function itemsFromAdmin(order: ShopifyOrder): OrderItem[] {
       unitPrice,
       discount: round2(perks),
       paid: round2(Number(li.discountedTotalSet.shopMoney.amount) || 0),
+      productId: li.product?.id.split("/").pop() ?? "",
+      vendor: li.vendor ?? "",
+      productType: li.product?.productType ?? "",
     };
   });
 }
@@ -148,172 +159,344 @@ async function emailsFor(shop: string, customerIds: string[]) {
   return new Map(rows.map((r) => [r.customerId, r.workEmail]));
 }
 
-export async function createInvoice(
+
+// ---------------------------------------------------------------------------------------------
+// Monthly invoices (decision 018): one per business per month, worked out live from OrderUsage.
+// Cancelled orders drop out; an order's billed amount is due once it's fulfilled.
+
+export const monthKey = (d: Date) => d.toISOString().slice(0, 7);
+export const monthStart = (key: string) => new Date(`${key}-01T00:00:00Z`);
+export const nextMonth = (key: string) => {
+  const d = monthStart(key);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
+};
+const MONTH_LONG = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+export const monthLabel = (key: string) => MONTH_LONG.format(monthStart(key));
+
+export const billedOf = (basis: string, o: { spend: number; discount: number }) => (basis === "spend" ? o.spend : o.discount);
+export const isDue = (o: { fulfillment: string }) => o.fulfillment === "fulfilled";
+
+/**
+ * Gives every business-month with orders an invoice number. Numbers follow the invoice month
+ * (INV-202611-001, -002, …) in the order businesses first ordered that month, and never change.
+ */
+export async function ensureInvoices(shop: string) {
+  const [orders, existing, businesses] = await Promise.all([
+    db.orderUsage.findMany({
+      where: { shop, cancelled: false },
+      select: { businessId: true, processedAt: true },
+      orderBy: { processedAt: "asc" },
+    }),
+    db.invoice.findMany({ where: { shop }, select: { businessId: true, month: true, number: true } }),
+    db.business.findMany({ where: { shop }, select: { id: true, name: true } }),
+  ]);
+  const have = new Set(existing.map((i) => `${i.businessId} ${i.month}`));
+  const used = new Map<string, number>();
+  for (const i of existing) {
+    const m = i.month;
+    const n = Number(i.number.split("-").pop()) || 0;
+    used.set(m, Math.max(used.get(m) ?? 0, n));
+  }
+  const names = new Map(businesses.map((b) => [b.id, b.name]));
+  for (const o of orders) {
+    const month = monthKey(o.processedAt);
+    const key = `${o.businessId} ${month}`;
+    if (have.has(key)) continue;
+    have.add(key);
+    const n = (used.get(month) ?? 0) + 1;
+    used.set(month, n);
+    try {
+      await db.invoice.create({
+        data: { shop, businessId: o.businessId, month, number: `INV-${month.replace("-", "")}-${String(n).padStart(3, "0")}`, businessName: names.get(o.businessId) ?? "" },
+      });
+    } catch {
+      // Another request numbered it at the same time: theirs stands.
+    }
+  }
+}
+
+/** Looks up Shopify's fulfilment status for orders recorded before it was tracked. Best effort. */
+export async function refreshUnknownFulfillment(admin: AdminClient, shop: string) {
+  const rows = await db.orderUsage.findMany({ where: { shop, fulfillment: "unknown" }, select: { id: true, orderId: true }, take: 250 });
+  for (let i = 0; i < rows.length; i += 50) {
+    const batch = rows.slice(i, i + 50);
+    try {
+      const data = await gql<{ nodes: ({ id: string; displayFulfillmentStatus: string; cancelledAt: string | null } | null)[] }>(
+        admin,
+        `#graphql
+        query PerksOrderStatus($ids: [ID!]!) {
+          nodes(ids: $ids) { ... on Order { id displayFulfillmentStatus cancelledAt } }
+        }`,
+        { ids: batch.map((r) => `gid://shopify/Order/${r.orderId}`) },
+      );
+      for (const node of data.nodes) {
+        if (!node?.id) continue;
+        const row = batch.find((r) => node.id.endsWith(`/${r.orderId}`));
+        if (!row) continue;
+        await db.orderUsage.update({
+          where: { id: row.id },
+          data: { fulfillment: fulfillmentFromAdmin(node.displayFulfillmentStatus), ...(node.cancelledAt ? { cancelled: true } : {}) },
+        });
+      }
+    } catch (err) {
+      console.warn("[perks] couldn't load order fulfilment", err instanceof Error ? err.message : err);
+    }
+  }
+}
+
+export type InvoiceStatus = "open" | "waiting" | "ready";
+
+export type InvoiceSummary = {
+  id: string;
+  number: string;
+  businessId: string;
+  business: string;
+  month: string;
+  monthLabel: string;
+  billFor: string;
+  currency: string;
+  orders: number;
+  fulfilled: number;
+  /** Billed amount of orders not fulfilled yet */
+  inProcess: number;
+  /** Billed amount of fulfilled orders */
+  due: number;
+  /** open: the month isn't over · waiting: over, some orders not fulfilled · ready: over and all fulfilled */
+  status: InvoiceStatus;
+};
+
+export function invoiceStatus(month: string, orders: number, fulfilled: number, now: Date): InvoiceStatus {
+  if (now.getTime() < nextMonth(month).getTime()) return "open";
+  return fulfilled < orders ? "waiting" : "ready";
+}
+
+/** Monthly invoices, newest month first. months: inclusive "YYYY-MM" bounds. Invoices whose orders were all cancelled are left out. */
+export async function listMonthlyInvoices(
   shop: string,
-  businessId: string,
-  from: Date,
-  to: Date,
-  basis: Basis,
+  filter: { businessId?: string | null; fromMonth?: string | null; toMonth?: string | null } = {},
   now = new Date(),
-  admin?: AdminClient | null,
-) {
-  const business = await db.business.findFirst({ where: { shop, id: businessId } });
-  if (!business) throw new Error("Business not found");
-  const orders = await ordersFor(shop, businessId, from, to);
-  if (admin) await backfillItems(admin, orders);
+): Promise<InvoiceSummary[]> {
+  const from = filter.fromMonth ? monthStart(filter.fromMonth) : undefined;
+  const to = filter.toMonth ? nextMonth(filter.toMonth) : undefined;
+  const [invoices, businesses, rows] = await Promise.all([
+    db.invoice.findMany({ where: { shop, ...(filter.businessId ? { businessId: filter.businessId } : {}) } }),
+    db.business.findMany({ where: { shop }, select: { id: true, name: true, billFor: true, archivedAt: true } }),
+    db.orderUsage.findMany({
+      where: {
+        shop,
+        cancelled: false,
+        ...(filter.businessId ? { businessId: filter.businessId } : {}),
+        ...(from || to ? { processedAt: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } } : {}),
+      },
+      select: { businessId: true, processedAt: true, spend: true, discount: true, currency: true, fulfillment: true },
+    }),
+  ]);
+  const biz = new Map(businesses.map((b) => [b.id, b]));
+  const by = new Map<string, typeof rows>();
+  for (const r of rows) {
+    const k = `${r.businessId} ${monthKey(r.processedAt)}`;
+    by.set(k, [...(by.get(k) ?? []), r]);
+  }
+  const out: InvoiceSummary[] = [];
+  for (const inv of invoices) {
+    const orders = by.get(`${inv.businessId} ${inv.month}`);
+    if (!orders?.length) continue;
+    const b = biz.get(inv.businessId);
+    const billFor = b?.billFor ?? "discount";
+    const fulfilled = orders.filter(isDue).length;
+    out.push({
+      id: inv.id,
+      number: inv.number,
+      businessId: inv.businessId,
+      business: b ? `${b.name}${b.archivedAt ? " (deleted)" : ""}` : inv.businessName,
+      month: inv.month,
+      monthLabel: monthLabel(inv.month),
+      billFor,
+      currency: orders[0].currency,
+      orders: orders.length,
+      fulfilled,
+      inProcess: round2(orders.filter((o) => !isDue(o)).reduce((s, o) => s + billedOf(billFor, o), 0)),
+      due: round2(orders.filter(isDue).reduce((s, o) => s + billedOf(billFor, o), 0)),
+      status: invoiceStatus(inv.month, orders.length, fulfilled, now),
+    });
+  }
+  return out.sort((a, b) => b.month.localeCompare(a.month) || a.number.localeCompare(b.number));
+}
+
+/** One billed order on an invoice. */
+export type InvoiceLine = {
+  orderName: string;
+  date: string;
+  customerId: string;
+  email: string;
+  fulfillment: string;
+  spend: number;
+  discount: number;
+  items: OrderItem[];
+};
+
+/** A monthly invoice with its live orders. admin: fills in missing item details (vendor, type) from Shopify. */
+export async function getMonthlyInvoice(shop: string, id: string, admin?: AdminClient | null, now = new Date()) {
+  const invoice = await db.invoice.findFirst({ where: { shop, id } });
+  if (!invoice) return null;
+  const business = await db.business.findFirst({ where: { shop, id: invoice.businessId } });
+  const orders = await ordersFor(shop, invoice.businessId, monthStart(invoice.month), nextMonth(invoice.month));
+  if (admin) {
+    await backfillItems(admin, orders);
+    await fillProductTypes(admin, orders);
+  }
   const emails = await emailsFor(shop, orders.map((o) => o.customerId));
-  const amount = round2(orders.reduce((s, o) => s + (basis === "spend" ? o.spend : o.discount), 0));
-  // Frozen snapshot: later cancellations or email changes don't change an issued invoice.
   const lines: InvoiceLine[] = orders.map((o) => ({
     orderName: o.orderName,
     date: ymd(o.processedAt),
     customerId: o.customerId,
     email: emails.get(o.customerId) || o.email || "",
+    fulfillment: o.fulfillment,
     spend: o.spend,
     discount: o.discount,
     items: parseItems(o.items),
   }));
-  for (let attempt = 0; attempt < 3; attempt++) {
+  const billFor = business?.billFor ?? "discount";
+  const fulfilled = lines.filter(isDue).length;
+  return {
+    invoice,
+    business,
+    billFor,
+    currency: orders[0]?.currency ?? "PKR",
+    lines,
+    due: round2(lines.filter(isDue).reduce((s, l) => s + billedOf(billFor, l), 0)),
+    inProcess: round2(lines.filter((l) => !isDue(l)).reduce((s, l) => s + billedOf(billFor, l), 0)),
+    status: invoiceStatus(invoice.month, lines.length, fulfilled, now),
+  };
+}
+
+/** Product type for items recorded from webhooks (the order payload has the vendor but not the type). Best effort. */
+async function fillProductTypes(admin: AdminClient, rows: { id: string; items: string }[]) {
+  const ids = [
+    ...new Set(rows.flatMap((r) => parseItems(r.items).filter((i) => i.productId && i.productType === undefined).map((i) => i.productId!))),
+  ];
+  if (!ids.length) return;
+  const types = new Map<string, { type: string; vendor: string }>();
+  for (let i = 0; i < ids.length; i += 100) {
     try {
-      return await db.invoice.create({
-        data: {
-          shop,
-          businessId,
-          number: await nextNumber(shop, now),
-          periodStart: from,
-          periodEnd: to,
-          basis,
-          amount,
-          orderCount: orders.length,
-          currency: orders[0]?.currency ?? "PKR",
-          businessName: business.name,
-          lines: JSON.stringify(lines),
-        },
-      });
+      const data = await gql<{ nodes: ({ id: string; productType: string; vendor: string } | null)[] }>(
+        admin,
+        `#graphql
+        query PerksProductTypes($ids: [ID!]!) { nodes(ids: $ids) { ... on Product { id productType vendor } } }`,
+        { ids: ids.slice(i, i + 100).map((id) => `gid://shopify/Product/${id}`) },
+      );
+      for (const n of data.nodes) if (n?.id) types.set(n.id.split("/").pop()!, { type: n.productType, vendor: n.vendor });
     } catch (err) {
-      if (attempt === 2) throw err; // number collision from a concurrent create: retry
+      console.warn("[perks] couldn't load product types for invoice", err instanceof Error ? err.message : err);
+      return;
     }
   }
-  throw new Error("unreachable");
+  for (const r of rows) {
+    const items = parseItems(r.items);
+    if (!items.some((i) => i.productId && i.productType === undefined)) continue;
+    const next = items.map((i) => {
+      if (!i.productId || i.productType !== undefined) return i;
+      const t = types.get(i.productId);
+      // Deleted products: "" so we don't ask again.
+      return { ...i, productType: t?.type ?? "", vendor: i.vendor || t?.vendor || "" };
+    });
+    r.items = JSON.stringify(next);
+    await db.orderUsage.update({ where: { id: r.id }, data: { items: r.items } });
+  }
 }
 
-/** One billed order, frozen on the invoice. email/items are missing on invoices issued before they were recorded. */
-export type InvoiceLine = {
-  orderName: string;
-  date: string;
-  customerId: string;
-  email?: string;
-  spend: number;
-  discount: number;
-  items?: OrderItem[];
+const employeeOf = (l: { email: string }) => l.email || "Employee (email not recorded)";
+export const STATUS_LABEL: Record<string, string> = {
+  fulfilled: "Fulfilled",
+  partial: "Partly fulfilled",
+  unfulfilled: "Unfulfilled",
+  unknown: "Checking with Shopify",
 };
-
-export async function getInvoice(shop: string, id: string) {
-  const invoice = await db.invoice.findFirst({ where: { shop, id } });
-  if (!invoice) return null;
-  const business = await db.business.findFirst({ where: { shop, id: invoice.businessId } });
-  let lines: InvoiceLine[] = [];
-  try {
-    lines = JSON.parse(invoice.lines);
-  } catch {
-    lines = [];
-  }
-  // Older invoices didn't freeze emails: look them up so nobody sees a bare customer ID.
-  const missing = lines.filter((l) => !l.email).map((l) => l.customerId);
-  if (missing.length) {
-    const emails = await emailsFor(shop, missing);
-    lines = lines.map((l) => (l.email ? l : { ...l, email: emails.get(l.customerId) ?? "" }));
-  }
-  return { invoice, business, lines };
-}
-
-export async function listInvoices(shop: string) {
-  return db.invoice.findMany({ where: { shop }, orderBy: { createdAt: "desc" }, take: 100 });
-}
-
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const monthOf = (date: string) => `${MONTH_NAMES[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}`;
-const employeeOf = (l: InvoiceLine) => l.email || "Employee (email not recorded)";
-const billedOf = (basis: string, o: { spend: number; discount: number }) => (basis === "spend" ? o.spend : o.discount);
 
 export type EmployeeRow = {
   employee: string;
-  month: string;
   orders: number;
+  fulfilled: number;
   products: number;
   spend: number;
   discount: number;
-  billed: number;
+  inProcess: number;
+  due: number;
 };
 
-/** The invoice table: one row per employee per month. */
-export function employeeRows(lines: InvoiceLine[], basis: string): EmployeeRow[] {
-  const by = new Map<string, EmployeeRow & { key: string }>();
+/** The invoice table: one row per employee. */
+export function employeeRows(lines: InvoiceLine[], billFor: string): EmployeeRow[] {
+  const by = new Map<string, EmployeeRow>();
   for (const l of lines) {
     const employee = employeeOf(l);
-    const month = monthOf(l.date);
-    const key = `${l.date.slice(0, 7)} ${employee}`;
-    const r = by.get(key) ?? { key, employee, month, orders: 0, products: 0, spend: 0, discount: 0, billed: 0 };
+    const r = by.get(employee) ?? { employee, orders: 0, fulfilled: 0, products: 0, spend: 0, discount: 0, inProcess: 0, due: 0 };
     r.orders++;
-    r.products += (l.items ?? []).reduce((s, i) => s + i.quantity, 0);
+    if (isDue(l)) r.fulfilled++;
+    r.products += l.items.reduce((s, i) => s + i.quantity, 0);
     r.spend = round2(r.spend + l.spend);
     r.discount = round2(r.discount + l.discount);
-    r.billed = round2(r.billed + billedOf(basis, l));
-    by.set(key, r);
+    if (isDue(l)) r.due = round2(r.due + billedOf(billFor, l));
+    else r.inProcess = round2(r.inProcess + billedOf(billFor, l));
+    by.set(employee, r);
   }
-  return [...by.values()]
-    .sort((a, b) => a.key.localeCompare(b.key))
-    .map((r) => ({ employee: r.employee, month: r.month, orders: r.orders, products: r.products, spend: r.spend, discount: r.discount, billed: r.billed }));
+  return [...by.values()].sort((a, b) => a.employee.localeCompare(b.employee));
 }
 
+type InvoiceData = NonNullable<Awaited<ReturnType<typeof getMonthlyInvoice>>>;
+
 /** Everything on the invoice, one row per product line (for Excel). */
-export function invoiceCsv(data: NonNullable<Awaited<ReturnType<typeof getInvoice>>>, from = "") {
-  const { invoice, business, lines } = data;
-  const basis = invoice.basis;
+export function invoiceCsv(data: InvoiceData, from = "") {
+  const { invoice, business, lines, billFor } = data;
+  const businessName = business?.name ?? invoice.businessName;
+  const month = monthLabel(invoice.month);
   const rows: (string | number)[][] = [
     ["Invoice", invoice.number],
-    ["Issue date", ymd(invoice.createdAt)],
     ["From", from],
-    ["Bill to", business?.name ?? invoice.businessName],
-    ["Period", `${ymd(invoice.periodStart)} to ${lastDay({ to: invoice.periodEnd })}`],
-    ["Billed on", basis === "spend" ? "Total your employees spent" : "Employee discount your employees received"],
-    ["Currency", invoice.currency],
-    ["Amount due", invoice.amount.toFixed(2)],
+    ["Bill to", businessName],
+    ["Month", month],
+    ["Billed for", billFor === "spend" ? "Total your employees spent" : "Employee discount your employees received"],
+    ["Currency", data.currency],
+    ["Amount due (fulfilled orders)", data.due.toFixed(2)],
+    ["In process (not fulfilled yet)", data.inProcess.toFixed(2)],
     [],
     [
+      "Invoice",
+      "Business",
       "Employee email",
       "Month",
       "Order",
       "Order date",
+      "Order status",
       "Product",
       "Variant",
       "SKU",
+      "Vendor",
+      "Type",
       "Quantity",
       "Unit price",
       "Line total",
       "Employee discount",
       "Employee paid",
       "Billed",
+      "Due now",
     ],
   ];
   for (const l of lines) {
-    const items = l.items ?? [];
-    if (!items.length) {
-      rows.push([
-        employeeOf(l), monthOf(l.date), l.orderName, l.date, "(items not recorded for this order)", "", "", "", "", "",
-        l.discount.toFixed(2), l.spend.toFixed(2), billedOf(basis, l).toFixed(2),
-      ]);
+    const head = [invoice.number, businessName, employeeOf(l), month, l.orderName, l.date, STATUS_LABEL[l.fulfillment] ?? l.fulfillment];
+    const due = isDue(l) ? "Yes" : "No";
+    if (!l.items.length) {
+      rows.push([...head, "(items not recorded for this order)", "", "", "", "", "", "", "", l.discount.toFixed(2), l.spend.toFixed(2), billedOf(billFor, l).toFixed(2), due]);
       continue;
     }
-    for (const i of items) {
+    for (const i of l.items) {
       rows.push([
-        employeeOf(l), monthOf(l.date), l.orderName, l.date, i.title, i.variant, i.sku, i.quantity,
+        ...head, i.title, i.variant, i.sku, i.vendor ?? "", i.productType ?? "", i.quantity,
         i.unitPrice.toFixed(2), round2(i.unitPrice * i.quantity).toFixed(2), i.discount.toFixed(2), i.paid.toFixed(2),
-        (basis === "spend" ? i.paid : i.discount).toFixed(2),
+        (billFor === "spend" ? i.paid : i.discount).toFixed(2), due,
       ]);
     }
   }
   rows.push([]);
-  rows.push(["Total", "", "", "", "", "", "", "", "", "", "", "", invoice.amount.toFixed(2)]);
+  rows.push(["Amount due", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", data.due.toFixed(2)]);
   return toCsv(rows);
 }

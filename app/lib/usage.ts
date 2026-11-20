@@ -14,6 +14,8 @@ type OrderPayload = {
   total_price?: Money;
   customer?: { id?: number | string; email?: string | null } | null;
   email?: string | null;
+  fulfillment_status?: string | null;
+  cancelled_at?: string | null;
   discount_applications?: Array<{ type?: string; title?: string; description?: string | null }>;
   line_items?: Array<{
     title?: string | null;
@@ -21,6 +23,8 @@ type OrderPayload = {
     sku?: string | null;
     quantity?: number | null;
     price?: Money;
+    product_id?: number | string | null;
+    vendor?: string | null;
     discount_allocations?: Array<{ amount?: Money; discount_application_index?: number }>;
   }>;
 };
@@ -37,6 +41,10 @@ export type OrderItem = {
   discount: number;
   /** What the employee paid for this line, after all discounts */
   paid: number;
+  /** Missing on orders recorded before 2026-11-20. productType is looked up from Shopify when an invoice is exported. */
+  productId?: string;
+  vendor?: string;
+  productType?: string;
 };
 
 /** Line items from the orders/create REST payload. */
@@ -59,6 +67,8 @@ export function orderItems(order: OrderPayload): OrderItem[] {
       unitPrice,
       discount: round2(perks),
       paid: round2(unitPrice * quantity - all),
+      productId: li.product_id != null ? String(li.product_id) : "",
+      vendor: (li.vendor ?? "").slice(0, 255),
     };
   });
 }
@@ -79,10 +89,14 @@ const num = (m: Money) => {
 };
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/** Our discount's title at checkout: "Employee perks", or the storefront label ("Employee price (15% off)"). */
+export function isPerksTitle(t: string) {
+  return PERKS_DISCOUNT_TITLES.some((x) => t.includes(x)) || /Employee price/.test(t);
+}
+
 function isPerks(app: { type?: string; title?: string; description?: string | null } | undefined) {
   if (!app) return false;
-  const t = `${app.title ?? ""} ${app.description ?? ""}`;
-  return PERKS_DISCOUNT_TITLES.some((x) => t.includes(x)) || /Employee price/.test(t);
+  return isPerksTitle(`${app.title ?? ""} ${app.description ?? ""}`);
 }
 
 /** Total of our employee discount on an order, from the REST webhook payload. */
@@ -93,6 +107,22 @@ export function perksDiscountOf(order: OrderPayload): number {
     for (const a of li.discount_allocations ?? [])
       if (isPerks(apps[a.discount_application_index ?? -1])) total += num(a.amount);
   return round2(total);
+}
+
+export type Fulfillment = "unfulfilled" | "partial" | "fulfilled" | "unknown";
+
+/** REST fulfillment_status (null, "partial", "fulfilled", "restocked") → ours. */
+export function fulfillmentOf(status: string | null | undefined): Fulfillment {
+  if (status === "fulfilled") return "fulfilled";
+  if (status === "partial") return "partial";
+  return "unfulfilled";
+}
+
+/** GraphQL displayFulfillmentStatus → ours. */
+export function fulfillmentFromAdmin(status: string | null | undefined): Fulfillment {
+  if (status === "FULFILLED") return "fulfilled";
+  if (status === "PARTIALLY_FULFILLED") return "partial";
+  return status ? "unfulfilled" : "unknown";
 }
 
 export function orderSummary(order: OrderPayload) {
@@ -106,6 +136,8 @@ export function orderSummary(order: OrderPayload) {
     discount: perksDiscountOf(order),
     customerId: order.customer?.id != null ? String(order.customer.id) : null,
     email: order.customer?.email ?? order.email ?? null,
+    fulfillment: fulfillmentOf(order.fulfillment_status),
+    cancelled: Boolean(order.cancelled_at),
   };
 }
 

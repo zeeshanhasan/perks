@@ -21,6 +21,8 @@ export type BusinessInput = {
   limitOverflow: LimitOverflow;
   billingEmail: string;
   billingAddress: string;
+  /** What the monthly invoice bills: the discount given or what employees spent */
+  billFor: "discount" | "spend";
   active: boolean;
 };
 
@@ -92,6 +94,7 @@ export function parseBusinessForm(form: FormData): BusinessResult {
       limitOverflow,
       billingEmail,
       billingAddress,
+      billFor: form.get("billFor") === "spend" ? "spend" : "discount",
       active: v !== null && v !== "false",
     },
   };

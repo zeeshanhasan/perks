@@ -124,7 +124,8 @@ company address). New customer accounts send a login code to that address.
 7. Log out, or log in with another email: normal prices; the employee-only product is hidden from collections,
    its page shows "Only for partner employees", and adding it to the cart is refused.
 8. As the employee, place a test order (Bogus Gateway, card number 1). Reports shows it under Review Co;
-   Create invoice gives an invoice page (Print / PDF) and an Excel download.
+   Mark the order fulfilled in Shopify: the Monthly invoices list shows Review Co's invoice for this month with the
+   amount due, and View, Excel and PDF.
 9. Check a customer: type your email to see which company's perks apply and why.
 
 If your email is a personal address, contact hello@tofoapp.com and we'll help you test.
@@ -141,7 +142,7 @@ Support: hello@tofoapp.com
 5. Employee-only product: Businesses → edit → Employee-only products → pick a product.
 6. Store: log in with a work-domain email (login code) → employee price on a product → checkout shows "Employee price (15% off)".
 7. Another email: normal price, employee-only product blocked at checkout.
-8. Reports → Create invoice → PDF and Excel.
+8. Reports → Monthly invoices → View, PDF and Excel.
 9. Check a customer, Activity log, Settings → Plan.
 
 ## 9. Before submitting

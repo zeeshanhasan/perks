@@ -116,9 +116,9 @@ Rules that always apply:
 
 **Check a customer**: type the email a customer logs in with, press Enter. It lists each check (perks on, account found, matched to a business, business active, within the limit) and, if something fails, why and a button to the fix.
 
-**Reports**: a **Period** (This week, Last week, This month, Last month, This year, Custom range), four cards compared with the period before, and **By business** (orders, employees, spend, discount). **Create invoice** opens a dialog: bill the business for **the discount their employees received** or **their employees' total spend**. The **Invoices** list can be filtered by business and notes when an order was cancelled after the invoice was issued.
+**Reports**: **Usage by business** for a **Period** (This week, Last week, This month, Last month, This year, Custom range): orders placed, orders fulfilled, employees buying, spend, discount, with a total row. **Monthly invoices**: one invoice per business per month, made automatically and kept up to date (cancelled orders drop out; an order is due once fulfilled, until then it shows under **In process**). Status: This month, Waiting on orders, Ready to send. Filter by business and month; each row has **View**, **Excel** and **PDF**. Whether a business is billed for **the discount its employees received** or **what they spent** is set on the business page (**Monthly invoice**).
 
-**Invoice**: a document from the store to the partner company: invoice number, issue date, period, From (the store) and Bill to (the business), what is billed, and one row per employee per month (email, month, orders, products, spend, discount, billed). **Print / Save PDF**, and **Download for Excel (every item)** with one row per product bought. Issued invoices never change. It shows employees' work emails, so it should only go to that company.
+**Invoice**: a document from the store to the partner company: invoice number, issue date, period, From (the store) and Bill to (the business), what is billed, one row per employee (orders, products, spend, discount, in process, due) and a list of orders with their status. **Print / Save PDF**, and **Download Excel** with one row per item (invoice, business, email, month, order, order status, product, vendor, type, amounts). It keeps updating until every order is fulfilled. It shows employees' work emails, so it should only go to that company.
 
 **Storefront**: **Employee mode** status (On/Off) with Check again and Open theme editor; **What employees see** (show their price, cross out the normal price, the badge colours, with a live preview); **What other shoppers see** (hide employee-only products, and the message on those product pages, with a preview). Texts are under **Edit wording**. The backup message is used on themes that hide prices; {discount} is replaced by the discount, e.g. 15% off.
 
@@ -146,7 +146,7 @@ A limit caps each employee's perks every month or every year, on the discount th
 - **Other shoppers can see an employee-only product** → with Employee mode on and "Hide employee-only products" ticked they're hidden from collections and search, and the product page shows a message. Someone with a direct link can still see the page, but checkout always blocks them.
 - **The discount doesn't stack with a sale** → Settings → Combining with other discounts.
 - **Gift cards** → Shopify never discounts gift cards, so they never show an employee price.
-- **Invoice amount differs from Reports** → issued invoices are fixed; if an order was cancelled later, the Invoices list says so.
+- **Invoice amount is lower than Reports** → only fulfilled orders are due; unfulfilled ones show under In process. Reports counts every order placed.
 
 ## Pricing
 

@@ -154,14 +154,15 @@ export default function Help() {
         <s-unordered-list>
           <s-list-item>
             Every employee order is recorded against its business. <s-link href="/app/reports">Reports</s-link> shows
-            orders, employees, spend and discount for any period, compared with the period before.
+            orders placed and fulfilled, employees, spend and discount per business for any period.
           </s-list-item>
           <s-list-item>
-            <strong>Create invoice</strong> bills a company for the discount its employees received, or for their total
-            spend. Print it or save it as a PDF, and download the Excel file with every item.
+            Each business gets <strong>one invoice a month</strong>, made for you. It stays up to date: cancelled orders
+            drop out, and an order&apos;s amount becomes due once it&apos;s fulfilled.
           </s-list-item>
           <s-list-item>
-            Issued invoices never change. If an order is cancelled later, the invoice list says so.
+            On a business&apos;s page, choose whether it&apos;s billed for the discount its employees received or for what
+            they spent. View, download Excel (every item) or save a PDF from the invoice list.
           </s-list-item>
         </s-unordered-list>
       </s-section>

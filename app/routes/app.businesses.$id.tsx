@@ -109,6 +109,7 @@ type FormState = {
   limitOverflow: string;
   billingEmail: string;
   billingAddress: string;
+  billFor: string;
   active: boolean;
 };
 
@@ -136,6 +137,7 @@ export default function BusinessEdit() {
       limitOverflow: business?.limitOverflow ?? "partial",
       billingEmail: business?.billingEmail ?? "",
       billingAddress: business?.billingAddress ?? "",
+      billFor: business?.billFor ?? "discount",
       active: business?.active ?? true,
     }),
     [business],
@@ -294,6 +296,26 @@ export default function BusinessEdit() {
             </s-paragraph>
             <TargetEditor value={f.employeeOnlyTarget} onChange={(t) => set({ employeeOnlyTarget: t })} vendors={vendors} types={types} />
             <EmployeeOnlyHelp />
+          </s-stack>
+        </s-section>
+
+        <s-section heading="Monthly invoice">
+          <s-stack gap="base">
+            <s-choice-list
+              label="Bill this business for"
+              onChange={(e) => set({ billFor: (e.currentTarget as unknown as { values: string[] }).values?.[0] === "spend" ? "spend" : "discount" })}
+            >
+              <s-choice value="discount" selected={f.billFor !== "spend"}>
+                The discount its employees received
+              </s-choice>
+              <s-choice value="spend" selected={f.billFor === "spend"}>
+                What its employees spent
+                <s-text slot="details">After their discount, without shipping or tax.</s-text>
+              </s-choice>
+            </s-choice-list>
+            <s-text color="subdued">
+              One invoice a month, in Reports. Orders count once they&apos;re fulfilled; cancelled orders drop out.
+            </s-text>
           </s-stack>
         </s-section>
 
