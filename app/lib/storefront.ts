@@ -12,7 +12,7 @@ export type StorefrontOptions = {
   noticeBody: string;
   noticeButton: string;
   badgeText: string;
-  /** Pill background and accent text colour (#rrggbb). Empty = the values set in the theme editor. */
+  /** Pill background and accent text colour (#rrggbb). Empty = BADGE_COLORS (the theme embed uses the same defaults). */
   badgeBg: string;
   badgeFg: string;
   /** Public page at /apps/perks listing partner companies and their discounts. Off until the merchant turns it on. */

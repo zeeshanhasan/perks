@@ -77,9 +77,9 @@
     {%- if my_biz.type == 'fixed' -%}{{ my_biz.value | times: 100 | money }} off{%- else -%}{{ my_biz.value }}% off{%- endif -%}
   {%- endcapture -%}
 
-  {%- comment -%} Colours: set in the app (Storefront page); the theme editor values are the fallback. {%- endcomment -%}
-  {%- assign c_bg = block.settings.badge_bg -%}
-  {%- assign c_fg = block.settings.badge_fg -%}
+  {%- comment -%} Colours: set in the app (Storefront page); defaults match BADGE_COLORS in app/lib/storefront.ts. {%- endcomment -%}
+  {%- assign c_bg = '#e3f1df' -%}
+  {%- assign c_fg = '#0c5132' -%}
   {%- if cfg.ui.badgeBg != blank -%}{%- assign c_bg = cfg.ui.badgeBg -%}{%- endif -%}
   {%- if cfg.ui.badgeFg != blank -%}{%- assign c_fg = cfg.ui.badgeFg -%}{%- endif -%}
   <style>
@@ -147,11 +147,9 @@
   "target": "body",
   "javascript": "employee-mode.js",
   "settings": [
-    { "type": "paragraph", "content": "Texts and options are set in the Employee Perks app, under Storefront. Checkout is always protected, even with this off." },
-    { "type": "collection", "id": "employee_collection", "label": "Employee collection (optional)", "info": "Links to this collection are hidden from other shoppers." },
-    { "type": "header", "content": "Colours (if not set in the app)" },
-    { "type": "color", "id": "badge_bg", "label": "Badge background", "default": "#E3F1DF" },
-    { "type": "color", "id": "badge_fg", "label": "Badge text color", "default": "#0C5132" }
+    { "type": "paragraph", "content": "Shows employee prices and hides employee-only products. Texts, colours and options are set in the Employee Perks app, under Storefront. Checkout is always protected, even with this off." },
+    { "type": "header", "content": "Optional" },
+    { "type": "collection", "id": "employee_collection", "label": "Hide menu links to this collection", "info": "If you keep employee-only products in their own collection, pick it here. Links to it are hidden from shoppers who aren't employees." }
   ]
 }
 {% endschema %}

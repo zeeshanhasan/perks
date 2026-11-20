@@ -198,14 +198,18 @@ export async function sweepExpired(admin: AdminClient, shop: string, now = new D
 // --- Privacy -----------------------------------------------------------------
 
 export async function exportCustomerData(shop: string, customerId: string) {
-  const [membership, challenges] = await Promise.all([
+  const [membership, challenges, orders] = await Promise.all([
     db.employeeMembership.findUnique({ where: { shop_customerId: { shop, customerId } } }),
     db.verificationChallenge.findMany({
       where: { shop, customerId },
       select: { workEmail: true, createdAt: true, expiresAt: true, consumedAt: true },
     }),
+    db.orderUsage.findMany({
+      where: { shop, customerId },
+      select: { orderName: true, processedAt: true, currency: true, spend: true, discount: true },
+    }),
   ]);
-  return { membership, verificationRequests: challenges };
+  return { membership, verificationRequests: challenges, orders };
 }
 
 export async function redactCustomer(shop: string, customerId: string, admin?: AdminClient) {
@@ -220,10 +224,13 @@ export async function redactCustomer(shop: string, customerId: string, admin?: A
     db.employeeMembership.deleteMany({ where: { shop, customerId } }),
     db.verificationChallenge.deleteMany({ where: { shop, customerId } }),
     db.rateLimitHit.deleteMany({ where: { shop, key: { contains: `customer:${customerId}` } } }),
-    // Keep billing totals, drop the link to the person.
-    db.orderUsage.updateMany({ where: { shop, customerId }, data: { customerId: "redacted" } }),
+    // Keep billing totals, drop the link to the person (ID and email).
+    db.orderUsage.updateMany({ where: { shop, customerId }, data: { customerId: "redacted", email: "" } }),
+    // Their activity log entries (as actor or subject) can hold a partly hidden email.
+    db.auditEvent.deleteMany({ where: { shop, OR: [{ actor: `customer:${customerId}` }, { subject: customerId }] } }),
   ]);
-  await audit({ shop, actor: "system", action: "privacy.customer_redact", subject: customerId, result: "ok" });
+  // Logged without the customer ID so nothing points back to them.
+  await audit({ shop, actor: "system", action: "privacy.customer_redact", subject: null, result: "ok" });
 }
 
 export async function redactShop(shop: string) {
@@ -238,5 +245,6 @@ export async function redactShop(shop: string) {
     db.orderUsage.deleteMany({ where: { shop } }),
     db.invoice.deleteMany({ where: { shop } }),
     db.session.deleteMany({ where: { shop } }),
+    db.shopCache.deleteMany({ where: { shop } }),
   ]);
 }

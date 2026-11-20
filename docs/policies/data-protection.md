@@ -28,10 +28,12 @@ which make the merchant the controller and Tofoapp the processor and link the pr
 ## Retention
 
 - `customers/redact`: that customer's membership, verification requests and rate-limit rows are deleted; their
-  order records keep only the amounts (customer ID and email removed) so the merchant's invoice totals stay right
-  (`redactCustomer` in `app/lib/membership.server.ts`).
-- `shop/redact` (48 hours after uninstall): all of the store's data is deleted (`redactShop`).
-- `customers/data_request`: answered from what we hold for that customer.
+  order records keep only the amounts (customer ID and email removed) so the merchant's invoice totals stay right;
+  their activity log entries are deleted (`redactCustomer` in `app/lib/membership.server.ts`).
+- `shop/redact` (48 hours after uninstall): all of the store's data is deleted, including sessions and cached
+  store details (`redactShop`).
+- `customers/data_request`: answered from what we hold for that customer (membership, verification requests,
+  orders).
 - Order usage covers the current limit periods; invoices are kept while the app is installed, because they are
   the merchant's billing records.
 
