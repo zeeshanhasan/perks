@@ -1,4 +1,4 @@
-# Handoff (2026-11-19)
+# Handoff (2026-11-20)
 
 Read this first in a new session. Then `CLAUDE.md`, `TASKS.md` (→ Next), `docs/app-store/listing.md`, `docs/decisions/`.
 
@@ -11,7 +11,9 @@ Read this first in a new session. Then `CLAUDE.md`, `TASKS.md` (→ Next), `docs
   - "perks" (dev): handle `perks-5`, `shopify.app.toml`, tunnel `dev-perks.tofoapp.com`
   - The other org (ZeeshanHasan, 665210) is declared as an associated account; nothing is published from it.
 - **Stores:**
-  - `employee-perks-demo.myshopify.com`: dev store (Grow plan) with the **production** app on the Standard plan. Becomes the public demo store and the reviewers' test store. **Never delete it.**
+  - `employee-perks-demo.myshopify.com`: dev store (Grow plan, **USD**) with the **production** app on Standard. Public demo store for the listing: "Acme (demo)" on `tofoapp.com`, 15% off all, Oxygen + Videographer snowboards employee-only, perks on, Employee mode on, perks page live. Password in the submission pack. **Never delete it.**
+  - `mvs-demo.myshopify.com`: dev store (PKR, Horizon-style theme) with the production app; CCL products imported from myvitaminstore-pk; business targets vendor + collection CCL. Used to test on a non-Dawn theme.
+  - `perks-fresh-install-1g.myshopify.com`: throwaway Grow dev store from the 2026-11-19 fresh-install walkthrough; app uninstalled (check `shop/redact` purged it).
   - `perks-frtekwck.myshopify.com`: dev store with the **dev** app only.
   - `myvitaminstore-pk`, `mydrugstore-pk`: partner stores on the private `comped` plan ($0).
 - **Submission pack** (fields in the order of Shopify's form): https://claude.ai/artifact/Tw5UZJWETF1YnHqWCVLtZc. Source of truth for the texts: `docs/app-store/listing.md`. Icon: `docs/app-store/assets/app-icon-1200.png`.
@@ -22,9 +24,10 @@ Read this first in a new session. Then `CLAUDE.md`, `TASKS.md` (→ Next), `docs
 - `main` has everything: v4, Home redesign, page fixes, billing (decision 017), speed work (PR #8, #9), error/offline/loading handling, phone layouts, the new public site, the App Store pack.
 - **Billing (decision 017):** Shopify App Pricing (managed). Basic $9 (Shopify Basic/Starter stores), Standard $19 (all other plans), $90/$190 a year, 30-day trial, everything in both. Private plan `comped`. The app reads the subscription from the Partner API (`app/lib/billing.server.ts`), sends stores without a plan to Shopify's plan page, shows a "Choose Standard" page to Grow+ stores on Basic, pauses perks hourly when a plan ends. Verified end to end on employee-perks-demo.
 - **Railway vars for billing:** `SHOPIFY_PARTNER_ORG_ID`, `SHOPIFY_PARTNER_API_ACCESS_TOKEN`, `SHOPIFY_APP_GID`, `SHOPIFY_APP_HANDLE=tofo-perks`. Locally billing is off unless these are in `.env`.
-- **Speed:** first open was ~1.35 s (auth, Shopify plan, Partner API, shop info); now cached in `ShopCache` (shop info 6 h, plan 1 h). Timing lines in the logs: `[perks] timing …`. Public pages: `scripts/perf.sh` (300 ms budget). New timings after PR #9 not read yet.
+- **Speed:** first open ~1.4 s (Partner API ~0.5 s); later pages 5–25 ms. Every save is 2.6–3.9 s (the Shopify sync): `[perks] timing sync …` lines are logged per save (PR #12); speed-up parked until after launch.
+- **2026-11-19/20 (PRs #11–#22, released up to employee-perks-14):** fresh-install walkthrough + acceptance tests (results in TASKS); request log prints paths only (`server.mjs` replaced `react-router-serve`); billing sweep clears sessions of uninstalled stores; Settings switch label; wrong-plan page redesign; validation and wording fixes; removed-employee checkout message; Employees rows/phone list; Activity readable; root error page; outage Worker + runbook (`docs/runbooks/outage-page-and-uptime.md`, not deployed); "Still saving" banner; product webhooks re-sync storefront lists after imports (1-min quiet period, migration `products_changed`); storefront: em sizes, card price on quick-add cards, product-page price anchored to the product's own cart form, badge colours in the app (Storefront page), cards match the product page; CI runs `shopify theme check`.
 - **Partner Dashboard (done):** App Store registration paid, public distribution, App Pricing with plan descriptions, private plan, emergency contact, listing form mostly filled (category Discounts and its tags).
-- **Submission (left):** screenshots, screencast, demo store set-up and password, plan feature lines shortened (cut at ~40 chars), monthly as the default, protected customer data request, capabilities, automated checks, submit. Checklist in `docs/app-store/listing.md` §9.
+- **Submission (left, mostly Zeeshan):** monthly limit on Acme (demo); Partner Dashboard: untick geolocation/IP/browser, request protected data, monthly default, capabilities, AI self review; outage Worker + uptime alert; screenshots + screencast; check invoice files, hello@ inbox, Terms review; automated checks; submit. Reviewer steps (own email domain, no gmail.com) are in `listing.md` §7 and the submission pack. Checklist: `docs/app-store/listing.md` §9.
 
 ## Daily dev (Mac)
 
@@ -64,6 +67,13 @@ shopify app dev --tunnel-url https://dev-perks.tofoapp.com:3000
 - After a Prisma migration, restart `shopify app dev`: the running server keeps the old client and saves fail.
 - Theme embed block types are `shopify://apps/<app-name-slug>/blocks/employee-mode/<uuid>`: dev is `perks`, production `employee-perks`.
 
+- **Storefront script:** `employee-mode.js` must stay under 10,000 bytes (test) and is at ~9.9 KB: free space before adding features. Debug any store with `?perks_debug=1` (console lines `[Employee Perks]`).
+- **Themes vary:** never rely on the first `.price` on a page (Horizon has a hidden sticky-bar price; product pages list other products). The product page anchors to the product's own cart form (found by the selected variant). Cards can contain a quick-add form.
+- **Theme block schema:** `"header"` content is at most 50 characters; Shopify only checks this at `shopify app deploy` (theme check doesn't), so it's a test.
+- **Storefront lists** (discounted / employee-only handles) are rebuilt on every sync; product webhooks trigger a sync after imports.
+- **Native dropdowns** (Polaris `s-select`, Shopify's own selects) can't be driven by the browser pane; ask Zeeshan to pick.
+- **Release:** merge → Railway deploys; then `shopify app deploy --config production --allow-updates --message "…"`. Wait for CI before merging (`gh pr checks --watch` returns early if checks haven't started).
+
 ## Next
 
-See `TASKS.md` → Next (in order). Start with step 1.
+See `TASKS.md` → Next. Steps 1–2 done; step 3 mostly done. Open for Claude: UX on the screenshot pages (Home, Add business, Check a customer, Reports), website update, `docs/acceptance-tests.md` rewrite.

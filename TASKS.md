@@ -139,11 +139,11 @@ employee-perks-5 (PR #3 + PR #4), 2026-11-10:
 
 1. Fresh install walkthrough: done in admin 2026-11-19 on `perks-fresh-install-1g` (Grow, production app, Standard monthly). Findings below, storefront included
 2. Test the app from 0 to 100 (`docs/acceptance-tests.md`), reading the `[perks] timing` logs for slow pages: done 2026-11-19 (results below); only E3–E4 (privacy webhooks) and the 48-hour redact check left
-3. Fix the batch from 1–2 in one PR, including 0.2d (plan pages redesign)
-4. Set up the demo store (0.2f), then record the screencast and take the 6 screenshots (1600×900, `docs/app-store/listing.md` §4); use them in the listing, on the website gallery and in the app setup
+3. Fix the batch from 1–2: mostly done (PRs #11–#22, released up to employee-perks-14, 2026-11-20). Open: UX on the screenshot pages (Home setup vs Manage, Add business placeholders/boxes, Check a customer shows the matching business, Reports column name), Settings → Plan redesign (rest of 0.2d), `docs/acceptance-tests.md` rewrite for v4
+4. Demo store (0.2f) set up 2026-11-19 (🧑 monthly limit on Acme still to set). Then 🧑 record the screencast and take the 6 screenshots (1600×900, `docs/app-store/listing.md` §4); use them in the listing, on the website gallery and in the app setup
 5. Website update: screenshots, SEO, the rest of the content
 6. Finish the submission (`docs/app-store/listing.md` §9) and submit
-7. MVS demo store: new dev store, CPL products from myvitaminstore-pk via CSV export/import (products only, no customers or orders)
+7. MVS demo store: done by Zeeshan 2026-11-20 (`mvs-demo`, CCL products, Horizon-style theme); used for the storefront fixes in PRs #15–#22
 
 ### Fresh install walkthrough findings (2026-11-19, for step 3)
 
@@ -213,6 +213,17 @@ Errors and outages (2026-11-19). The admin app is covered: offline banner, "Stil
 - [x] (Worker in infra/cloudflare + runbook; 🧑 deploy it) Server down: admin shows Cloudflare's 502/521 page inside the Shopify admin, `/apps/perks` shows Shopify's proxy error. Show a branded "Employee Perks is briefly unavailable; employee discounts still work at checkout" page instead (small Worker on the `perks` route, within decision 004)
 - [x] (runbook docs/runbooks/outage-page-and-uptime.md; 🧑 set it up) Uptime check on `/healthz` with an email alert (none today)
 - [x] (restart policy already ON_FAILURE; replicas impossible with SQLite) Railway: second replica or restart policy (with the planned US region move)
+
+### Storefront fixes found on mvs-demo (2026-11-20, all released)
+
+- [x] Employee price text huge on themes with a larger root size: sizes in em, line copies the theme's price size (PR #15)
+- [x] Imported products had no employee price on cards until the business was saved: product webhooks re-sync after a 1-minute quiet period (PR #16, migration `products_changed`)
+- [x] Single-variant cards (quick-add form) skipped (PR #17)
+- [x] Product page line placed next to another section's / the hidden sticky bar's price (PRs #18, #19); now anchored to the product's own cart form (PR #22)
+- [x] Badge colours set in the app (Storefront page), theme editor as fallback; cards use the product page layout (PRs #20, #21)
+- [x] CI runs `shopify theme check`; schema header ≤ 50 characters is a test (PRs #21, #22)
+- [ ] 🧑 Check a product page on mvs-demo and employee-perks-demo after employee-perks-14
+- [ ] Storefront script is at ~9.9 of 10 KB: minify or move code before the next storefront feature
 
 Later: move Railway to a US region; Built for Shopify after launch; e2e test script.
 
