@@ -139,7 +139,7 @@ employee-perks-5 (PR #3 + PR #4), 2026-11-10:
 
 1. Fresh install walkthrough: done in admin 2026-11-19 on `perks-fresh-install-1g` (Grow, production app, Standard monthly). Findings below, storefront included
 2. Test the app from 0 to 100 (`docs/acceptance-tests.md`), reading the `[perks] timing` logs for slow pages: done 2026-11-19 (results below); only E3–E4 (privacy webhooks) and the 48-hour redact check left
-3. Fix the batch from 1–2: mostly done (PRs #11–#22, released up to employee-perks-14, 2026-11-20). Open: UX on the screenshot pages (Home setup vs Manage, Add business placeholders/boxes, Check a customer shows the matching business, Reports column name), Settings → Plan redesign (rest of 0.2d), `docs/acceptance-tests.md` rewrite for v4
+3. Fix the batch from 1–2: mostly done (PRs #11–#26, released up to employee-perks-15, 2026-11-20). Screenshot pages (Home, Add business, Check a customer, Reports) done in #24; Reports + monthly invoices #25; Employees #26. Open: grey square in the Percentage field, Settings → Plan redesign (rest of 0.2d), `docs/acceptance-tests.md` rewrite for v4
 4. Demo store (0.2f) set up 2026-11-19 (🧑 monthly limit on Acme still to set). Then 🧑 record the screencast and take the 6 screenshots (1600×900, `docs/app-store/listing.md` §4); use them in the listing, on the website gallery and in the app setup
 5. Website update: screenshots, SEO, the rest of the content
 6. Finish the submission (`docs/app-store/listing.md` §9) and submit
@@ -182,7 +182,7 @@ Storefront (2026-11-19, `tofoapp.com` added to Acme Pharma, "The 3p Fulfilled Sn
 - [ ] `listing.md` reviewer steps and screencast say checkout shows "Employee perks"; it says "Employee price (15% off)"
 - [ ] Check: subscription (selling plan) price next to our badge; do the two discounts stack?
 - [x] (on `feat/screenshot-pages-ux`, 2026-11-20) Reports cards: on narrow cards the ↑ arrow wraps onto its own line
-- [ ] 🧑 Check the invoice's Excel download and Print / PDF (INV-202611-001)
+- [ ] 🧑 Check a monthly invoice's Excel download and PDF from the Reports list, and the Employees Excel export (the browser pane can't save downloads)
 
 Acceptance tests (step 2, 2026-11-19, same store). Passed: A1 (zeeshan@tofoapp.com, earlier), A3 (`x@tofoapp.co`, `x@tofoapp.com.evil.io`, `x@sub.tofoapp.com` not added), B1/B4 (15% everywhere with "All products"), C2/C3 (guest add-to-cart of an employee-only product refused with the employee-only message), D1/D3 (remove, restore), D6, E1, F1, G1 (gmail.com, duplicate domain, `hr@` → chip), G3, G4, G5, G6 (one "Employee perks"), H1–H3, I1, I3–I4, J2, J3 (invoice on screen).
 - [ ] PARKED until after launch (decided 2026-11-19; `[perks] timing sync` lines are live since PR #12, read them from real saves). Every save is slow on the server: create business 3.1–3.9 s, edit business 2.6–3.7 s, pause from the list 2.8 s, delete 2.7 s, Settings 2.6 s (page loads are 5–25 ms). It's the Shopify sync after the DB write; add `[perks] timing` to the save actions to see which call, then make the sync faster or run it after the response (decision 010 already allows "DB first, then sync")
@@ -192,7 +192,7 @@ Acceptance tests (step 2, 2026-11-19, same store). Passed: A1 (zeeshan@tofoapp.c
 - [x] (on `feat/screenshot-pages-ux`, 2026-11-20) (toast says created, and whether perks are live) Create business toast says "Business saved"; should say it's created and whether perks are live
 - [ ] Businesses list: switches look grey (disabled) on first load though on; a paused switch is so faint it looks disabled
 - [ ] Business page: Vendor / Product type sometimes show as text boxes with Add (fallback) instead of the dropdowns, on the same store
-- [ ] Employees: a removed employee shows "Expires: While email matches"
+- [x] (column gone, #26) Employees: a removed employee shows "Expires: While email matches"
 - [ ] `docs/acceptance-tests.md` is out of date: retired email-link tests (A4–A6, A8), old dev store, old settings (scope, "Automatically give perks", link months). Rewrite for v4
 - Employee run (logged in as zeeshan@tofoapp.com; Acme = Hydrogen collection only, Hydrogen snowboard Never discounted). Passed: A7, B2, B3 (Never discounted wins over the collection), B4, B6 (20% in cart and storefront label), D1 (discount gone on the next cart change, employee-only add blocked), D2 ("Perks removed"), D3, F3, J1, J4 (Rs 200/month discount limit: 2× Liquid got Rs 196.26 = 200 − 3.74 already used, line "Employee price (rest of your limit)")
 - [x] (fixed on `fix/fresh-install-findings`) My-perks page says "a Acme Pharma work email" (a/an)
@@ -234,7 +234,7 @@ Errors and outages (2026-11-19). The admin app is covered: offline banner, "Stil
 - [x] `orders/updated` webhook keeps fulfilment and amounts current; old snapshot invoices deleted by the migration
 - [x] Release: merged, migration ran, employee-perks-15 released 2026-11-20; Reports on mvs-demo shows the cancelled order gone. 🧑 Fulfil an order on mvs-demo to see it become due
 - [x] Checked on the dev app with two fake local orders: Reports list, filters, View, Excel route (200, 2 orders), business "Monthly invoice" section. Not checked: the PDF auto-print and the file landing in Downloads (the browser pane doesn't save downloads)
-- [ ] Couldn't reproduce the Create invoice error (button is gone now)
+- [x] Create invoice error: not reproduced; the button and dialog are gone (#25)
 
 ### Employees page (Zeeshan, 2026-11-20), on `feat/employees-page`
 

@@ -1,4 +1,4 @@
-# Handoff (2026-11-20)
+# Handoff (2026-11-20, evening)
 
 Read this first in a new session. Then `CLAUDE.md`, `TASKS.md` (→ Next), `docs/app-store/listing.md`, `docs/decisions/`.
 
@@ -27,6 +27,7 @@ Read this first in a new session. Then `CLAUDE.md`, `TASKS.md` (→ Next), `docs
 - **Speed:** first open ~1.4 s (Partner API ~0.5 s); later pages 5–25 ms. Every save is 2.6–3.9 s (the Shopify sync): `[perks] timing sync …` lines are logged per save (PR #12); speed-up parked until after launch.
 - **2026-11-19/20 (PRs #11–#22, released up to employee-perks-14):** fresh-install walkthrough + acceptance tests (results in TASKS); request log prints paths only (`server.mjs` replaced `react-router-serve`); billing sweep clears sessions of uninstalled stores; Settings switch label; wrong-plan page redesign; validation and wording fixes; removed-employee checkout message; Employees rows/phone list; Activity readable; root error page; outage Worker + runbook (`docs/runbooks/outage-page-and-uptime.md`, not deployed); "Still saving" banner; product webhooks re-sync storefront lists after imports (1-min quiet period, migration `products_changed`); storefront: em sizes, card price on quick-add cards, product-page price anchored to the product's own cart form, badge colours in the app (Storefront page), cards match the product page; CI runs `shopify theme check`.
 - **Partner Dashboard (done):** App Store registration paid, public distribution, App Pricing with plan descriptions, private plan, emergency contact, listing form mostly filled (category Discounts and its tags).
+- **2026-11-20 afternoon (PRs #24–#26, employee-perks-15):** Home shows only the setup checklist for brand-new stores, then a "live" banner until the first employee joins; Add business wizard fixes; Check a customer says which business the domain matches; **Reports** = Usage by business + **monthly invoices** (decision 018: one per business per month, live, due once fulfilled, `orders/updated` webhook, Bill for set per business, Excel with order status/vendor/type, View/Excel/PDF per row); **Employees** = Joined/Orders/Limit columns, status tabs, one-row filters, Export to Excel. Help banners removed from Reports and Employees.
 - **Submission (left, mostly Zeeshan):** monthly limit on Acme (demo); Partner Dashboard: untick geolocation/IP/browser, request protected data, monthly default, capabilities, AI self review; outage Worker + uptime alert; screenshots + screencast; check invoice files, hello@ inbox, Terms review; automated checks; submit. Reviewer steps (own email domain, no gmail.com) are in `listing.md` §7 and the submission pack. Checklist: `docs/app-store/listing.md` §9.
 
 ## Daily dev (Mac)
@@ -72,8 +73,10 @@ shopify app dev --tunnel-url https://dev-perks.tofoapp.com:3000
 - **Theme block schema:** `"header"` content is at most 50 characters; Shopify only checks this at `shopify app deploy` (theme check doesn't), so it's a test.
 - **Storefront lists** (discounted / employee-only handles) are rebuilt on every sync; product webhooks trigger a sync after imports.
 - **Native dropdowns** (Polaris `s-select`, Shopify's own selects) can't be driven by the browser pane; ask Zeeshan to pick.
+- **`shopify app dev` looks stuck** on "Configuring host theme for theme app extension": the TUI often hasn't redrawn. Pipe it through `tee` to a log and wait for "Ready, watching", or check `https://dev-perks.tofoapp.com/healthz`.
+- **Browser pane can't save downloads:** check Excel exports by the route's log line or by hand in Chrome.
 - **Release:** merge → Railway deploys; then `shopify app deploy --config production --allow-updates --message "…"`. Wait for CI before merging (`gh pr checks --watch` returns early if checks haven't started).
 
 ## Next
 
-See `TASKS.md` → Next. Steps 1–2 done; step 3 mostly done. Open for Claude: UX on the screenshot pages (Home, Add business, Check a customer, Reports), website update, `docs/acceptance-tests.md` rewrite.
+See `TASKS.md` → Next. Steps 1–2 done; step 3 mostly done. Open for Claude: grey square in the Add business Percentage field, Settings → Plan redesign, `docs/acceptance-tests.md` rewrite, website update (step 5). Zeeshan may send feedback on more admin pages (Businesses, Settings, Perks page, Activity still have help banners).
